@@ -2,6 +2,7 @@ import json
 import pickle
 import pprint
 import os
+import traceback
 import time
 
 from linkedin_scraper import Person, actions
@@ -19,6 +20,7 @@ pp = pprint.PrettyPrinter(indent=4)
 driver = webdriver.Chrome()
 # if email and password isn't given, it'll prompt in terminal
 actions.login(driver, email, password)
+
 
 def get_all_my_contacts():
     driver.get("https://www.linkedin.com/mynetwork/invite-connect/connections/")
@@ -160,7 +162,10 @@ for url in urls:
     try:
         person = get_person(url)
     except Exception as ex:
-        print(f"exception occurred skipping person: {ex}")
+        # TODO(peter): Try to minimize the impact of this, e.g. if we can get experience BUT NOT education that's fine.
+        # cannot access local variable 'work_times' where it is not associated with a value
+        # list index out of range
+        print(f"exception occurred skipping person: {ex}, traceback {traceback.print_exc()}")
         continue
 
     pp.pprint(person)
@@ -177,7 +182,7 @@ for url in urls:
     time.sleep(15)
 
 # save scraped data
-print("Saving scraped data")
+print(f"Saving scraped data to {SCRAPED_OUTPUT}")
 with open(SCRAPED_OUTPUT, 'w') as handle:
     json.dump(data, handle)  # protocol=pickle.HIGHEST_PROTOCOL
 
