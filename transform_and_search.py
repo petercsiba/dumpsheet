@@ -6,8 +6,10 @@ import pprint
 import random
 import re
 import time
+import toml
 
-openai.api_key = "API-KEY"
+config = toml.load('config.toml')
+openai.api_key = config["OPEN_API_KEY"]
 
 output_folder = "data"
 MATCH_OUTPUT = f"{output_folder}/matched_data_{time.time()}.json"
@@ -114,23 +116,25 @@ def transform_fields(orig_person):
     prompt = (
             f"Input json is a persons professional experience - please summarize into the followings attributes"
             f" output as a json dictionary with the corresponding dictionary keys"
-            f" if you less than 50% sure then just output None instead of making up things"
-            """
-- get Full Name, key = full_name  
+            # f" if you less than 50% sure then just output None instead of making up things"
+            # TODO(pii): Try to stripe at least the basic identifiers. 
+            """  
 - get Current Organization, key = organization 
+- get primary industry, key = industry
 - Role, key = role
 - Seniority, key = seniority
 - Location, key = location
 - Interests in two sentences, key = interests
 - Skills as up to 50 tags, key = skills
-- Career next steps and needs in two sentences, key = needs
+- Career next steps or needs in two sentences, key = needs
 - Characteristics and personality in up to 200 words, key = character 
             """
             f"Input json: {json.dumps(person)}"
     )
-
     raw_response = run_prompt(prompt)
-    return gpt_response_to_json(raw_response)
+    result = gpt_response_to_json(raw_response)
+    result["full_name"] = person["name"]
+    return result
 
 
 def write_to_csv(data, output_file):
@@ -160,40 +164,58 @@ else:
     write_to_csv(transformed_data, TRANSFORMED_OUTPUT)
 
 
-def evaluate_match(person1, person2):
+def strip_pii(orig_person):
+    person = dict(orig_person)
+    # TODO(peter): We should extend this for a bit more, like maybe organization names?
+    del person["full_name"]
+    return person
+
+
+def evaluate_match(orig_person1, orig_person2):
     print("==========================================================")
     print(f"Matching {person1.get('full_name')} and {person2.get('full_name')}")
+    person1 = strip_pii(orig_person1)
+    person2 = strip_pii(orig_person2)
+
     prompt = (
         "You are a world-class matchmaker for professionals tasked to estimate match likelihood for two individuals.\n"
-        "Now lets describe the input.\n"
-        "The two individuals are represented as two json objects in the end of the prompt.\n"
-        "As human relationships can get complicated - we consider 8 relationship types listed below\n"
+        "First lets describe the input:\n"
+        "The two individuals are represented as two json objects at the end of the prompt.\n"
+        "We want to consider multiple prospecting relationship types listed below\n"
         "The desired output is one json map where for each relationship type between the two individuals output\n"
-        "1. score (from 0 to 100) and \n"
-        "2. reasoning which is brief two sentence explanation of the score \n\n"
+        "1. score (from 0 to 100) and \n"  # TODO(peter): Maybe there should be one score for each side.
+        "2. reasoning which is brief three sentence explanation of the score \n\n"
         "these are relationship types to be evaluated formatted as output json key: type description "
-        # The leader provides direction and support, while the follower contributes through execution and feedback, 
-        # ensuring organizational success.
-        "leadership: Leadership-follower relationship\n"
-        # the mentor imparts wisdom and guidance while the protégé absorbs and applies this knowledge, 
-        # fostering a cycle of growth and progression."
-        "mentor: mentor-protégé dynamic\n"
-        # based on consistent quality of service, mutual trust, and understanding each other's needs
-        "service: service provider and a long-term client\n"
-        # defined by a shared goal, complementary skill sets, and mutual respect,
-        # leading to successful project outcomes.
-        "team: collaboration between project team members\n"
         # individuals share ideas and experiences, foster a sense of camaraderie,
         # and support each other's professional development.
-        "peer: peer camaraderie\n"
-        # innovator creates solutions, and the user provides feedback for improvements, 
-        # creating a cycle of continuous enhancement
-        "innovator: innovator or problem solver and client or user relationship\n"
+        "peer: peer camaraderie where they support each other's professional development in their industries\n"
+        "recruiter: one side is looking for talent the other can provide to their company, open to work helps\n"
+        # The leader provides direction and support, while the follower contributes through execution and feedback, 
+        # ensuring organizational success.
+        "leadership: leader provides direction and support, while the follower contributes execution and feedback\n"
+        "expert: expert provides one-time advice to the other side\n" 
         # contract negotiator and a contractor involves ongoing dialogue, mutual agreement, 
         # and conflict resolution to ensure beneficial outcomes for all parties
-        "contractor: negotiator and contractor\n"
-        "investor: stakeholder in others output\n"
-        f"and these are the two persons as json objects:\n{person1}\nand\n{person2}"
+        "contractor: contractor provides well-scoped work for someone with a need they can fulfill\n"
+        # We are in SF Bay Area, everyone is thinking about angel-investing
+        "investor: investor provides capital and network which bootstraps the other sides idea \n"
+        # TODO(cofounder): MAYBE 
+        # REMOVED(mentor): Cause usually self-served
+        # the mentor imparts wisdom and guidance while the protégé absorbs and applies this knowledge, 
+        # fostering a cycle of growth and progression."
+        # "mentor: mentor-protégé dynamic\n"
+        # REMOVED(service): Cause usually self-served
+        # based on consistent quality of service, mutual trust, and understanding each other's needs
+        # "service: service provider and a long-term client\n"
+        # REMOVED(team): GPT summaries of LI profiles were too positive on this
+        # defined by a shared goal, complementary skill sets, and mutual respect,
+        # leading to successful project outcomes.
+        # "team: collaboration between project team members\n"
+        # REMOVED(innovator): too similar to expert
+        # innovator creates solutions, and the user provides feedback for improvements, 
+        # creating a cycle of continuous enhancement (feels similar to expert)
+        # "innovator: innovator or problem solver and client or user relationship\n"
+        f"and these are the two persons to evaluate match likelihood as json objects:\n{person1}\nand\n{person2}"
     )
     raw_response = run_prompt(prompt)
     return gpt_response_to_json(raw_response)
@@ -222,23 +244,3 @@ print(f"Saving sample match data to {MATCH_OUTPUT}")
 with open(MATCH_OUTPUT, 'w') as handle:
     json.dump(match_results, handle)
 
-
-
-"""
-TODO(peter): Some bullshit made up
-
-            Input json: {"name": "Peter Glaus\n1st degree connection\n1st", "about": null, "experiences": [{"institution_name": "Google \u00b7 Full-time", "from_date": "Jan 2014", "to_date": "Present", "description": "", "position_title": "Senior Software Engineer", "duration": "9 yrs 5 mos", "location": "Zurich, Switzerland"}], "educations": [{"institution_name": "The University of Manchester", "from_date": "2010 -", "to_date": "2014", "description": "", "degree": "Doctor of Philosophy - PhD, Computer Science"}, {"institution_name": "Univerzita Komensk\u00e9ho v Bratislave", "from_date": "2004 -", "to_date": "", "description": "", "degree": "Master's degree, Computer Science"}]}
-ChatCompletion: 24.56 seconds
-Token usage {
-  "completion_tokens": 241,
-  "prompt_tokens": 324,
-  "total_tokens": 565
-}
-{   'character': 'Peter is a confident and driven software engineer with a '
-                 'passion for developing scalable systems. He has strong '
-                 'leadership skills and is adept at working with teams to '
-                 'accomplish complex projects and meet organizational goals. '
-                 'He is a problem-solver at heart and enjoys exploring new '
-                 'technologies to stay ahead of industry trends. Outside of '
-                 'work, Peter enjoys skiing and spending time with his family.',
-"""

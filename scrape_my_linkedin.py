@@ -11,8 +11,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
-email = "petherz@gmail.com"
-password = "PASSWORD"
+config = toml.load('config.toml')
+
+email = config["LINKED_IN_LOGIN"]
+password = config["LINKED_IN_PASSWORD"]
 output_folder = "data"
 SCRAPED_OUTPUT = f"{output_folder}/scraped_data.json"
 pp = pprint.PrettyPrinter(indent=4)
@@ -28,6 +30,10 @@ def get_all_my_contacts():
     _ = WebDriverWait(driver, 5).until(
         EC.presence_of_element_located((By.CLASS_NAME, "mn-connections"))
     )
+    print("WE NEED YOUR HELP. PLEASE LOAD ALL YOUR CONNECTION BY SCROLLING DOWN (and clicking that button)")
+    input("Press Enter when scrolled to bottom...")
+    print("Input received! Lets go")
+
     # TODO(peter): Here we need to figure out a way to get everyone
     #   Need to click on "Load More" and then keep scrolling
     # Use sth like
@@ -77,6 +83,10 @@ def get_all_my_contacts():
 
 # Shamelessly copied from https://github.com/joeyism/linkedin_scraper/blob/master/linkedin_scraper/person.py#L255
 # - the idea of the package is great, but the usability can be improved.
+# TODO(peter): Clearly Linked-IN recognizes we doing something fishy by:
+#   * Asking to solve a captcha
+#   * Asking to acknowledge their usage policy
+# Need to understand that HiQ VS LinkedIn case on Scraping Public profiles are battle tested in court.
 def get_person(linkedin_url):
     their_person = Person(linkedin_url, driver=driver, scrape=False, close_on_complete=False)
 
