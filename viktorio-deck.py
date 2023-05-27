@@ -1,29 +1,18 @@
 import requests
 import openai
-import os
 import re
 import shutil
 import time
 import toml
 
-config = toml.load('config.toml')
+from storage_utils import mkdir_safe
+
+config = toml.load('secrets.toml')
 
 openai.api_key = config["OPEN_API_KEY"]
 LEAP_API_KEY = config["LEAP_API_KEY"]
 MODEL_ID = "3ce1d6f0-afd1-429c-b3ec-ef76e95f87be"  # viktorio-v3
 MODEL_PROMPT = "viktorio-v3"
-
-
-def mkdir(directory_name):
-    path = os.path.join(os.getcwd(), directory_name)
-    print(f"creating directory {path}")
-    try:
-        os.mkdir(path)
-        print(f"Directory {directory_name} created successfully!")
-    except FileExistsError:
-        print(f"Directory {directory_name} already exists.")
-    except Exception as e:
-        print(f"An error occurred while creating directory {directory_name}: {e}")
 
 
 def download_and_save_images(folder, image_urls, person):
@@ -110,7 +99,7 @@ def get_image_urls_for_inference(inference_id):
 def fix_shit(people):
     inference_ids = ['6c349c15-ad6a-4057-8e82-d62c09dd6108', 'e0096b51-c0de-466c-8392-f4305269694b', '9ccbff11-5373-49ce-9530-50251390663a', '3ddb0806-290c-4ef8-87ea-379c1d664036', 'eec9e0b1-1dbf-46a5-a102-42d7cf8132dc', '88c4286e-53b6-46e1-a319-7bd31d3ebd3c', 'f0397fec-a4f4-41e9-a0c3-eca8eb7b122d', 'd69ea48d-ec35-4300-8520-275e9e314d68', 'fc808b13-82ef-40b6-b652-05433e97d78c', '902262bc-4c06-440d-9ad1-3d96f837b016', '42381f50-42dd-428d-8557-e1f0a764835e', '20657004-4dc1-4b00-bb36-0edf335407e0', '6ac0174d-0ece-4061-a66a-58b4c23ae99c', '975263a0-94b4-4247-8f8f-9398bb6d9658', 'dbcdc0f5-74e9-433e-b9ee-15bd883bd415', 'd7c33c9e-ebc0-4869-a31a-5d6f09634d08', '9845d211-58d9-406b-b5aa-7c7869def8ec', 'd7b301d1-8a2e-4b1f-9dcc-3210b6e6cde2', '60fc9654-bb76-48eb-a316-6c171eb7e352', '04476928-40d0-4288-9cdb-8035feb63818', '33f2df24-0372-452b-aaeb-ef6209455e51', '6a51194b-26ec-4fae-87c4-55cdac4aaeae', '9bd97b14-7c89-4b6c-a9fe-e0f720eca995', '59336d8e-c899-425a-b435-57e2039c8c77', '968f28f4-c2d9-4f90-8c91-06032f4150f5', '37c8e3dc-2721-42f7-ac5f-7bcc7675cdb9', 'f2aab977-b5b4-4d34-9daa-6cd3a0899bd5']
     folder = f"images-{inference_ids[0]}"
-    mkdir(folder)
+    mkdir_safe(folder)
 
     for (inference_id, person) in zip(inference_ids, people):
         print(inference_id, person)
@@ -180,7 +169,7 @@ def main():
     inference_ids = [r["id"] for r in responses]
     print(f"INFERENCE IDS: {inference_ids}")
     folder = f"images-{inference_ids[0]}"
-    mkdir(folder)
+    mkdir_safe(folder)
 
     # Generating the images takes some time
     time.sleep(180)

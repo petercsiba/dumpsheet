@@ -2,21 +2,20 @@ import csv
 import json
 import openai
 import os
-import pprint
 import random
-import re
 import time
 import toml
 
-config = toml.load('config.toml')
+from openai_utils import gpt_response_to_json, run_prompt
+from storage_utils import write_to_csv
+
+config = toml.load('secrets.toml')
 openai.api_key = config["OPEN_API_KEY"]
 
 output_folder = "data"
 MATCH_OUTPUT = f"{output_folder}/matched_data_{time.time()}.json"
 SCRAPED_OUTPUT = f"{output_folder}/scraped_data.json"
 TRANSFORMED_OUTPUT = f"{output_folder}/transformed_data.csv"
-
-pp = pprint.PrettyPrinter(indent=4)
 
 
 def slice_dictionary(original_dict):
@@ -37,62 +36,6 @@ with open(SCRAPED_OUTPUT, "r") as handle:
     people = people_not_none
 
     print(f"Loaded {len(people)} people, not-none are {len(people_not_none)} and running with {len(people)}")
-
-
-class Timer:
-    def __init__(self, label):
-        self.label = label
-
-    def __enter__(self):
-        self.start_time = time.time()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        elapsed_time = time.time() - self.start_time
-        print("{}: {:.2f} seconds".format(self.label, elapsed_time))
-
-
-# model = gpt-4, gpt-4-0314, gpt-4-32k, gpt-4-32k-0314, gpt-3.5-turbo, gpt-3.5-turbo-0301
-# For gpt-4 you need to be whitelisted.
-# About 0.4 cents per request (about 2000 tokens). Using gpt-4 would be 15x more expensive :/
-# TODO(peter): Do sth about max prompt length (4096 tokens INCLUDING the generated response)
-# TODO(peter, fine-tune): Feels like for repeated tasks it would be great to speed up and/or cost save
-#   https://platform.openai.com/docs/guides/fine-tuning/advanced-usage
-def run_prompt(prompt, model="gpt-3.5-turbo", retry_timeout=60):
-    # wait is too long so carry one
-    if retry_timeout > 600:
-        return '{"error": "timeout ' + str(retry_timeout) + '"}'
-    print(f"Asking {model} for: {prompt}")
-    with Timer("ChatCompletion"):
-        try:
-            response = openai.ChatCompletion.create(
-                model=model,
-                messages=[{"role": "system", "content": prompt}]
-            )
-        # openai.error.RateLimitError: That model is currently overloaded with other requests.
-        # You can retry your request, or contact us through our help center at help.openai.com if the error persists.
-        # (Please include the request ID 7ed28a69c5cda5378f57266336539b7d in your message.)
-        except openai.error.RateLimitError as err:
-            print(f"Got RATE-LIMITED!!! Sleeping for {retry_timeout}")
-            time.sleep(retry_timeout)
-            return run_prompt(prompt, model, 2 * retry_timeout)  # exponential backoff
-    print(f"Token usage {response['usage']}")
-    return response.choices[0].message.content.strip().replace("\n", "")
-
-
-def gpt_response_to_json(raw_response):
-    try:
-        # The model might have just crafted a valid json object
-        result = json.loads(raw_response)
-    except Exception:
-        # In case there is something before the actual json output
-        raw_json = re.sub(r".*?({)", r"\1", raw_response)
-        try:
-            result = json.loads(raw_json)
-        except json.decoder.JSONDecodeError as err:
-            print(f"Could NOT decode json cause {err} for {raw_json}")
-            return '{"error": "JSONDecodeError", "raw_response": "' + json.dumps(raw_response) + '"}'
-    pp.pprint(result)
-    return result
 
 
 def transform_fields(orig_person):
@@ -137,17 +80,6 @@ def transform_fields(orig_person):
     return result
 
 
-def write_to_csv(data, output_file):
-    fieldnames = data[0].keys()
-    print(f"write_to_csv {len(data)} rows with fieldnames {fieldnames}")
-
-    with open(output_file, 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        # ValueError: dict contains fields not in fieldnames: 'Characteristics and personality in up to 200 words', ...
-        writer.writerows(data)
-
-
 transformed_data = []
 # load previously scraped data (which we cached last time)
 if os.path.exists(TRANSFORMED_OUTPUT):
@@ -172,8 +104,10 @@ def strip_pii(orig_person):
 
 
 def evaluate_match(orig_person1, orig_person2):
+    # TODO(peter): Try embeddings, that should be a better way to search for alikes
+    #   https://platform.openai.com/docs/guides/embeddings
     print("==========================================================")
-    print(f"Matching {person1.get('full_name')} and {person2.get('full_name')}")
+    print(f"Matching {orig_person1.get('full_name')} and {orig_person2.get('full_name')}")
     person1 = strip_pii(orig_person1)
     person2 = strip_pii(orig_person2)
 
