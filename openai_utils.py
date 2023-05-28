@@ -1,6 +1,7 @@
 import json
 import openai
 import pprint
+import re
 import time
 
 
@@ -19,6 +20,15 @@ class Timer:
         print("{}: {:.2f} seconds".format(self.label, elapsed_time))
 
 
+def truncate_string(input_string):
+    truncated_string = input_string[:500]
+
+    # Append "(truncated)" if the string is longer
+    if len(input_string) > 500:
+        truncated_string += " ... (truncated for logging readability)"
+    return truncated_string
+
+
 # model = gpt-4, gpt-4-0314, gpt-4-32k, gpt-4-32k-0314, gpt-3.5-turbo, gpt-3.5-turbo-0301
 # For gpt-4 you need to be whitelisted.
 # About 0.4 cents per request (about 2000 tokens). Using gpt-4 would be 15x more expensive :/
@@ -27,12 +37,15 @@ class Timer:
 #   https://platform.openai.com/docs/guides/fine-tuning/advanced-usage
 # TODO(peter): We should templatize the prompt into "function body" and "parameters";
 #   then we can re-use the "body" to "fine-tune" a model and have faster responses.
-def run_prompt(prompt, model="gpt-3.5-turbo", retry_timeout=60):
+def run_prompt(prompt, model="gpt-3.5-turbo", retry_timeout=60, print_prompt=True):
     # wait is too long so carry one
     if retry_timeout > 600:
         return '{"error": "timeout ' + str(retry_timeout) + '"}'
-    print(f"Asking {model} for: {prompt}")
+    if print_prompt:
+        # print(f"Asking {model} for: {truncate_string(prompt)}")
+        print(f"Asking {model} for: {prompt}")
     with Timer("ChatCompletion"):
+        # TODO: My testing on gpt-4 through the browswer gives better results
         try:
             response = openai.ChatCompletion.create(
                 model=model,
@@ -58,6 +71,10 @@ def gpt_response_to_json(raw_response):
     # Welp - OMG this from PPrint :facepalm:
     raw_response = raw_response.replace("{'", '{"').replace("':", '":').replace(", '", ', "')
     raw_response = raw_response.replace("',", '",').replace(": '", ': "').replace("'}", '"}')
+    # Sometimes GPT adds the extra comma, well, everyone is guilty of that leading to a production outage so :shrug:
+    # Examples: """her so it was cool",    ],"""
+    raw_response = re.sub(r'",\s*\]', '"]', raw_response)
+    raw_response = re.sub(r'",\s*\}', '"}', raw_response)
     try:
         # The model might have just crafted a valid json object
         result = json.loads(raw_response)
@@ -72,7 +89,8 @@ def gpt_response_to_json(raw_response):
             result = json.loads(raw_json)
         except json.decoder.JSONDecodeError as err:
             print(f"Could NOT decode json cause {err} for {raw_json}")
-            return '{"error": "JSONDecodeError", "raw_response": "' + json.dumps(raw_response) + '"}'
+            return None
+            # return '{"error": "JSONDecodeError", "raw_response": "' + json.dumps(raw_response) + '"}'
     print(result)
     pp.pprint(result)
     return result
