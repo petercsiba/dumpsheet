@@ -118,6 +118,7 @@ def get_per_person_transcript(raw_transcript):
         #   of batch gpt failing and retrying with one-by-one.
         raw_response = run_prompt(query_mentions)
         people = gpt_response_to_json(raw_response)
+        # TODO: wtf WARNING: mentions size 2 different from input size 2
         if len(people) != len(sublists):
             print(f"WARNING: mentions size {len(people)} different from input size {len(sublist)}")
         # Update the existing map with the new entries
@@ -177,11 +178,6 @@ def per_person_transcripts_to_summaries(person_to_transcript):
             summary["transcript"] = transcript
             summary["error"] = None
             summaries.append(summary)
-
-    # A super-basic "TODO" list is just a few extra columns so lets do that
-    for i, _ in enumerate(summaries):
-        summary["todo_full_name"] = None
-        summary["todo_profile_url"] = None
 
     return summaries
 
