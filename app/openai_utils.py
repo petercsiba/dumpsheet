@@ -75,6 +75,7 @@ def gpt_response_to_json(raw_response):
     # Welp - OMG this from PPrint :facepalm:
     raw_response = raw_response.replace("{'", '{"').replace("':", '":').replace(", '", ', "')
     raw_response = raw_response.replace("',", '",').replace(": '", ': "').replace("'}", '"}')
+    raw_response = raw_response.replace(': ""', ': "').replace('""}', '"}')
     # Sometimes GPT adds the extra comma, well, everyone is guilty of that leading to a production outage so :shrug:
     # Examples: """her so it was cool",    ],"""
     raw_response = re.sub(r'",\s*\]', '"]', raw_response)

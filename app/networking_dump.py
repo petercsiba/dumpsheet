@@ -198,7 +198,7 @@ def generate_first_outreaches(name, person_transcript, intents):
         query_outreaches = """ 
         For the following person I met at a networking event last night generate a short casual outreach message
         personalized to the facts of the person with the intent {}.
-        Only output the resulting message. 
+        Only output the resulting message - do not use double quotes.
         My knowledge of {} is {}
         """.format(intent, name, person_transcript)
         raw_response = run_prompt(query_outreaches)
@@ -251,12 +251,11 @@ def generate_todo_list(summaries):
             for follow_up in follow_ups:
                 intents.append(f"to {follow_up}")
 
-        person_copy = dict(person)
-        # To make it personalized, the transcript must be present. Otherwise generates generic corp BS.
-        # del(person_copy["transcript"])
-        del(person_copy["follow_ups"])
-
-        outreaches = generate_first_outreaches(person["name"], person_copy, intents=intents)
+        outreaches = generate_first_outreaches(
+            person["name"],
+            person_transcript=person.get("transcript"),
+            intents=intents
+        )
         todo_list.extend(outreaches)
 
     print("=== All todo_list === ")
