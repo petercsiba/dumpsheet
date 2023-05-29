@@ -1,3 +1,4 @@
+# TODO: Prioritize all TODOs lol
 import boto3
 import datetime
 import email
@@ -15,7 +16,7 @@ from storage_utils import write_to_csv
 s3 = boto3.client('s3')
 
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
-RUN_ID = str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
+RUN_ID = str(datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
 SENDER_EMAIL = "assistent@katka.ai"
 DEBUG_RECIPIENT = "petherz@gmail.com"
 
@@ -47,6 +48,40 @@ def send_response(email_address, attachment_paths):
         print(f'Email sent! Message ID: {response["MessageId"]}')
     except Exception as e:
         print(f'Email failed to send. {e}')
+
+
+def process_file(file_path, bucket_object_prefix=None):
+    audio_file = file_path + ".mp4"
+    print(f"Running ffmpeg on {file_path} outputting to {audio_file}")
+    try:
+        # -y to force overwrite in case the file already exists
+        subprocess.run(['ffmpeg', '-y', '-i', file_path, audio_file], check=True)
+        print(f'Converted file saved as: {audio_file}')
+    except subprocess.CalledProcessError as e:
+        print(f'FFmpeg Error occurred: {e}')
+
+    print(f"Running Sekretar-katka")
+    summaries = networking_dump(audio_file)
+
+    # Output storage
+    local_output_prefix = file_path
+    # Unique identifier to support multiple runs of the same file even if attached multiple times
+
+    summaries_filepath = f"{local_output_prefix}-summaries.csv"
+    write_to_csv(summaries, summaries_filepath)
+    if bool(bucket_object_prefix):
+        print("Writing summaries to S3")
+        s3.upload_file(summaries_filepath, OUTPUT_BUCKET_NAME, f"{bucket_object_prefix}-summaries.csv")
+
+    print(f"Running generate todo-list")
+    todo_list = generate_todo_list(summaries)
+
+    todo_list_filepath = f"{local_output_prefix}-todo.csv"
+    write_to_csv(todo_list, todo_list_filepath)
+    if bool(bucket_object_prefix):
+        print("Writing todo_list to S3")
+        s3.upload_file(todo_list_filepath, OUTPUT_BUCKET_NAME, f"{bucket_object_prefix}-todo.csv")
+    return [summaries_filepath, todo_list_filepath]
 
 
 def lambda_handler(event, context):
@@ -95,35 +130,13 @@ def lambda_handler(event, context):
         with open(file_path, 'wb') as f:
             f.write(part.get_payload(decode=True))
 
-        audio_file = file_path + ".mp4"
-        print(f"Running ffmpeg on {file_path} outputting to {audio_file}")
-        try:
-            subprocess.run(['ffmpeg', '-i', file_path, audio_file], check=True)
-            print(f'Converted file saved as: {audio_file}')
-        except subprocess.CalledProcessError as e:
-            print(f'FFmpeg Error occurred: {e}')
-
-        print(f"Running Sekretar-katka")
-        summaries = networking_dump(audio_file)
-
-        # Output storage
-        local_output_prefix = file_path
-        # Unique identifier to support multiple runs of the same file even if attached multiple times
         bucket_object_prefix = f"{sender_name}-{RUN_ID}-{attachment_num}"
-        summaries_filepath = f"{local_output_prefix}-summaries.csv"
-        write_to_csv(summaries, summaries_filepath)
-        print("Writing summaries to S3")
-        s3.upload_file(summaries_filepath, OUTPUT_BUCKET_NAME, f"{bucket_object_prefix}-summaries.csv")
-
-        print(f"Running generate todo-list")
-        todo_list = generate_todo_list(summaries)
-
-        todo_list_filepath = f"{local_output_prefix}-todo.csv"
-        write_to_csv(todo_list, todo_list_filepath)
-        print("Writing todo_list to S3")
-        s3.upload_file(todo_list_filepath, OUTPUT_BUCKET_NAME, f"{bucket_object_prefix}-todo.csv")
-
-        send_response(reply_to_address, [summaries_filepath, todo_list_filepath])
+        attachment_files = process_file(file_path=file_path, bucket_object_prefix=bucket_object_prefix)
+        send_response(reply_to_address, attachment_files)
         # TODO: Try to merge summaries and todo_list into one .CSV
         # TODO: Get total token usage as a fun fact (probably need to instantiate a signleton openai class wrapper)
 
+# TODO: Better local testing with running the container locally and curling it with the request (needs S3 I guess).
+if __name__ == "__main__":
+    attachment_files = process_file("input/transcript2.mp4")
+    print(f"generated {attachment_files}")

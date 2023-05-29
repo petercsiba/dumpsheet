@@ -59,7 +59,7 @@ def run_prompt(prompt: str, model="gpt-3.5-turbo", retry_timeout=60, print_promp
             print(f"Got RATE-LIMITED!!! Sleeping for {retry_timeout}")
             time.sleep(retry_timeout)
             return run_prompt(prompt, model, 2 * retry_timeout)  # exponential backoff
-    print(f"Token usage {response['usage']}")
+    print(f"Token usage {json.dumps(response['usage'])}")
     return response.choices[0].message.content.strip().replace("\n", "")
 
 

@@ -8,8 +8,7 @@ from openai_utils import gpt_response_to_json, run_prompt, Timer
 from storage_utils import mkdir_safe, write_to_csv
 
 # config = toml.load('secrets.toml')
-openai.api_key = config["OPEN_API_KEY"]
-
+# openai.api_key = config["OPEN_API_KEY"]
 # AUDIO_FILE = "input/networking-transcript-1-katka-tech-roast-may-25.mp4"
 # command = f"ffmpeg -i input/{AUDIO_FILE} -c:v copy -c:a aac -strict experimental"
 # result = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -54,7 +53,9 @@ def generate_transcript(audio_filepath, prompt_hint=None):
                 #   until certain thresholds are hit.
                 temperatue=0,
             )
-            return transcript["text"]
+            result = transcript["text"]
+            print(f"Transcript: {result}")
+            return result
 
 # Check-points with test training data (so don't have to wait for the entire thing to re-run).
 test_transcript = None
@@ -157,12 +158,13 @@ def per_person_transcripts_to_summaries(person_to_transcript):
             if summary is None:
                 continue
             summary["name"] = name
-            # A super-basic "TODO" list is just a few extra columns so lets do that
-            for i, _ in enumerate(summaries):
-                summary["todo_full_name"] = None
-                summary["todo_profile_url"] = None
             summary["transcript"] = transcript
             summaries.append(summary)
+
+    # A super-basic "TODO" list is just a few extra columns so lets do that
+    for i, _ in enumerate(summaries):
+        summary["todo_full_name"] = None
+        summary["todo_profile_url"] = None
 
     return summaries
 
