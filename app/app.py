@@ -1,46 +1,20 @@
-import os
-import json
-
-import os
 import boto3
 import email
-import base64
+import os
+import subprocess
+import time
+
 from botocore.exceptions import NoCredentialsError
 
 s3 = boto3.client('s3')
 
-# Parse the email
-msg = email.message_from_bytes(raw_email)
-
-
-def write_to_tmpfs(filename, content):
-    with open(f'/dev/shm/{filename}', 'w') as file:
-        file.write(content)
-
-
-def get_attachment_from_email(raw_email):
-    # Process the attachments
-    for part in msg.walk():
-        if part.get_content_maintype() == 'multipart':
-            continue
-        if part.get('Content-Disposition') is None:
-            continue
-
-        # Get the attachment's filename
-        fileName = part.get_filename()
-
-        if bool(fileName):
-            # If there is an attachment, save it to a file
-            filePath = os.path.join('/tmp/', fileName)
-            if not os.path.isfile(filePath):
-                with open(filePath, 'wb') as f:
-                    f.write(part.get_payload(decode=True))
-
 
 def lambda_handler(event, context):
+    print(f"Received Event: {event}")
     # Get the bucket name and file key from the event
     bucket = event['Records'][0]['s3']['bucket']['name']
     key = event['Records'][0]['s3']['object']['key']
+    print(f"Bucket: {bucket} Key: {key}")
 
     # Download the email from S3
     try:
@@ -50,5 +24,38 @@ def lambda_handler(event, context):
         return 'Execution failed'
 
     raw_email = response['Body'].read()
+    print(f"Read raw_email body with {len(raw_email)} bytes")
 
-    return 'Execution succeeded'
+    # Parse the email
+    msg = email.message_from_bytes(raw_email)
+
+    # Process the attachments
+    for part in msg.walk():
+        if part.get_content_maintype() == 'multipart':
+            continue
+        if part.get('Content-Disposition') is None:
+            continue
+
+        # Get the attachment's filename
+        orig_file_name = part.get_filename()
+        print(f"Parsing attachment {orig_file_name}")
+
+        if not bool(orig_file_name):
+            continue
+
+        # If there is an attachment, save it to a file
+        file_name = f"{time.time()}-{orig_file_name}"
+        file_path = os.path.join('/tmp/', file_name)
+        with open(file_path, 'wb') as f:
+            f.write(part.get_payload(decode=True))
+
+        output_path = file_path + ".mp4"
+        print(f"Running ffmpeg on {file_path} outputting to {output_path}")
+        try:
+            subprocess.run(['ffmpeg', '-i', file_path, output_path], check=True)
+            print(f'Converted file saved as: {output_path}')
+        except subprocess.CalledProcessError as e:
+            print(f'FFmpeg Error occurred: {e}')
+
+
+    return 'Lambda execution succeeded'
