@@ -88,6 +88,9 @@ def get_per_person_transcript(raw_transcript):
     else:
         people = gpt_response_to_json(test_get_names)
     print(f"People: {json.dumps(people)}")
+    # Solves TypeError: unhashable type: 'slice'
+    if isinstance(people, dict):
+        people = [f"{key}: {value}" for key, value in people.items]
 
     result = {}
     size = 5
@@ -106,14 +109,19 @@ def get_per_person_transcript(raw_transcript):
         People: {}
         Transcript: {}
         """
-        query_mentions_first_try = query_mentions.format("json map of name to list of substrings", sublist, raw_transcript)
+        sublist_in_query = "\n*".join(sublist)
+        query_mentions_first_try = query_mentions.format(
+            "json map of name to list of substrings",
+            sublist_in_query,
+            raw_transcript
+        )
         raw_response = run_prompt(query_mentions_first_try)
         people = gpt_response_to_json(raw_response)
         if people is None:
             print("WARNING: Could not get substring mentions for the provided folks")
             query_mentions_second_try = query_mentions.format(
                 "json map with key equal to persons name and value as a string joined of all found mentions",
-                sublist,
+                sublist_in_query,
                 raw_transcript
             )
             raw_response = run_prompt(query_mentions_second_try)
