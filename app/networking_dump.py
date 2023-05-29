@@ -109,15 +109,25 @@ def get_per_person_transcript(raw_transcript):
         For each of the follow people, get all substrings which mention them from the transcript.
         If they are referenced multiple times, make sure to include all full original substrings as a list of strings.
         Input format: json list of strings where each strings has format of name: super short characteristic
-        Output format: json map of name to list of substrings
+        Output format: {}
         Try to use up all words from the transcript and include extra context for those substrings
         People: {}
         Transcript: {}
-        """.format(sublist, raw_transcript)
-        # TODO: Some error handling and defaulting to retry one-by-one? I can see it a recurring theme
-        #   of batch gpt failing and retrying with one-by-one.
-        raw_response = run_prompt(query_mentions)
+        """
+        query_mentions_first_try = query_mentions.format("json map of name to list of substrings", sublist, raw_transcript)
+        raw_response = run_prompt(query_mentions_first_try)
         people = gpt_response_to_json(raw_response)
+        if people is None:
+            print("WARNING: Could not get substring mentions for the provided folks")
+            query_mentions_second_try = query_mentions.format(
+                "json map with key equal to persons name and value as a string joined of all found mentions",
+                sublist,
+                raw_transcript
+            )
+            raw_response = run_prompt(query_mentions_second_try)
+            people = gpt_response_to_json(raw_response)
+            # TODO: Some error handling and defaulting to retry one-by-one? I can see it a recurring theme
+            #   of batch gpt failing and retrying with one-by-one.
         # TODO: wtf WARNING: mentions size 2 different from input size 2
         if len(people) != len(sublists):
             print(f"WARNING: mentions size {len(people)} different from input size {len(sublist)}")

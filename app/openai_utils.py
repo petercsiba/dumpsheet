@@ -79,6 +79,10 @@ def gpt_response_to_json(raw_response):
     # Examples: """her so it was cool",    ],"""
     raw_response = re.sub(r'",\s*\]', '"]', raw_response)
     raw_response = re.sub(r'",\s*\}', '"}', raw_response)
+    raw_response = re.sub(r'\],\s*\}', ']}', raw_response)
+    raw_response = re.sub(r'\],\s*\]', ']]', raw_response)
+    raw_response = re.sub(r'\},\s*\}', '}}', raw_response)
+    raw_response = re.sub(r'\},\s*\]', '}]', raw_response)
     try:
         # The model might have just crafted a valid json object
         result = json.loads(raw_response)
