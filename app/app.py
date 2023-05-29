@@ -17,13 +17,16 @@ s3 = boto3.client('s3')
 
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
 RUN_ID = str(datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
-SENDER_EMAIL = "assistent@katka.ai"
+SENDER_EMAIL = "assistant@katka.ai"
 DEBUG_RECIPIENT = "petherz@gmail.com"
 
 
 def send_response(email_address, attachment_paths):
-    ses = boto3.client('ses')
+    if not isinstance(email_address, str):
+        print(f"email_adress is NOT a string {email_address}, falling back to {DEBUG_RECIPIENT}")
+        email_address = DEBUG_RECIPIENT
 
+    ses = boto3.client('ses')
     sender = SENDER_EMAIL
     recipients = list({email_address, DEBUG_RECIPIENT})
     subject = "Summaries from your last event - please take a look at your todos"
@@ -107,6 +110,10 @@ def lambda_handler(event, context):
     # Parse the address
     sender_name, addr = parseaddr(from_address)
     reply_to_address = msg.get('Reply-To')
+    if reply_to_address is None or not isinstance(reply_to_address, str):
+        print("No reply-to address provided, falling back to from_address")
+        reply_to_address = addr
+    print(f"email from {sender_name} ({addr}) reply-to {reply_to_address}")
 
     # Process the attachments
     attachment_num = 0
@@ -136,7 +143,8 @@ def lambda_handler(event, context):
         # TODO: Try to merge summaries and todo_list into one .CSV
         # TODO: Get total token usage as a fun fact (probably need to instantiate a signleton openai class wrapper)
 
+
 # TODO: Better local testing with running the container locally and curling it with the request (needs S3 I guess).
-if __name__ == "__main__":
-    attachment_files = process_file("input/transcript2.mp4")
-    print(f"generated {attachment_files}")
+# if __name__ == "__main__":
+#     attachment_files = process_file("input/transcript2.mp4")
+#     print(f"generated {attachment_files}")

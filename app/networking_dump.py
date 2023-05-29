@@ -114,8 +114,13 @@ def get_per_person_transcript(raw_transcript):
         People: {}
         Transcript: {}
         """.format(sublist, raw_transcript)
+        # TODO: Some error handling and defaulting to retry one-by-one? I can see it a recurring theme
+        #   of batch gpt failing and retrying with one-by-one.
         raw_response = run_prompt(query_mentions)
         people = gpt_response_to_json(raw_response)
+        if len(people) != len(sublists):
+            print(f"WARNING: mentions size {len(people)} different from input size {len(sublist)}")
+        # Update the existing map with the new entries
         result.update(people)
 
     return result
