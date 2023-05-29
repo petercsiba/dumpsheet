@@ -93,7 +93,7 @@ def gpt_response_to_json(raw_response):
             result = json.loads(raw_json)
         except json.decoder.JSONDecodeError as err:
             print(f"Could NOT decode json cause {err} for {raw_json}")
-            return {}
+            return None
             # return '{"error": "JSONDecodeError", "raw_response": "' + json.dumps(raw_response) + '"}'
     print(result)
     # pp.pprint(result)

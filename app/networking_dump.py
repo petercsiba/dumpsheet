@@ -155,15 +155,27 @@ def per_person_transcripts_to_summaries(person_to_transcript):
         summaries = []
         for name, transcript in person_to_transcript.items():
             # Note: when I did "batch 20 structured summaries" it took 120 seconds.
+            # Takes 10 second per person.
             print(f"Getting all mentions for {name}")
             # TODO: We might need to go back to the original slicing? Or at least somehow attribute the missing parts
             raw_response = run_prompt(query_summarize.format(transcript), print_prompt=True)
-
+            # One failure shouldn't block the entire thing, log the error, return name, transcript for manual fix.
             summary = gpt_response_to_json(raw_response)
             if summary is None:
-                continue
+                print(f"Could NOT parse summary for {name}, defaulting to hand-crafted")
+                summary = {
+                    "from": None,
+                    "industry": None,
+                    "vibes": None,
+                    "priority": 2,
+                    "needs": None,
+                    "contact_info": None,
+                    "follow_ups": [],
+                    "error": raw_response,
+                }
             summary["name"] = name
             summary["transcript"] = transcript
+            summary["error"] = None
             summaries.append(summary)
 
     # A super-basic "TODO" list is just a few extra columns so lets do that
