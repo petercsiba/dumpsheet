@@ -184,7 +184,7 @@ def per_person_transcripts_to_summaries(person_to_transcript):
 
 # Input is a dictionary of fields to values
 # Output is list of candidate texts
-def generate_first_outreaches(person, intents):
+def generate_first_outreaches(name, person_transcript, intents):
     result = []
     for intent in intents:
         # Historical note: tried to do it in batch and parsing the JSON output, but GPT isn't the most consistent
@@ -197,11 +197,11 @@ def generate_first_outreaches(person, intents):
         For the following person I met at a networking event last night generate a short casual outreach message
         personalized to the facts of the person with the intent {}.
         Only output the resulting message. 
-        My knowledge of the person is encoded as a JSON struct: {}
-        """.format(intent, person)
+        My knowledge of {} is {}
+        """.format(name, intent, person_transcript)
         raw_response = run_prompt(query_outreaches)
         result.append({
-            "name": person["name"],
+            "name": name,
             "message_type": intent,
             "outreach": raw_response,
         })
@@ -230,7 +230,7 @@ def networking_dump(audio_file):
     else:
         summaries = per_person_transcripts_to_summaries(person_to_transcript)
     print("=== All summaries === ")
-    summaries = sorted(summaries, key=lambda x: x['priority'], reverse=True)
+    summaries = sorted(summaries, key=lambda x: x.get('priority', 2), reverse=True)
     print(json.dumps(summaries))
 
     return summaries

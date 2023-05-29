@@ -21,7 +21,7 @@ SENDER_EMAIL = "assistant@katka.ai"
 DEBUG_RECIPIENT = "petherz@gmail.com"
 
 
-def send_response(email_address, attachment_paths):
+def send_email(email_address, subject, body_text, attachment_paths=None):
     if not isinstance(email_address, str):
         print(f"email_adress is NOT a string {email_address}, falling back to {DEBUG_RECIPIENT}")
         email_address = DEBUG_RECIPIENT
@@ -29,12 +29,6 @@ def send_response(email_address, attachment_paths):
     ses = boto3.client('ses')
     sender = SENDER_EMAIL
     recipients = list({email_address, DEBUG_RECIPIENT})
-    subject = "Summaries from your last event - please take a look at your todos"
-    # TODO: Generate with GPT ideally personalized to the transcript.
-    body_text = (
-        "Hello, \nSounds you had a blast at your recent event! Good job on meeting all those people "
-        "- looking forward to hear more stories from your life!"
-    )
 
     # Create the raw email
     raw_email = create_raw_email_with_attachments(subject, body_text, sender, recipients, attachment_paths)
@@ -48,9 +42,41 @@ def send_response(email_address, attachment_paths):
                 'Data': raw_email.as_string(),
             }
         )
-        print(f'Email sent! Message ID: {response["MessageId"]}')
+        print(f'Email sent! Message ID: {response["MessageId"]}, Subject: {subject}')
     except Exception as e:
-        print(f'Email failed to send. {e}')
+        print(f'Email with subjectL {subject} failed to send. {e}')
+
+
+def send_confirmation(email_address: str, attachment_file_paths: list):
+    if len(attachment_file_paths) == 0:
+        subject = "Yo boss - where is the attachment?"
+        body_text = (
+            "Hello, \n\nThanks for trying out katka.ai - your virtual assistant.\n"
+            "Yo boss, where is the attachment? I would love to brew you a coffer, but\n"
+            "I as you know I ain't real so an emoji would need to do it \u2615\n\n"
+            "Remember, any audio-file would do, I can convert stuff myself \U0001F4AA\n\n"
+            f"If you disagree, please contact my supervisor at {DEBUG_RECIPIENT}"
+        )
+        send_email(email_address, subject, body_text)
+    else:
+        file_list = "\n".join([f"* {os.path.basename(file_path)}" for file_path in attachment_file_paths])
+        subject = "Hey boss - got your recording and I am already crunching through it!"
+        body_text = (
+            "Hello, \nThanks for trying out katka.ai - your virtual assistant.\n\n"
+            f"Here are the files I have received: \n{file_list}\n\n"
+            f"This will take me 2-15mins, if you don't hear back please contact my supervisor at {DEBUG_RECIPIENT}"
+        )
+        send_email(email_address, subject, body_text, attachment_file_paths)
+
+
+def send_response(email_address, attachment_paths):
+    subject = "Summaries from your last event - please take a look at your todos"
+    # TODO: Generate with GPT ideally personalized to the transcript.
+    body_text = (
+        "Hello, \nSounds you had a blast at your recent event! Good job on meeting all those people "
+        "- looking forward to hear more stories from your life!"
+    )
+    send_email(email_address, subject, body_text, attachment_paths)
 
 
 def process_file(file_path, bucket_object_prefix=None):
@@ -116,7 +142,7 @@ def lambda_handler(event, context):
     print(f"email from {sender_name} ({addr}) reply-to {reply_to_address}")
 
     # Process the attachments
-    attachment_num = 0
+    attachment_file_paths = []
     for part in msg.walk():
         if part.get_content_maintype() == 'multipart':
             continue
@@ -131,14 +157,18 @@ def lambda_handler(event, context):
             continue
 
         # If there is an attachment, save it to a file
-        attachment_num += 1
         file_name = f"{time.time()}-{orig_file_name}"
         file_path = os.path.join('/tmp/', file_name)
         with open(file_path, 'wb') as f:
             f.write(part.get_payload(decode=True))
+        attachment_file_paths.append(file_path)
 
+    send_confirmation(reply_to_address, attachment_file_paths)
+
+    for attachment_num, file_path in enumerate(attachment_file_paths):
         bucket_object_prefix = f"{sender_name}-{RUN_ID}-{attachment_num}"
         attachment_files = process_file(file_path=file_path, bucket_object_prefix=bucket_object_prefix)
+        # TODO: Maybe nicer filenames
         send_response(reply_to_address, attachment_files)
         # TODO: Try to merge summaries and todo_list into one .CSV
         # TODO: Get total token usage as a fun fact (probably need to instantiate a signleton openai class wrapper)

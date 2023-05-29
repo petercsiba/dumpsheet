@@ -4,7 +4,10 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 
 
-def create_raw_email_with_attachments(subject, body_text, sender, recipients, attachment_paths):
+def create_raw_email_with_attachments(subject, body_text, sender, recipients, attachment_paths=None):
+    if attachment_paths is None:
+        attachment_paths = []
+
     # Create a multipart/mixed parent container
     msg = MIMEMultipart('mixed')
     msg['Subject'] = subject
