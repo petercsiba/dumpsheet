@@ -5,6 +5,7 @@ import subprocess
 import time
 
 from botocore.exceptions import NoCredentialsError
+from networking_dump import networking_dump
 
 s3 = boto3.client('s3')
 
@@ -49,13 +50,14 @@ def lambda_handler(event, context):
         with open(file_path, 'wb') as f:
             f.write(part.get_payload(decode=True))
 
-        output_path = file_path + ".mp4"
-        print(f"Running ffmpeg on {file_path} outputting to {output_path}")
+        audio_file = file_path + ".mp4"
+        print(f"Running ffmpeg on {file_path} outputting to {audio_file}")
         try:
-            subprocess.run(['ffmpeg', '-i', file_path, output_path], check=True)
-            print(f'Converted file saved as: {output_path}')
+            subprocess.run(['ffmpeg', '-i', file_path, audio_file], check=True)
+            print(f'Converted file saved as: {audio_file}')
         except subprocess.CalledProcessError as e:
             print(f'FFmpeg Error occurred: {e}')
 
+        print(f"Running Sekretar-katka")
+        summaries, todo_list = networking_dump(audio_file, file_path)
 
-    return 'Lambda execution succeeded'
