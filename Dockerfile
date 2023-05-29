@@ -38,8 +38,9 @@ RUN mkdir -p ${FUNCTION_DIR}
 # Copy handler function
 COPY app/* ${FUNCTION_DIR}
 # Optional – Install the function's dependencies
-# RUN python${RUNTIME_VERSION} -m pip install -r requirements.txt --target ${FUNCTION_DIR}
+RUN python${RUNTIME_VERSION} -m pip install -r ${FUNCTION_DIR}/requirements.txt --target ${FUNCTION_DIR}
 # Install Lambda Runtime Interface Client for Python
+# TODO: Figure out how to cache this
 RUN python${RUNTIME_VERSION} -m pip install awslambdaric --target ${FUNCTION_DIR}
 
 # Stage 3 - final runtime image
