@@ -175,6 +175,6 @@ def lambda_handler(event, context):
 
 
 # TODO: Better local testing with running the container locally and curling it with the request (needs S3 I guess).
-# if __name__ == "__main__":
-#     attachment_files = process_file("input/transcript2.mp4")
-#     print(f"generated {attachment_files}")
+if __name__ == "__main__":
+    attachment_files = process_file("input/kubo.mp4")
+    print(f"generated {attachment_files}")
