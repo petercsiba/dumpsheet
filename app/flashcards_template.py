@@ -104,7 +104,7 @@ def get_flashcard_template():
                 <li><strong>Priority</strong>: {{ person_body.priority }}</li>
                 <li><strong>Industry</strong>: {{ person_body.industry }}</li>
                 <li><strong>Vibes</strong>: {{ person_body.vibes }}</li>
-                <li><strong>From</strong>: {{ person_body.from }}</li>
+                <li><strong>Role</strong>: {{ person_body.role }}</li>
                 <li><strong>Contact Info</strong>: {{ person_body.contact_info }}</li>
             </ul>
             <h2 class="mb-4">Suggested follow ups</h2>
