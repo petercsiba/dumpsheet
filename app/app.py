@@ -22,17 +22,18 @@ STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
 # TODO: Use timestamp from the saved email file so the static pages can be re-generated.
 RUN_ID = str(datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
 SENDER_EMAIL = "assistant@katka.ai"
-DEBUG_RECIPIENT = "petherz@gmail.com"
+DEBUG_RECIPIENTS = ["petherz@gmail.com", "kata.sabo@gmail.com"]
 
 
 def send_email(email_address, subject, body_text, attachment_paths=None):
     if not isinstance(email_address, str):
-        print(f"email_adress is NOT a string {email_address}, falling back to {DEBUG_RECIPIENT}")
-        email_address = DEBUG_RECIPIENT
+        print(f"email_adress is NOT a string {email_address}, falling back to {DEBUG_RECIPIENTS}")
+        email_address = DEBUG_RECIPIENTS[0]
 
     ses = boto3.client('ses')
     sender = SENDER_EMAIL
-    recipients = list({email_address, DEBUG_RECIPIENT})
+    recipients = [email_address]
+    bcc_recipients = list(set(DEBUG_RECIPIENTS) - {email_address})
     body_html = """<html>
     <head></head>
     <body>
@@ -43,7 +44,14 @@ def send_email(email_address, subject, body_text, attachment_paths=None):
     """
 
     # Create the raw email
-    raw_email = create_raw_email_with_attachments(subject, body_html, sender, recipients, attachment_paths)
+    raw_email = create_raw_email_with_attachments(
+        subject,
+        body_html,
+        sender=sender,
+        to=recipients,
+        bcc=bcc_recipients,
+        attachment_paths=attachment_paths,
+    )
 
     try:
         print(f"Attempting to send email to {recipients} with attached files {attachment_paths}")
@@ -73,7 +81,7 @@ def send_confirmation(email_address: str, attachment_file_paths: list):
             "I ain't real so an emoji would need to do it \u2615 <br />"
             "Remember, any audio-file would do, I can convert stuff myself \U0001F4AA"
             "<h3>Questions?</h3>"
-            f"Please contact my supervisors at {DEBUG_RECIPIENT} - thanks - your team at katka.ai"
+            f"Please contact my supervisors at {DEBUG_RECIPIENTS} - thanks - your team at katka.ai"
         )
         send_email(email_address, subject, body_text)
     else:
@@ -90,7 +98,7 @@ def send_confirmation(email_address: str, attachment_file_paths: list):
             f"Here are the files I have received: <br /><ul>{file_list_str}</ul><br />"
             f"<p>This will take me 2-15mins.</p>"
             "<h3>Questions?</h3>"
-            f"Please contact my supervisors at {DEBUG_RECIPIENT} - thanks - your team at katka.ai"
+            f"Please contact my supervisors at {DEBUG_RECIPIENTS} - thanks - your team at katka.ai"
         )
         send_email(email_address, subject, body_text)
 
@@ -109,7 +117,7 @@ def send_response(email_address, webpage_link, attachment_paths, people_count, t
         "<li>You can 1-click copy the option you like the best, tweak it if needed and send to your new contact.</li>"
         "<li>See attachment for a nice table format of the summaries</li></ul>"
         "<h3>Questions?</h3>"
-        f"Please contact my supervisors at {DEBUG_RECIPIENT} - thanks - your team at katka.ai"
+        f"Please contact my supervisors at {DEBUG_RECIPIENTS} - thanks - your team at katka.ai"
     )
     send_email(email_address, subject, body_text, attachment_paths)
 
