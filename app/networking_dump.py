@@ -90,7 +90,7 @@ def get_per_person_transcript(raw_transcript):
     print(f"People: {json.dumps(people)}")
     # Solves TypeError: unhashable type: 'slice'
     if isinstance(people, dict):
-        people = [f"{key}: {value}" for key, value in people.items]
+        people = [f"{key}: {value}" for key, value in people.items()]
 
     result = {}
     size = 5

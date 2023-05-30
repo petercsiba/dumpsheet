@@ -3,6 +3,7 @@ import boto3
 import datetime
 import email
 import os
+import shutil
 import subprocess
 import time
 
@@ -10,12 +11,14 @@ from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
 
 from email_utils import create_raw_email_with_attachments
+from generate_flashcards import generate_page
 from networking_dump import generate_todo_list, networking_dump
 from storage_utils import write_to_csv
 
 s3 = boto3.client('s3')
 
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
+STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
 RUN_ID = str(datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
 SENDER_EMAIL = "assistant@katka.ai"
 DEBUG_RECIPIENT = "petherz@gmail.com"
@@ -74,14 +77,18 @@ def send_confirmation(email_address: str, attachment_file_paths: list):
         send_email(email_address, subject, body_text)
 
 
-def send_response(email_address, attachment_paths, people_count, todo_count):
-    subject = "Summaries from your last event - please take a look at your todos"
+def send_response(email_address, webpage_link, attachment_paths, people_count, todo_count):
+    subject = "Summaries from your recent networking event are ready for your review!"
     # TODO: Generate with GPT ideally personalized to the transcript.
     body_text = (
         "Hello, \n"
         "Sounds you had a blast at your recent event! \n\n"
-        f"Good job - you met {people_count} with {todo_count} suggested follow ups.\n"
-        "Lets get to it!"
+        f"Good job - you met {people_count} with {todo_count} suggested follow ups.\n\n"
+        "What to do next?"
+        f"* Access your <a href=\"{webpage_link}\">flashcards and todolist online</a>"
+        "* See attachment for a nice table format of the summaries\n\n"
+        "Questions?\n"
+        f"Please contact my supervisors at {DEBUG_RECIPIENT}"
     )
     send_email(email_address, subject, body_text, attachment_paths)
 
@@ -97,7 +104,8 @@ def write_output_to_local_and_bucket(data, suffix, local_output_prefix, bucket_o
     return todo_list_filepath
 
 
-def process_file(file_path, bucket_object_prefix=None):
+# Here object_prefix is used for both local, response attachments and buckets.
+def process_file(file_path, sender_name=None, reply_to_address=None, object_prefix=None):
     audio_file = file_path + ".mp4"
     print(f"Running ffmpeg on {file_path} outputting to {audio_file}")
     try:
@@ -111,15 +119,31 @@ def process_file(file_path, bucket_object_prefix=None):
     summaries = networking_dump(audio_file)
 
     # Output storage
-    local_output_prefix = file_path
+    # TODO: Use more proper temp fs
+    local_output_prefix = f"/tmp/{object_prefix}"
     # Unique identifier to support multiple runs of the same file even if attached multiple times
-    summaries_filepath = write_output_to_local_and_bucket(summaries, "summaries", local_output_prefix, bucket_object_prefix)
+    summaries_filepath = write_output_to_local_and_bucket(summaries, "summaries", local_output_prefix, object_prefix)
 
     print(f"Running generate todo-list")
     todo_list = generate_todo_list(summaries)
-    todo_list_filepath = write_output_to_local_and_bucket(todo_list, "todo", local_output_prefix, bucket_object_prefix)
+    todo_list_filepath = write_output_to_local_and_bucket(todo_list, "todo", local_output_prefix, object_prefix)
 
-    return [summaries_filepath, todo_list_filepath], [len(summaries), len(todo_list)]
+    page_contents = generate_page(sender_name, summaries, todo_list)
+    filename = f"{object_prefix}.html"
+    print(f"Writing page_contents to S3 ({len(page_contents)}B) bucket {STATIC_HOSTING_BUCKET_NAME}/{filename}")
+    s3.upload_file(todo_list_filepath, STATIC_HOSTING_BUCKET_NAME, filename)
+    webpage_link = f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{filename}"
+
+    if reply_to_address is not None:
+        send_response(
+            reply_to_address,
+            webpage_link=webpage_link,
+            attachment_paths=[summaries_filepath],
+            people_count=len(summaries),
+            todo_count=len(todo_list),
+        )
+    # TODO: Try to merge summaries and todo_list into one .CSV
+    # TODO: Get total token usage as a fun fact (probably need to instantiate a signleton openai class wrapper)
 
 
 def lambda_handler(event, context):
@@ -175,20 +199,13 @@ def lambda_handler(event, context):
     send_confirmation(reply_to_address, attachment_file_paths)
 
     for attachment_num, file_path in enumerate(attachment_file_paths):
-        bucket_object_prefix = f"{sender_name}-{RUN_ID}-{attachment_num}"
-        attachment_files, row_counts = process_file(
+        object_prefix = f"{sender_name}-{RUN_ID}-{attachment_num}"
+        process_file(
             file_path=file_path,
-            bucket_object_prefix=bucket_object_prefix
+            sender_name=sender_name,
+            reply_to_address=reply_to_address,
+            object_prefix=object_prefix
         )
-        # TODO: Maybe nicer filenames
-        send_response(
-            reply_to_address,
-            attachment_files,
-            people_count=row_counts[0],
-            todo_count=row_counts[1],
-        )
-        # TODO: Try to merge summaries and todo_list into one .CSV
-        # TODO: Get total token usage as a fun fact (probably need to instantiate a signleton openai class wrapper)
 
 
 # TODO: Better local testing with running the container locally and curling it with the request (needs S3 I guess).
