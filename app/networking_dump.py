@@ -244,11 +244,11 @@ def networking_dump(audio_file):
     # Katka really wants text priorities
     for i, person in summaries:
         priorities_mapping = {
-            5: "DO IT ASAP!",
-            4: "High: This is important & needed",
-            3: "Medium: Nice to have",
-            2: "Unsure: Check if you have time",
-            1: "Low: Just don't bother",
+            5: "P0 - DO IT ASAP!",
+            4: "P1 - High: This is important & needed",
+            3: "P2 - Medium: Nice to have",
+            2: "P3 - Unsure: Check if you have time",
+            1: "P4 - Low: Just don't bother",
         }
         summaries[i]["priority"] = priorities_mapping.get(person.get("priority", 2))
 
