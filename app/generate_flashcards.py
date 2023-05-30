@@ -81,6 +81,7 @@ def generate_page(page_title, summaries=None, todo_list=None, template=None):
             todo_element_id = f"{element_id}-todo{j}"
             follow_up = {
                 "follow_ups.element_id": todo_element_id,
+                "follow_ups.option_num": j+1,
                 "follow_ups.message_type": message_type,
                 "follow_ups.outreach_draft": todo.get("outreach_draft"),
             }

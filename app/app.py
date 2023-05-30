@@ -193,6 +193,7 @@ def process_file(file_path, sender_name=None, reply_to_address=None, object_pref
         bucket_name=STATIC_HOSTING_BUCKET_NAME,
         bucket_object_prefix=object_prefix
     )
+    # TODO: Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
     webpage_link = f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{bucket_key}"
 
     if reply_to_address is not None:

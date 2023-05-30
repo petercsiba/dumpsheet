@@ -1,3 +1,4 @@
+# TODO: Try to improve in https://www.framer.com
 def get_flashcard_template():
     return """<!doctype html>
 <html lang="en">
@@ -107,10 +108,10 @@ def get_flashcard_template():
                 <li><strong>Role</strong>: {{ person_body.role }}</li>
                 <li><strong>Contact Info</strong>: {{ person_body.contact_info }}</li>
             </ul>
-            <h2 class="mb-4">Suggested follow ups</h2>
+            <h2 class="mb-4">Possible actions</h2>
 
             {{ follow_ups.begin }}
-            <h4>Follow up: {{ follow_ups.message_type }}</h4>
+            <h4>Option {{ follow_ups.option_num }}: {{ follow_ups.message_type }}</h4>
             <p
                 <span id="{{ follow_ups.element_id }}">
                     {{ follow_ups.outreach_draft }}
