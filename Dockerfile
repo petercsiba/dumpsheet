@@ -9,6 +9,9 @@
 # docker build -t 680516425449.dkr.ecr.us-west-2.amazonaws.com/networking-summary-lambda:latest .
 # docker push 680516425449.dkr.ecr.us-west-2.amazonaws.com/networking-summary-lambda:latest
 
+# Oncall
+# * Usage https://platform.openai.com/account/usage
+
 # Define global args
 ARG FUNCTION_DIR="/home/app/"
 ARG RUNTIME_VERSION="3.9"

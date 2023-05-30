@@ -86,14 +86,6 @@ def generate_page(page_title, summaries=None, todo_list=None, template=None):
             }
             follow_ups.append(follow_up)
 
-        priorities_mapping = {
-            5: "DO IT ASAP!",
-            4: "High: This is important & needed",
-            3: "Medium: Nice to have",
-            2: "Unsure: Check if you have time",
-            1: "Low: Just don't bother",
-        }
-        priority = priorities_mapping.get(person.get("priority", 2))
         transcript = person.get("transcript")
         if isinstance(transcript, list):
             transcript = "<br /".join(transcript)
@@ -105,7 +97,7 @@ def generate_page(page_title, summaries=None, todo_list=None, template=None):
             "person_body.element_id": element_id,
             "person_body.style_display": style_display,
             "person_body.name": name,
-            "person_body.priority": priority,
+            "person_body.priority": person.get("priority"),
             "person_body.industry": person.get("industry"),
             "person_body.vibes": person.get("vibes"),
             "person_body.role": person.get("role"),

@@ -241,6 +241,17 @@ def networking_dump(audio_file):
         summaries = per_person_transcripts_to_summaries(person_to_transcript)
     print("=== All summaries === ")
     summaries = sorted(summaries, key=lambda x: x.get('priority', 2), reverse=True)
+    # Katka really wants text priorities
+    for i, person in summaries:
+        priorities_mapping = {
+            5: "DO IT ASAP!",
+            4: "High: This is important & needed",
+            3: "Medium: Nice to have",
+            2: "Unsure: Check if you have time",
+            1: "Low: Just don't bother",
+        }
+        summaries[i]["priority"] = priorities_mapping.get(person.get("priority", 2))
+
     print(json.dumps(summaries))
 
     return summaries
