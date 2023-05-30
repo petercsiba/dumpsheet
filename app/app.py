@@ -4,7 +4,6 @@ import datetime
 import email
 import os
 import re
-import shutil
 import subprocess
 import time
 
@@ -51,6 +50,10 @@ def send_email(email_address, subject, body_text, attachment_paths=None):
         print(f'Email with subjectL {subject} failed to send. {e}')
 
 
+def pretty_filesize(file_path):
+    return f"{os.path.getsize(file_path) / 1048576:.2f}MB"
+
+
 def send_confirmation(email_address: str, attachment_file_paths: list):
     if len(attachment_file_paths) == 0:
         subject = "Yo boss - where is the attachment?"
@@ -65,7 +68,7 @@ def send_confirmation(email_address: str, attachment_file_paths: list):
     else:
         file_list = []
         for file_path in attachment_file_paths:
-            file_size = f"{os.path.getsize(file_path) / 1048576:.2f}MB"
+            file_size = pretty_filesize(file_path)
             file_list.append(f"{os.path.basename(file_path)} ({file_size})")
         file_list_str = "\n*".join(file_list)
 
@@ -94,15 +97,31 @@ def send_response(email_address, webpage_link, attachment_paths, people_count, t
     send_email(email_address, subject, body_text, attachment_paths)
 
 
-def write_output_to_local_and_bucket(data, suffix, local_output_prefix, bucket_object_prefix=None):
-    todo_list_filepath = f"{local_output_prefix}-{suffix}.csv"
-    write_to_csv(data, todo_list_filepath)
+def write_output_to_local_and_bucket(
+        data,
+        suffix: str,
+        local_output_prefix: str,
+        bucket_name=None,
+        bucket_object_prefix=None
+):
+    local_filepath = f"{local_output_prefix}{suffix}"
+    print(f"Gonna write some data to {local_filepath}")
+    # This is kinda hack
+    if suffix.endswith(".csv"):
+        write_to_csv(data, local_filepath)
+    else:
+        # TODO: We might need to support binary data
+        with open(local_filepath, "w") as handle:
+            handle.write(data)
+    print(f"Written {pretty_filesize(local_filepath)} to {local_filepath}")
 
+    bucket_key = None
     if bool(bucket_object_prefix):
-        print("Writing todo_list to S3")
-        s3.upload_file(todo_list_filepath, OUTPUT_BUCKET_NAME, f"{bucket_object_prefix}-{suffix}.csv")
+        bucket_key = f"{bucket_object_prefix}{suffix}"
+        print(f"Uploading that data to S3://{bucket_name}/{bucket_key}")
+        s3.upload_file(local_filepath, bucket_name, bucket_key)
 
-    return todo_list_filepath
+    return local_filepath, bucket_key
 
 
 # Here object_prefix is used for both local, response attachments and buckets.
@@ -116,24 +135,40 @@ def process_file(file_path, sender_name=None, reply_to_address=None, object_pref
     except subprocess.CalledProcessError as e:
         print(f'FFmpeg Error occurred: {e}')
 
-    print(f"Running Sekretar-katka")
-    summaries = networking_dump(audio_file)
-
     # Output storage
     # TODO: Use more proper temp fs
     local_output_prefix = f"/tmp/{object_prefix}"
-    # Unique identifier to support multiple runs of the same file even if attached multiple times
-    summaries_filepath = write_output_to_local_and_bucket(summaries, "summaries", local_output_prefix, object_prefix)
+
+    print(f"Running Sekretar-katka")
+    summaries = networking_dump(audio_file)
+    summaries_filepath, _ = write_output_to_local_and_bucket(
+        data=summaries,
+        suffix="-summaries.csv",
+        local_output_prefix=local_output_prefix,
+        bucket_name=OUTPUT_BUCKET_NAME,
+        bucket_object_prefix=object_prefix
+    )
 
     print(f"Running generate todo-list")
     todo_list = generate_todo_list(summaries)
-    todo_list_filepath = write_output_to_local_and_bucket(todo_list, "todo", local_output_prefix, object_prefix)
+    todo_list_filepath, _ = write_output_to_local_and_bucket(
+        data=todo_list,
+        suffix="-todo.csv",
+        local_output_prefix=local_output_prefix,
+        bucket_name=OUTPUT_BUCKET_NAME,
+        bucket_object_prefix=object_prefix
+    )
 
+    print(f"Running generate webpage")
     page_contents = generate_page(sender_name, summaries, todo_list)
-    filename = f"{object_prefix}.html"
-    print(f"Writing page_contents to S3 ({len(page_contents)}B) bucket {STATIC_HOSTING_BUCKET_NAME}/{filename}")
-    s3.upload_file(todo_list_filepath, STATIC_HOSTING_BUCKET_NAME, filename)
-    webpage_link = f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{filename}"
+    _, bucket_key = write_output_to_local_and_bucket(
+        data=page_contents,
+        suffix=".html",
+        local_output_prefix=local_output_prefix,
+        bucket_name=STATIC_HOSTING_BUCKET_NAME,
+        bucket_object_prefix=object_prefix
+    )
+    webpage_link = f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{bucket_key}"
 
     if reply_to_address is not None:
         send_response(
@@ -143,7 +178,6 @@ def process_file(file_path, sender_name=None, reply_to_address=None, object_pref
             people_count=len(summaries),
             todo_count=len(todo_list),
         )
-    # TODO: Try to merge summaries and todo_list into one .CSV
     # TODO: Get total token usage as a fun fact (probably need to instantiate a signleton openai class wrapper)
 
 
@@ -197,7 +231,10 @@ def lambda_handler(event, context):
             f.write(part.get_payload(decode=True))
         attachment_file_paths.append(file_path)
 
-    send_confirmation(reply_to_address, attachment_file_paths)
+    try:
+        send_confirmation(reply_to_address, attachment_file_paths)
+    except Exception as err:
+        print(f"ERROR: Could not send confirmation to {reply_to_address} cause {err}")
 
     for attachment_num, file_path in enumerate(attachment_file_paths):
         object_prefix = f"{sender_name}-{RUN_ID}-{attachment_num}"
