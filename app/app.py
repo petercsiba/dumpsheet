@@ -59,24 +59,42 @@ def send_confirmation(email_address: str, attachment_file_paths: list):
         )
         send_email(email_address, subject, body_text)
     else:
-        file_list = "\n".join([f"* {os.path.basename(file_path)}" for file_path in attachment_file_paths])
+        file_list = []
+        for file_path in attachment_file_paths:
+            file_size = f"{os.path.getsize(file_path) / 1048576:.2f}MB"
+            file_list.append(f"{os.path.basename(file_path)} ({file_size})")
+        file_list_str = "\n*".join(file_list)
+
         subject = "Hey boss - got your recording and I am already crunching through it!"
         body_text = (
             "Hello, \nThanks for trying out katka.ai - your virtual assistant.\n\n"
-            f"Here are the files I have received: \n{file_list}\n\n"
+            f"Here are the files I have received: \n{file_list_str}\n\n"
             f"This will take me 2-15mins, if you don't hear back please contact my supervisor at {DEBUG_RECIPIENT}"
         )
-        send_email(email_address, subject, body_text, attachment_file_paths)
+        send_email(email_address, subject, body_text)
 
 
-def send_response(email_address, attachment_paths):
+def send_response(email_address, attachment_paths, people_count, todo_count):
     subject = "Summaries from your last event - please take a look at your todos"
     # TODO: Generate with GPT ideally personalized to the transcript.
     body_text = (
-        "Hello, \nSounds you had a blast at your recent event! Good job on meeting all those people "
-        "- looking forward to hear more stories from your life!"
+        "Hello, \n"
+        "Sounds you had a blast at your recent event! \n\n"
+        f"Good job - you met {people_count} with {todo_count} suggested follow ups.\n"
+        "Lets get to it!"
     )
     send_email(email_address, subject, body_text, attachment_paths)
+
+
+def write_output_to_local_and_bucket(data, suffix, local_output_prefix, bucket_object_prefix=None):
+    todo_list_filepath = f"{local_output_prefix}-{suffix}.csv"
+    write_to_csv(data, todo_list_filepath)
+
+    if bool(bucket_object_prefix):
+        print("Writing todo_list to S3")
+        s3.upload_file(todo_list_filepath, OUTPUT_BUCKET_NAME, f"{bucket_object_prefix}-{suffix}.csv")
+
+    return todo_list_filepath
 
 
 def process_file(file_path, bucket_object_prefix=None):
@@ -95,22 +113,13 @@ def process_file(file_path, bucket_object_prefix=None):
     # Output storage
     local_output_prefix = file_path
     # Unique identifier to support multiple runs of the same file even if attached multiple times
-
-    summaries_filepath = f"{local_output_prefix}-summaries.csv"
-    write_to_csv(summaries, summaries_filepath)
-    if bool(bucket_object_prefix):
-        print("Writing summaries to S3")
-        s3.upload_file(summaries_filepath, OUTPUT_BUCKET_NAME, f"{bucket_object_prefix}-summaries.csv")
+    summaries_filepath = write_output_to_local_and_bucket(summaries, "summaries", local_output_prefix, bucket_object_prefix)
 
     print(f"Running generate todo-list")
     todo_list = generate_todo_list(summaries)
+    todo_list_filepath = write_output_to_local_and_bucket(todo_list, "todo", local_output_prefix, bucket_object_prefix)
 
-    todo_list_filepath = f"{local_output_prefix}-todo.csv"
-    write_to_csv(todo_list, todo_list_filepath)
-    if bool(bucket_object_prefix):
-        print("Writing todo_list to S3")
-        s3.upload_file(todo_list_filepath, OUTPUT_BUCKET_NAME, f"{bucket_object_prefix}-todo.csv")
-    return [summaries_filepath, todo_list_filepath]
+    return [summaries_filepath, todo_list_filepath], [len(summaries), len(todo_list)]
 
 
 def lambda_handler(event, context):
@@ -167,14 +176,22 @@ def lambda_handler(event, context):
 
     for attachment_num, file_path in enumerate(attachment_file_paths):
         bucket_object_prefix = f"{sender_name}-{RUN_ID}-{attachment_num}"
-        attachment_files = process_file(file_path=file_path, bucket_object_prefix=bucket_object_prefix)
+        attachment_files, row_counts = process_file(
+            file_path=file_path,
+            bucket_object_prefix=bucket_object_prefix
+        )
         # TODO: Maybe nicer filenames
-        send_response(reply_to_address, attachment_files)
+        send_response(
+            reply_to_address,
+            attachment_files,
+            people_count=row_counts[0],
+            todo_count=row_counts[1],
+        )
         # TODO: Try to merge summaries and todo_list into one .CSV
         # TODO: Get total token usage as a fun fact (probably need to instantiate a signleton openai class wrapper)
 
 
 # TODO: Better local testing with running the container locally and curling it with the request (needs S3 I guess).
-if __name__ == "__main__":
-    attachment_files = process_file("input/kubo.mp4")
-    print(f"generated {attachment_files}")
+# if __name__ == "__main__":
+#     attachment_files, row_counts = process_file("input/kubo.mp4")
+#     print(f"generated {attachment_files}")
