@@ -74,11 +74,13 @@ def generate_page(page_title, summaries=None, todo_list=None, template=None):
         # TODO: Join them more stable than on a key
         filtered_todos = [d for d in todo_list if d.get("name") == name]
         follow_ups = []
-        for todo in filtered_todos:
+        for j, todo in enumerate(filtered_todos):
             message_type = todo.get("message_type")
             if message_type.startswith("to "):
                 message_type = message_type[3:]
+            todo_element_id = f"{element_id}-todo{j}"
             follow_up = {
+                "follow_ups.element_id": todo_element_id,
                 "follow_ups.message_type": message_type,
                 "follow_ups.outreach_draft": todo.get("outreach_draft"),
             }
@@ -142,9 +144,11 @@ test_template_vars = {
         "person_body": [{
             SUB_TEMPLATE_KEY: {
                 "follow_ups": [{
+                    "follow_ups.element_id": "person1-todo1",
                     "follow_ups.message_type": "Follow up 1",
                     "follow_ups.outreach_draft": "Dear Person 1",
                 }, {
+                    "follow_ups.element_id": "person1-todo2",
                     "follow_ups.message_type": "Follow up 2",
                     "follow_ups.outreach_draft": "Dear Person 2",
                 }]
@@ -190,6 +194,6 @@ test_template_vars = {
 #         template=template,
 #     )
 #     page2 = fill_template(template, test_template_vars, )
-#     print(f"writing generated page of length {len(page2)}")
+#     print(f"writing generated page of length {len(page1)}")
 #     with open("assets/index.html", "w") as handle:
-#         handle.write(page2)
+#         handle.write(page1)
