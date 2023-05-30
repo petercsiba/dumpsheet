@@ -3,6 +3,7 @@ import boto3
 import datetime
 import email
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -200,6 +201,7 @@ def lambda_handler(event, context):
 
     for attachment_num, file_path in enumerate(attachment_file_paths):
         object_prefix = f"{sender_name}-{RUN_ID}-{attachment_num}"
+        object_prefix = re.sub(r'\s', '-', object_prefix)
         process_file(
             file_path=file_path,
             sender_name=sender_name,
