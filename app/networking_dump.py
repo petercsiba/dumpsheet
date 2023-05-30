@@ -152,7 +152,7 @@ def per_person_transcripts_to_summaries(person_to_transcript):
         Input: a transcript of me talking about the person.
         Output: a json dict with the following key value pairs:
     * name: name
-    * from: where are they from, or null if i don't mention it 
+    * role: current role or past experience 
     * industry: one two works for the are of their specialty, or null if not sure
     * vibes: my first impression and general vibes of them
     * priority: on scale from 1 to 5 how excited i am to follow up, never null 
@@ -175,7 +175,7 @@ def per_person_transcripts_to_summaries(person_to_transcript):
             if summary is None:
                 print(f"Could NOT parse summary for {name}, defaulting to hand-crafted")
                 summary = {
-                    "from": None,
+                    "role": None,
                     "industry": None,
                     "vibes": None,
                     "priority": 2,
