@@ -111,8 +111,10 @@ def get_flashcard_template():
 
             {{ follow_ups.begin }}
             <h4>Follow up: {{ follow_ups.message_type }}</h4>
-            <p id="{{ follow_ups.element_id }}">
-                {{ follow_ups.outreach_draft }}
+            <p
+                <span id="{{ follow_ups.element_id }}">
+                    {{ follow_ups.outreach_draft }}
+                </span>
                 <button onclick="copyToClipboard('{{ follow_ups.element_id }}')">&#128203; Copy</button>
             </p>
             {{ follow_ups.end }}
