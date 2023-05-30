@@ -66,7 +66,8 @@ def send_confirmation(email_address: str, attachment_file_paths: list):
     if len(attachment_file_paths) == 0:
         subject = "Yo boss - where is the attachment?"
         body_text = (
-            "Hello, <br/><br/>Thanks for trying out katka.ai - your virtual assistant.<br />"
+            "Hello, <br/><br/>Thanks for trying out katka.ai - your personal networking assistant "
+            "- aka the backoffice guy/gal who takes care of the admin so that you can focus on what matters.<br />"
             "But yo boss, where is the attachment? I would love to brew you a coffee, but "
             "I ain't real so an emoji would need to do it \u2615 <br />"
             "Remember, any audio-file would do, I can convert stuff myself \U0001F4AA"
@@ -83,7 +84,8 @@ def send_confirmation(email_address: str, attachment_file_paths: list):
 
         subject = "Hey boss - got your recording and I am already crunching through it!"
         body_text = (
-            "Hello, <br/><br/>Thanks for trying out katka.ai - your virtual assistant.<br />"
+            "Hello, <br/><br/>Thanks for trying out katka.ai - your personal networking assistant "
+            "- aka the backoffice guy/gal who takes care of the admin so that you can focus on what matters.<br />"
             f"Here are the files I have received: <br /><ul>{file_list_str}</ul><br />"
             f"<p>This will take me 2-15mins.</p>"
             "<h3>Questions?</h3>"
