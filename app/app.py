@@ -19,6 +19,7 @@ s3 = boto3.client('s3')
 
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
 STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
+# TODO: Use timestamp from the saved email file so the static pages can be re-generated.
 RUN_ID = str(datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
 SENDER_EMAIL = "assistant@katka.ai"
 DEBUG_RECIPIENT = "petherz@gmail.com"

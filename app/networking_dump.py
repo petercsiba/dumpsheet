@@ -6,7 +6,6 @@ import pprint
 from openai_utils import gpt_response_to_json, run_prompt, Timer
 
 # config = toml.load('secrets.toml')
-# openai.api_key = config["OPEN_API_KEY"]
 # AUDIO_FILE = "input/networking-transcript-1-katka-tech-roast-may-25.mp4"
 # command = f"ffmpeg -i input/{AUDIO_FILE} -c:v copy -c:a aac -strict experimental"
 # result = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -242,7 +241,7 @@ def networking_dump(audio_file):
     print("=== All summaries === ")
     summaries = sorted(summaries, key=lambda x: x.get('priority', 2), reverse=True)
     # Katka really wants text priorities
-    for i, person in summaries:
+    for i, person in enumerate(summaries):
         priorities_mapping = {
             5: "P0 - DO IT ASAP!",
             4: "P1 - High: This is important & needed",
