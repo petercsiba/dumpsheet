@@ -114,8 +114,9 @@ def write_output_to_local_and_bucket(
         data,
         suffix: str,
         local_output_prefix: str,
+        content_type: str,
         bucket_name=None,
-        bucket_object_prefix=None
+        bucket_object_prefix=None,
 ):
     local_filepath = f"{local_output_prefix}{suffix}"
     print(f"Gonna write some data to {local_filepath}")
@@ -132,7 +133,12 @@ def write_output_to_local_and_bucket(
     if bool(bucket_object_prefix):
         bucket_key = f"{bucket_object_prefix}{suffix}"
         print(f"Uploading that data to S3://{bucket_name}/{bucket_key}")
-        s3.upload_file(local_filepath, bucket_name, bucket_key)
+        s3.upload_file(
+            local_filepath,
+            bucket_name,
+            bucket_key,
+            ExtraArgs={'ContentType': content_type},
+        )
 
     return local_filepath, bucket_key
 
@@ -157,6 +163,7 @@ def process_file(file_path, sender_name=None, reply_to_address=None, object_pref
     summaries_filepath, _ = write_output_to_local_and_bucket(
         data=summaries,
         suffix="-summaries.csv",
+        content_type="text/csv",
         local_output_prefix=local_output_prefix,
         bucket_name=OUTPUT_BUCKET_NAME,
         bucket_object_prefix=object_prefix
@@ -167,6 +174,7 @@ def process_file(file_path, sender_name=None, reply_to_address=None, object_pref
     todo_list_filepath, _ = write_output_to_local_and_bucket(
         data=todo_list,
         suffix="-todo.csv",
+        content_type="text/csv",
         local_output_prefix=local_output_prefix,
         bucket_name=OUTPUT_BUCKET_NAME,
         bucket_object_prefix=object_prefix
@@ -177,6 +185,7 @@ def process_file(file_path, sender_name=None, reply_to_address=None, object_pref
     _, bucket_key = write_output_to_local_and_bucket(
         data=page_contents,
         suffix=".html",
+        content_type="text/html",
         local_output_prefix=local_output_prefix,
         bucket_name=STATIC_HOSTING_BUCKET_NAME,
         bucket_object_prefix=object_prefix
