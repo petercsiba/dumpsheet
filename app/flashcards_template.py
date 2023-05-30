@@ -73,7 +73,7 @@ def get_flashcard_template():
 <body>
 
 <div class="wrapper d-flex align-items-stretch">
-    <nav id="sidebar">
+    <nav id="sidebar" class="active">
         <div class="custom-menu">
             <button type="button" id="sidebarCollapse" class="btn btn-primary">
                 <i class="fa fa-bars"></i>
@@ -82,7 +82,6 @@ def get_flashcard_template():
         </div>
         <h1><a href="index.html" class="logo">{{ project_name }}</a></h1>
         <ul class="list-unstyled components mb-5">
-            <!-- <li class="active"> -->
     {{ person_head.begin }}
             <li class="gpt-nav-button {{ person_head.style_display }}"
                 onclick="gptShowContent('{{ person_head.element_id }}', this)">
@@ -112,7 +111,7 @@ def get_flashcard_template():
 
             {{ follow_ups.begin }}
             <h4>Option {{ follow_ups.option_num }}: {{ follow_ups.message_type }}</h4>
-            <p
+            <p>
                 <span id="{{ follow_ups.element_id }}">
                     {{ follow_ups.outreach_draft }}
                 </span>
