@@ -4,7 +4,7 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 
 
-def create_raw_email_with_attachments(subject, body_text, sender, recipients, attachment_paths=None):
+def create_raw_email_with_attachments(subject, body_html, sender, recipients, attachment_paths=None):
     if attachment_paths is None:
         attachment_paths = []
 
@@ -18,7 +18,7 @@ def create_raw_email_with_attachments(subject, body_text, sender, recipients, at
     msg_body = MIMEMultipart('alternative')
 
     # Encode the text and add it to the child container
-    textpart = MIMEText(body_text, 'plain')
+    textpart = MIMEText(body_html, 'html')
     msg_body.attach(textpart)
 
     # Attach the multipart/alternative child container to the multipart/mixed parent container

@@ -32,9 +32,17 @@ def send_email(email_address, subject, body_text, attachment_paths=None):
     ses = boto3.client('ses')
     sender = SENDER_EMAIL
     recipients = list({email_address, DEBUG_RECIPIENT})
+    body_html = """<html>
+    <head></head>
+    <body>
+      <h3>""" + subject + """</h3>
+      """ + body_text + """
+    </body>
+    </html>
+    """
 
     # Create the raw email
-    raw_email = create_raw_email_with_attachments(subject, body_text, sender, recipients, attachment_paths)
+    raw_email = create_raw_email_with_attachments(subject, body_html, sender, recipients, attachment_paths)
 
     try:
         print(f"Attempting to send email to {recipients} with attached files {attachment_paths}")
@@ -58,25 +66,28 @@ def send_confirmation(email_address: str, attachment_file_paths: list):
     if len(attachment_file_paths) == 0:
         subject = "Yo boss - where is the attachment?"
         body_text = (
-            "Hello, \n\nThanks for trying out katka.ai - your virtual assistant.\n"
-            "Yo boss, where is the attachment? I would love to brew you a coffer, but\n"
-            "I as you know I ain't real so an emoji would need to do it \u2615\n\n"
-            "Remember, any audio-file would do, I can convert stuff myself \U0001F4AA\n\n"
-            f"If you disagree, please contact my supervisor at {DEBUG_RECIPIENT}"
+            "Hello, <br/><br/>Thanks for trying out katka.ai - your virtual assistant.<br />"
+            "But yo boss, where is the attachment? I would love to brew you a coffee, but "
+            "I ain't real so an emoji would need to do it \u2615 <br />"
+            "Remember, any audio-file would do, I can convert stuff myself \U0001F4AA"
+            "<h3>Questions?</h3>"
+            f"Please contact my supervisors at {DEBUG_RECIPIENT} - thanks - your team at katka.ai"
         )
         send_email(email_address, subject, body_text)
     else:
         file_list = []
         for file_path in attachment_file_paths:
             file_size = pretty_filesize(file_path)
-            file_list.append(f"{os.path.basename(file_path)} ({file_size})")
-        file_list_str = "\n*".join(file_list)
+            file_list.append(f"<li>{os.path.basename(file_path)} ({file_size})</li>")
+        file_list_str = "<li".join(file_list)
 
         subject = "Hey boss - got your recording and I am already crunching through it!"
         body_text = (
-            "Hello, \nThanks for trying out katka.ai - your virtual assistant.\n\n"
-            f"Here are the files I have received: \n{file_list_str}\n\n"
-            f"This will take me 2-15mins, if you don't hear back please contact my supervisor at {DEBUG_RECIPIENT}"
+            "Hello, <br/><br/>Thanks for trying out katka.ai - your virtual assistant.<br />"
+            f"Here are the files I have received: <br /><ul>{file_list_str}</ul><br />"
+            f"<p>This will take me 2-15mins.</p>"
+            "<h3>Questions?</h3>"
+            f"Please contact my supervisors at {DEBUG_RECIPIENT} - thanks - your team at katka.ai"
         )
         send_email(email_address, subject, body_text)
 
@@ -85,14 +96,16 @@ def send_response(email_address, webpage_link, attachment_paths, people_count, t
     subject = "Summaries from your recent networking event are ready for your review!"
     # TODO: Generate with GPT ideally personalized to the transcript.
     body_text = (
-        "Hello, \n"
-        "Sounds you had a blast at your recent event! \n\n"
-        f"Good job - you met {people_count} with {todo_count} suggested follow ups.\n\n"
-        "What to do next?"
-        f"* Access your <a href=\"{webpage_link}\">flashcards and todolist online</a>"
-        "* See attachment for a nice table format of the summaries\n\n"
-        "Questions?\n"
-        f"Please contact my supervisors at {DEBUG_RECIPIENT}"
+        "Hello, <br/><br/>"
+        "Sounds you had a blast at your recent event!<br/>"
+        f"Good job you:<br/>"
+        f"<ul><li> you met {people_count} people</li>"
+        f"<li> with {todo_count} follow ups with suggested drafts to spark your new relationships!</li></ul>\n"
+        "<h3>What to do next?<h3>"
+        f"<ul><li>Access your <a href=\"{webpage_link}\">flashcards and todolist online</a></li>"
+        "<li>See attachment for a nice table format of the summaries</li></ul>"
+        "<h3>Questions?</h3>"
+        f"Please contact my supervisors at {DEBUG_RECIPIENT} - thanks - your team at katka.ai"
     )
     send_email(email_address, subject, body_text, attachment_paths)
 
