@@ -89,7 +89,7 @@ def generate_page(page_title, summaries=None, todo_list=None, template=None):
 
         transcript = person.get("transcript")
         if isinstance(transcript, list):
-            transcript = "<br /".join(transcript)
+            transcript = "<br />".join(transcript)
         style_display = "block" if i == 0 else "hidden"
         body = {
             SUB_TEMPLATE_KEY: {

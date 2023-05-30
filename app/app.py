@@ -104,7 +104,7 @@ def send_response(email_address, webpage_link, attachment_paths, people_count, t
         f"Good job you:<br/>"
         f"<ul><li> you met {people_count} people</li>"
         f"<li> with {todo_count} follow ups with suggested drafts to spark your new relationships!</li></ul>\n"
-        "<h3>What to do next?<h3>"
+        "<h3>What to do next?</h3>"
         f"<ul><li>Access your <a href=\"{webpage_link}\">follow-up draft messages</a></li>"
         "<li>You can 1-click copy the option you like the best, tweak it if needed and send to your new contact.</li>"
         "<li>See attachment for a nice table format of the summaries</li></ul>"
