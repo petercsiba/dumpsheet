@@ -9,134 +9,15 @@ import time
 from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
 
-from email_utils import create_raw_email_with_attachments
+from emails import send_confirmation, send_response
 from generate_flashcards import generate_page
 from networking_dump import generate_todo_list, networking_dump
-from storage_utils import write_to_csv
+from storage_utils import pretty_filesize, write_to_csv
 
 s3 = boto3.client('s3')
 
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
 STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
-SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
-DEBUG_RECIPIENTS = ["petherz@gmail.com", "kata.sabo@gmail.com"]
-
-
-def send_email(email_address, subject, body_text, attachment_paths=None):
-    if not isinstance(email_address, str):
-        print(f"email_adress is NOT a string {email_address}, falling back to {DEBUG_RECIPIENTS}")
-        email_address = DEBUG_RECIPIENTS[0]
-
-    ses = boto3.client('ses')
-    sender = SENDER_EMAIL
-    recipients = [email_address]
-    bcc_recipients = list(set(DEBUG_RECIPIENTS) - {email_address})
-    body_html = """<html>
-    <head></head>
-    <body>
-      <h3>""" + subject + """</h3>
-      """ + body_text + """
-    </body>
-    </html>
-    """
-
-    # Create the raw email
-    raw_email = create_raw_email_with_attachments(
-        subject,
-        body_html,
-        sender=sender,
-        to=recipients,
-        bcc=bcc_recipients,
-        reply_to=DEBUG_RECIPIENTS,
-        attachment_paths=attachment_paths,
-    )
-
-    try:
-        print(f"Attempting to send email to {recipients} with attached files {attachment_paths}")
-        response = ses.send_raw_email(
-            Source=sender,
-            Destinations=recipients + bcc_recipients,
-            RawMessage={
-                'Data': raw_email.as_string(),
-            }
-        )
-        print(f'Email sent! Message ID: {response["MessageId"]}, Subject: {subject}')
-    except Exception as e:
-        print(f'Email with subjectL {subject} failed to send. {e}')
-
-
-def pretty_filesize(file_path):
-    return f"{os.path.getsize(file_path) / 1048576:.2f}MB"
-
-
-def send_confirmation(email_address: str, attachment_file_paths: list):
-    if len(attachment_file_paths) == 0:
-        subject = "Yo boss - where is the attachment?"
-        body_text = ("""
-            <h3>Hello there! 👋</h3>
-    <p>Thanks for trying out katka.ai - your personal networking assistant - aka the backoffice hero who takes care of the admin so that you can focus on what truly matters.</p>
-    <p>But yo boss, where is the attachment? ☕ I would love to brew you a coffee, but I ain't real, so an emoji will have to do it: ☕</p>
-    <p>Remember, any audio file would do, I can convert stuff myself! 🎧</p>
-    <h3>Got any questions? 🔥</h3>
-    <p>Feel free to hit reply. My supervisors are here to assist you with anything you need. 📞👩‍💼👨‍💼</p>
-    <p>Keep rocking it!</p>
-    <p>Your amazing team at katka.ai 🚀</p>
-        """)
-        send_email(email_address, subject, body_text)
-    else:
-        file_list = []
-        for file_path in attachment_file_paths:
-            file_size = pretty_filesize(file_path)
-            file_list.append(f"<li>{os.path.basename(file_path)} ({file_size})</li>")
-        file_list_str = "\n".join(file_list)
-
-        subject = "Hey boss - got your recording and I am already crunching through it!"
-        body_text = ("""
-    <h3>Hello there! 👋</h3>
-    <p>Thanks for trying out katka.ai - your personal networking assistant - aka the backoffice guru who takes care 
-        of the admin so that you can focus on what truly matters.</p>
-    <p>Guess what? 🎉 I've received the following files:</p>
-    <ul>""" + f"{file_list_str}" + """</ul>
-    <p>No worries, I'll handle them swiftly like a pro. This task should take me approximately 2-15 minutes. ⏱️</p>
-    <h3>Got any questions? 🔥</h3>""" +
-                     f"<p>Feel free to hit reply or reach out to my supervisors at {DEBUG_RECIPIENTS}. "
-                     f"They're here to assist you with anything you need. 📞👩‍💼👨‍💼</p>" +
-                     """<p>Keep rocking it!</p>
-    <p>Your amazing team at katka.ai 🚀</p>
-        """)
-        send_email(email_address, subject, body_text)
-
-
-def send_response(email_address, webpage_link, attachment_paths, people_count, todo_count):
-    # TODO: Generate with GPT ideally personalized to the transcript.
-
-    subject = "The summary from your recent networking event is ready for your review!"
-    body_text = (
-        "  <h3>Hey there! 👋</h3>     "
-        "  <p>Looks like you had an absolute blast at your recent event! Bravo to you for rocking it! 🎉🥳</p>     "
-        "  <p><strong>Here's a little recap of your success:</strong></p>     "
-        "  <ul>     "
-        f"      <li>You had the chance to meet {people_count} amazing individuals. 🤝</li>     "
-        f"      <li>And you've got {todo_count} follow-ups lined up, complete with some killer draft messages to      "
-        "      ignite those new relationships! 🔥💼</li>     "
-        "  </ul>     "
-        "  <h4>Now, let's talk about what's next, shall we? 💪</h4>     "
-        "  <p><strong>Here's your game plan:</strong></p>     "
-        "  <ul>     "
-        f"      <li>Head over to this awesome page: <a href=\"{webpage_link}\">follow-up draft messages</a>. "
-        f"          It's your treasure trove of well-crafted messages. 📩✉️</li>     "
-        "      <li>Choose the one that suits your style, give it a personal touch if necessary, "
-        "          and hit that send button to impress your new connections. ✨📧</li>     "
-        "      <li>Oh, and by the way, we've attached a nifty table format of all "
-        "          the juicy summaries for your convenience. 📄📊</li>     "
-        "  </ul>     "
-        "  <p>Got any burning questions? No worries! 😊</p>     "
-        f"  <p>Just hit reply or shoot an email to my exceptional supervisors at {DEBUG_RECIPIENTS}. "
-        "      They've got your back. 📮👩‍💼👨‍💼</p>     "
-        "  <h4>Keep slaying it! 💪🔥</h4>     "
-        "  <p>Your awesome team at katka.ai</p>     "
-    )
-    send_email(email_address, subject, body_text, attachment_paths)
 
 
 def write_output_to_local_and_bucket(

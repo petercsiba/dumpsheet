@@ -2,6 +2,10 @@ import csv
 import os
 
 
+def pretty_filesize(file_path):
+    return f"{os.path.getsize(file_path) / 1048576:.2f}MB"
+
+
 def mkdir_safe(directory_name):
     path = os.path.join(os.getcwd(), directory_name)
     if os.path.exists(directory_name):

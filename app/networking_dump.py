@@ -6,6 +6,8 @@ import pprint
 from openai_utils import gpt_response_to_json, run_prompt, Timer
 
 # config = toml.load('secrets.toml')
+# TODO: Change after some time - I am lazy to remove from commits or do ENV variables :D
+openai.api_key = "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"
 # AUDIO_FILE = "input/networking-transcript-1-katka-tech-roast-may-25.mp4"
 # command = f"ffmpeg -i input/{AUDIO_FILE} -c:v copy -c:a aac -strict experimental"
 # result = subprocess.run(command, shell=True, capture_output=True, text=True)
