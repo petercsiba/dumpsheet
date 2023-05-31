@@ -79,12 +79,13 @@ def generate_page(page_title, summaries=None, todo_list=None, template=None):
             if message_type.startswith("to "):
                 message_type = message_type[3:]
             todo_element_id = f"{element_id}-todo{j}"
+            outreach_draft = todo.get("outreach_draft", "NO DRAFT GENERATE").strip('"')
             follow_up = {
                 "follow_ups.element_id": todo_element_id,
                 "follow_ups.feedback_element_id": f"feedback-{todo_element_id}",
                 "follow_ups.option_num": j+1,
                 "follow_ups.message_type": message_type,
-                "follow_ups.outreach_draft": todo.get("outreach_draft"),
+                "follow_ups.outreach_draft": outreach_draft,
             }
             follow_ups.append(follow_up)
 
@@ -178,16 +179,16 @@ test_template_vars = {
 }
 
 
-# if __name__ == "__main__":
-#     with open("assets/index.html.template", "r") as handle:
-#         template = handle.read()
-#     page1 = generate_page(
-#         "My Test Page",
-#         gpt_response_to_json(test_summaries),
-#         gpt_response_to_json(test_todolist),
-#         template=template,
-#     )
-#     page2 = fill_template(template, test_template_vars, )
-#     print(f"writing generated page of length {len(page1)}")
-#     with open("assets/index.html", "w") as handle:
-#         handle.write(page1)
+if __name__ == "__main__":
+    with open("assets/index.html.template", "r") as handle:
+        template = handle.read()
+    page1 = generate_page(
+        "My Test Page",
+        gpt_response_to_json(test_summaries),
+        gpt_response_to_json(test_todolist),
+        template=template,
+    )
+    page2 = fill_template(template, test_template_vars, )
+    print(f"writing generated page of length {len(page1)}")
+    with open("assets/index.html", "w") as handle:
+        handle.write(page1)

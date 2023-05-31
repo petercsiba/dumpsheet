@@ -30,18 +30,6 @@
           border: 1px solid #000;
           padding: 10px;
         }
-
-        .gpt-copy-feedback {
-            display: none;
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 10px 20px;
-            background-color: #4CAF50; /* Green */
-            color: white;
-            font-size: 20px;
-            border-radius: 5px;
-        }
     </style>
     <script type="text/javascript">
         // Requires gpt-content, gpt-nav-button and linked id=contentId
@@ -81,13 +69,15 @@
 
             // Show feedback message
             var feedback = document.getElementById(feedbackId);
-            feedback.textContent = 'Copied!';
-            feedback.style.display = 'block';
+            var originalButtonText = feedback.innerHTML;
+            feedback.innerHTML = 'Copied!';
+            feedback.style.backgroundColor = '#4CAF50';
 
             // Hide feedback message after 2 seconds
             setTimeout(function() {
-                feedback.style.display = 'none';
-            }, 2000);
+                feedback.innerHTML = originalButtonText;
+                feedback.style.backgroundColor = '';
+            }, 1000);
         }
     </script>
 </head>
@@ -136,8 +126,12 @@
                 <span id="{{ follow_ups.element_id }}">
                     {{ follow_ups.outreach_draft }}
                 </span>
-                <button onclick="copyToClipboard('{{ follow_ups.element_id }}', '{{ follow_ups.feedback_element_id }}')">&#128203; Copy</button>
-                <div id="{{ follow_ups.feedback_element_id }}" class="copyFeedback"></div>
+                <button
+                    id="{{ follow_ups.feedback_element_id }}"
+                    onclick="copyToClipboard('{{ follow_ups.element_id }}', '{{ follow_ups.feedback_element_id }}')"
+                >
+                    Copy &#128203;
+                </button>
             </p>
             {{ follow_ups.end }}
 
