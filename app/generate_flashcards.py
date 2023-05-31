@@ -92,7 +92,7 @@ def generate_page(page_title, summaries=None, todo_list=None, template=None):
         transcript = person.get("transcript")
         if isinstance(transcript, list):
             transcript = "<br />".join(transcript)
-        style_display = "block" if i == 0 else "hidden"
+        style_display = "block" if i == 0 else "none"
         body = {
             SUB_TEMPLATE_KEY: {
                 "follow_ups": follow_ups

@@ -30,18 +30,6 @@
           border: 1px solid #000;
           padding: 10px;
         }
-
-        .gpt-copy-feedback {
-            display: none;
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 10px 20px;
-            background-color: #4CAF50; /* Green */
-            color: white;
-            font-size: 20px;
-            border-radius: 5px;
-        }
     </style>
     <script type="text/javascript">
         // Requires gpt-content, gpt-nav-button and linked id=contentId
@@ -96,7 +84,7 @@
 <body>
 
 <div class="wrapper d-flex align-items-stretch">
-    <nav id="sidebar" class="active">
+    <nav id="sidebar">
         <div class="custom-menu">
             <button type="button" id="sidebarCollapse" class="btn btn-primary">
                 <i class="fa fa-bars"></i>
@@ -169,7 +157,7 @@
     
         <div id="person0"
             class="gpt-content"
-            style="display: person_body.style_display;">
+            style="display: block;">
             <h2 class="mb-4">Wojciech Kretowski</h2>
             <ul>
                 <li><strong>Priority</strong>: 4</li>
@@ -235,7 +223,7 @@
 
         <div id="person1"
             class="gpt-content"
-            style="display: person_body.style_display;">
+            style="display: none;">
             <h2 class="mb-4">Katarzyna Stankiewicz</h2>
             <ul>
                 <li><strong>Priority</strong>: 4</li>
@@ -286,7 +274,7 @@
 
         <div id="person2"
             class="gpt-content"
-            style="display: person_body.style_display;">
+            style="display: none;">
             <h2 class="mb-4">Miguel Coelho</h2>
             <ul>
                 <li><strong>Priority</strong>: 4</li>
@@ -337,7 +325,7 @@
 
         <div id="person3"
             class="gpt-content"
-            style="display: person_body.style_display;">
+            style="display: none;">
             <h2 class="mb-4">Daria Derkach</h2>
             <ul>
                 <li><strong>Priority</strong>: 4</li>
@@ -403,7 +391,7 @@
 
         <div id="person4"
             class="gpt-content"
-            style="display: person_body.style_display;">
+            style="display: none;">
             <h2 class="mb-4">Valentina</h2>
             <ul>
                 <li><strong>Priority</strong>: 3</li>
@@ -454,7 +442,7 @@
 
         <div id="person5"
             class="gpt-content"
-            style="display: person_body.style_display;">
+            style="display: none;">
             <h2 class="mb-4">Alexander</h2>
             <ul>
                 <li><strong>Priority</strong>: 3</li>
@@ -505,7 +493,7 @@
 
         <div id="person6"
             class="gpt-content"
-            style="display: person_body.style_display;">
+            style="display: none;">
             <h2 class="mb-4">Abishek Chopra</h2>
             <ul>
                 <li><strong>Priority</strong>: 3</li>
@@ -559,5 +547,9 @@
 <script src="js/popper.js"></script>
 <script src="js/bootstrap.min.js"></script>
 <script src="js/main.js"></script>
+<script>
+  // var sidebar = document.getElementById('sidebar');
+  // sidebar.className = 'active';
+</script>
 </body>
 </html>
