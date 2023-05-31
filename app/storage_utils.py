@@ -3,7 +3,11 @@ import os
 
 
 def pretty_filesize(file_path):
-    return f"{os.path.getsize(file_path) / 1048576:.2f}MB"
+    return f"{os.path.getsize(file_path) / (1024 * 1024):.2f}MB"
+
+
+def get_fileinfo(file_handle):
+    return f"File {file_handle.name} is {pretty_filesize(file_handle.name)}"
 
 
 def mkdir_safe(directory_name):

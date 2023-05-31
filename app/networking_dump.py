@@ -1,9 +1,9 @@
 import json
 import openai
-import os
 import pprint
 
 from openai_utils import gpt_response_to_json, run_prompt, Timer
+from storage_utils import get_fileinfo
 
 # config = toml.load('secrets.toml')
 # TODO: Change after some time - I am lazy to remove from commits or do ENV variables :D
@@ -23,20 +23,13 @@ test_person_to_transcript = None
 test_summaries = None
 
 
-# It can be that GPT returns different keys even running the same things
-def multiget(arr, key1, key2):
-    if key1 in arr:
-        return arr[key1]
-    return arr[key2]
+# TODO: Maybe better place in openai_utils
+def transcribe_audio(audio_filepath):
+    if test_transcript is not None:
+        return test_transcript
 
+    prompt_hint = "notes from a networking event about the new people I met with my impressions and follow up ideas"
 
-def get_fileinfo(file_handle):
-    file_size_bytes = os.path.getsize(file_handle.name)
-    file_size_mb = file_size_bytes / (1024 * 1024)
-    return f"File {file_handle.name} is {file_size_mb:.2f} MB"
-
-
-def generate_transcript(audio_filepath, prompt_hint=None):
     # (2023, May): File uploads are currently limited to 25 MB and the following input file types are supported:
     #   mp3, mp4, mpeg, mpga, m4a, wav, and webm
     # For longer inputs, we can use pydub to chunk it up
@@ -64,7 +57,7 @@ def generate_transcript(audio_filepath, prompt_hint=None):
 
 # Current approach:
 # * Do this in two passes, one is to get all people the text talks about
-# * Then for everyone get all substrings with any mention on them
+# * Then for every person get all substrings with any mention on them
 # No dealing with indexes OR json messages here
 # NOTE: The original approach of sub-stringing the original string worked only like 70% right:
 # * Many un-attributed gaps (which was painful to map)
@@ -193,8 +186,6 @@ def per_person_transcripts_to_summaries(person_to_transcript):
     return summaries
 
 
-# Input is a dictionary of fields to values
-# Output is list of candidate texts
 def generate_first_outreaches(name, person_transcript, intents):
     result = []
     for intent in intents:
@@ -220,13 +211,9 @@ def generate_first_outreaches(name, person_transcript, intents):
     return result
 
 
-def networking_dump(audio_file):
-    print(f"Running networking_dump on {audio_file}")
-    if test_transcript is None:
-        prompt_hint = "notes from a networking event about the new people I met with my impressions and follow up ideas"
-        raw_transcript = generate_transcript(audio_filepath=audio_file, prompt_hint=prompt_hint)
-    else:
-        raw_transcript = test_transcript
+# =============== MAIN FUNCTIONS TO BE CALLED  =================
+def extract_per_person_summaries(raw_transcript):
+    print(f"Running networking_dump on raw_transcript of size {len(raw_transcript)}")
 
     if test_person_to_transcript is None:
         person_to_transcript = get_per_person_transcript(raw_transcript=raw_transcript)

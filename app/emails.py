@@ -1,6 +1,8 @@
 import boto3
 import os
 
+from bs4 import BeautifulSoup
+
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -11,7 +13,42 @@ SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
 DEBUG_RECIPIENTS = ["petherz@gmail.com", "kata.sabo@gmail.com"]
 
 
-def create_raw_email_with_attachments(subject, body_html, sender, to: list, bcc: list, reply_to: list, attachment_paths=None):
+def get_text_from_email(msg):
+    print("get_text_from_email")
+    parts = []
+    if msg.is_multipart():
+        for part in msg.walk():
+            if part.get_content_type() == 'text/plain':
+                print("multipart: found a text/plain")
+                parts.append(part.get_payload(decode=True))
+            elif part.get_content_type() == 'text/html':
+                print("multipart: found a text/html")
+                soup = BeautifulSoup(part.get_payload(decode=True), 'html.parser')
+                text = soup.get_text()
+                parts.append(text)
+    elif msg.get_content_type() == 'text/plain':
+        print("single-part: found a text/plain")
+        parts.append(msg.get_payload(decode=True))
+    elif msg.get_content_type() == 'text/html':
+        print("single-part: found a text/html")
+        soup = BeautifulSoup(msg.get_payload(decode=True), 'html.parser')
+        text = soup.get_text()
+        parts.append(text)
+
+    result = " ".join(parts)
+    print(f"get_text_from_email: total {len(parts)} found with {len(result.split())} tokens")
+    return result
+
+
+def create_raw_email_with_attachments(
+        subject,
+        body_html,
+        sender,
+        to: list,
+        bcc: list,
+        reply_to: list,
+        attachment_paths=None
+):
     if attachment_paths is None:
         attachment_paths = []
 
@@ -96,8 +133,10 @@ def send_confirmation(email_address: str, attachment_file_paths: list):
         subject = "Yo boss - where is the attachment?"
         body_text = ("""
             <h3>Hello there! 👋</h3>
-    <p>Thanks for trying out katka.ai - your personal networking assistant - aka the backoffice hero who takes care of the admin so that you can focus on what truly matters.</p>
-    <p>But yo boss, where is the attachment? ☕ I would love to brew you a coffee, but I ain't real, so an emoji will have to do it: ☕</p>
+    <p>Thanks for trying out katka.ai - your personal networking assistant - 
+    aka the backoffice hero who takes care of the admin so that you can focus on what truly matters.</p>
+    <p>But yo boss, where is the attachment? ☕ I would love to brew you a coffee, but I ain't real, 
+    so an emoji will have to do it: ☕</p>
     <p>Remember, any audio file would do, I can convert stuff myself! 🎧</p>
     <h3>Got any questions? 🔥</h3>
     <p>Feel free to hit reply. My supervisors are here to assist you with anything you need. 📞👩‍💼👨‍💼</p>
@@ -159,4 +198,3 @@ def send_response(email_address, webpage_link, attachment_paths, people_count, t
         "  <p>Your awesome team at katka.ai</p>     "
     )
     send_email(email_address, subject, body_text, attachment_paths)
-
