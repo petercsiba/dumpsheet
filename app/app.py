@@ -1,6 +1,5 @@
 # TODO: Prioritize all TODOs lol
 import boto3
-import datetime
 import email
 import os
 import re
@@ -19,7 +18,7 @@ s3 = boto3.client('s3')
 
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
 STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
-SENDER_EMAIL = "assistant@katka.ai"
+SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
 DEBUG_RECIPIENTS = ["petherz@gmail.com", "kata.sabo@gmail.com"]
 
 
@@ -48,6 +47,7 @@ def send_email(email_address, subject, body_text, attachment_paths=None):
         sender=sender,
         to=recipients,
         bcc=bcc_recipients,
+        reply_to=DEBUG_RECIPIENTS,
         attachment_paths=attachment_paths,
     )
 
@@ -72,50 +72,69 @@ def pretty_filesize(file_path):
 def send_confirmation(email_address: str, attachment_file_paths: list):
     if len(attachment_file_paths) == 0:
         subject = "Yo boss - where is the attachment?"
-        body_text = (
-            "Hello, <br/><br/>Thanks for trying out katka.ai - your personal networking assistant "
-            "- aka the backoffice guy/gal who takes care of the admin so that you can focus on what matters.<br />"
-            "But yo boss, where is the attachment? I would love to brew you a coffee, but "
-            "I ain't real so an emoji would need to do it \u2615 <br />"
-            "Remember, any audio-file would do, I can convert stuff myself \U0001F4AA"
-            "<h3>Questions?</h3>"
-            f"Please contact my supervisors at {DEBUG_RECIPIENTS} - thanks - your team at katka.ai"
-        )
+        body_text = ("""
+            <h3>Hello there! 👋</h3>
+    <p>Thanks for trying out katka.ai - your personal networking assistant - aka the backoffice hero who takes care of the admin so that you can focus on what truly matters.</p>
+    <p>But yo boss, where is the attachment? ☕ I would love to brew you a coffee, but I ain't real, so an emoji will have to do it: ☕</p>
+    <p>Remember, any audio file would do, I can convert stuff myself! 🎧</p>
+    <h3>Got any questions? 🔥</h3>
+    <p>Feel free to hit reply. My supervisors are here to assist you with anything you need. 📞👩‍💼👨‍💼</p>
+    <p>Keep rocking it!</p>
+    <p>Your amazing team at katka.ai 🚀</p>
+        """)
         send_email(email_address, subject, body_text)
     else:
         file_list = []
         for file_path in attachment_file_paths:
             file_size = pretty_filesize(file_path)
             file_list.append(f"<li>{os.path.basename(file_path)} ({file_size})</li>")
-        file_list_str = "<li".join(file_list)
+        file_list_str = "\n".join(file_list)
 
         subject = "Hey boss - got your recording and I am already crunching through it!"
-        body_text = (
-            "Hello, <br/><br/>Thanks for trying out katka.ai - your personal networking assistant "
-            "- aka the backoffice guy/gal who takes care of the admin so that you can focus on what matters.<br />"
-            f"Here are the files I have received: <br /><ul>{file_list_str}</ul><br />"
-            f"<p>This will take me 2-15mins.</p>"
-            "<h3>Questions?</h3>"
-            f"Please contact my supervisors at {DEBUG_RECIPIENTS} - thanks - your team at katka.ai"
-        )
+        body_text = ("""
+    <h3>Hello there! 👋</h3>
+    <p>Thanks for trying out katka.ai - your personal networking assistant - aka the backoffice guru who takes care 
+        of the admin so that you can focus on what truly matters.</p>
+    <p>Guess what? 🎉 I've received the following files:</p>
+    <ul>""" + f"{file_list_str}" + """</ul>
+    <p>No worries, I'll handle them swiftly like a pro. This task should take me approximately 2-15 minutes. ⏱️</p>
+    <h3>Got any questions? 🔥</h3>""" +
+                     f"<p>Feel free to hit reply or reach out to my supervisors at {DEBUG_RECIPIENTS}. "
+                     f"They're here to assist you with anything you need. 📞👩‍💼👨‍💼</p>" +
+                     """<p>Keep rocking it!</p>
+    <p>Your amazing team at katka.ai 🚀</p>
+        """)
         send_email(email_address, subject, body_text)
 
 
 def send_response(email_address, webpage_link, attachment_paths, people_count, todo_count):
-    subject = "Summaries from your recent networking event are ready for your review!"
     # TODO: Generate with GPT ideally personalized to the transcript.
+
+    subject = "The summary from your recent networking event is ready for your review!"
     body_text = (
-        "Hello, <br/><br/>"
-        "Sounds you had a blast at your recent event!<br/>"
-        f"Good job you:<br/>"
-        f"<ul><li> you met {people_count} people</li>"
-        f"<li> with {todo_count} follow ups with suggested drafts to spark your new relationships!</li></ul>\n"
-        "<h3>What to do next?</h3>"
-        f"<ul><li>Access your <a href=\"{webpage_link}\">follow-up draft messages</a></li>"
-        "<li>You can 1-click copy the option you like the best, tweak it if needed and send to your new contact.</li>"
-        "<li>See attachment for a nice table format of the summaries</li></ul>"
-        "<h3>Questions?</h3>"
-        f"Please contact my supervisors at {DEBUG_RECIPIENTS} - thanks - your team at katka.ai"
+        "  <h3>Hey there! 👋</h3>     "
+        "  <p>Looks like you had an absolute blast at your recent event! Bravo to you for rocking it! 🎉🥳</p>     "
+        "  <p><strong>Here's a little recap of your success:</strong></p>     "
+        "  <ul>     "
+        f"      <li>You had the chance to meet {people_count} amazing individuals. 🤝</li>     "
+        f"      <li>And you've got {todo_count} follow-ups lined up, complete with some killer draft messages to      "
+        "      ignite those new relationships! 🔥💼</li>     "
+        "  </ul>     "
+        "  <h4>Now, let's talk about what's next, shall we? 💪</h4>     "
+        "  <p><strong>Here's your game plan:</strong></p>     "
+        "  <ul>     "
+        f"      <li>Head over to this awesome page: <a href=\"{webpage_link}\">follow-up draft messages</a>. "
+        f"          It's your treasure trove of well-crafted messages. 📩✉️</li>     "
+        "      <li>Choose the one that suits your style, give it a personal touch if necessary, "
+        "          and hit that send button to impress your new connections. ✨📧</li>     "
+        "      <li>Oh, and by the way, we've attached a nifty table format of all "
+        "          the juicy summaries for your convenience. 📄📊</li>     "
+        "  </ul>     "
+        "  <p>Got any burning questions? No worries! 😊</p>     "
+        f"  <p>Just hit reply or shoot an email to my exceptional supervisors at {DEBUG_RECIPIENTS}. "
+        "      They've got your back. 📮👩‍💼👨‍💼</p>     "
+        "  <h4>Keep slaying it! 💪🔥</h4>     "
+        "  <p>Your awesome team at katka.ai</p>     "
     )
     send_email(email_address, subject, body_text, attachment_paths)
 
@@ -289,7 +308,6 @@ def lambda_handler(event, context):
             reply_to_address=reply_to_address,
             object_prefix=object_prefix
         )
-
 
 # TODO: Better local testing with running the container locally and curling it with the request (needs S3 I guess).
 # if __name__ == "__main__":
