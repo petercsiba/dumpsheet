@@ -32,6 +32,18 @@ def get_flashcard_template():
           border: 1px solid #000;
           padding: 10px;
         }
+
+        .gpt-copy-feedback {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50; /* Green */
+            color: white;
+            font-size: 20px;
+            border-radius: 5px;
+        }
     </style>
     <script type="text/javascript">
         // Requires gpt-content, gpt-nav-button and linked id=contentId
@@ -56,17 +68,28 @@ def get_flashcard_template():
           // Add the active-button class to the clicked button
           clickedButton.classList.add('gpt-active-button');
         }
-        function copyToClipboard(id) {
-          var content = document.getElementById(id).innerText;
-          var el = document.createElement('textarea');
-          el.value = content;
-          el.setAttribute('readonly', '');
-          el.style.position = 'absolute';
-          el.style.left = '-9999px';
-          document.body.appendChild(el);
-          el.select();
-          document.execCommand('copy');
-          document.body.removeChild(el);
+
+        function copyToClipboard(id, feedbackId) {
+            var content = document.getElementById(id).innerText;
+            var el = document.createElement('textarea');
+            el.value = content;
+            el.setAttribute('readonly', '');
+            el.style.position = 'absolute';
+            el.style.left = '-9999px';
+            document.body.appendChild(el);
+            el.select();
+            document.execCommand('copy');
+            document.body.removeChild(el);
+
+            // Show feedback message
+            var feedback = document.getElementById(feedbackId);
+            feedback.textContent = 'Copied!';
+            feedback.style.display = 'block';
+
+            // Hide feedback message after 2 seconds
+            setTimeout(function() {
+                feedback.style.display = 'none';
+            }, 2000);
         }
     </script>
 </head>
@@ -115,7 +138,8 @@ def get_flashcard_template():
                 <span id="{{ follow_ups.element_id }}">
                     {{ follow_ups.outreach_draft }}
                 </span>
-                <button onclick="copyToClipboard('{{ follow_ups.element_id }}')">&#128203; Copy</button>
+                <button onclick="copyToClipboard('{{ follow_ups.element_id }}', '{{ follow_ups.feedback_element_id }}')">&#128203; Copy</button>
+                <div id="{{ follow_ups.feedback_element_id }}" class="copyFeedback"></div>
             </p>
             {{ follow_ups.end }}
 
