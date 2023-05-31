@@ -20,7 +20,7 @@ def get_text_from_email(msg):
         for part in msg.walk():
             if part.get_content_type() == 'text/plain':
                 print("multipart: found a text/plain")
-                parts.append(part.get_payload(decode=True))
+                parts.append(part.get_payload(decode=True).decode())
             elif part.get_content_type() == 'text/html':
                 print("multipart: found a text/html")
                 soup = BeautifulSoup(part.get_payload(decode=True), 'html.parser')
@@ -28,7 +28,7 @@ def get_text_from_email(msg):
                 parts.append(text)
     elif msg.get_content_type() == 'text/plain':
         print("single-part: found a text/plain")
-        parts.append(msg.get_payload(decode=True))
+        parts.append(msg.get_payload(decode=True).decode())
     elif msg.get_content_type() == 'text/html':
         print("single-part: found a text/html")
         soup = BeautifulSoup(msg.get_payload(decode=True), 'html.parser')
