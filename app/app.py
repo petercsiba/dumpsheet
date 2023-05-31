@@ -19,8 +19,6 @@ s3 = boto3.client('s3')
 
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
 STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
-# TODO: Use timestamp from the saved email file so the static pages can be re-generated.
-RUN_ID = str(datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
 SENDER_EMAIL = "assistant@katka.ai"
 DEBUG_RECIPIENTS = ["petherz@gmail.com", "kata.sabo@gmail.com"]
 
@@ -170,6 +168,9 @@ def process_file(file_path, sender_name=None, reply_to_address=None, object_pref
     # TODO: Use more proper temp fs
     local_output_prefix = f"/tmp/{object_prefix}"
 
+    # TODO: Make this multi-modal by e.g. also taking the email body.
+    #   One-day we should separate out the ffmpeg conversion from the "unstructed text -> structured" part.
+    #   (Or support multiple input types)
     print(f"Running Sekretar-katka")
     summaries = networking_dump(audio_file)
     summaries_filepath, _ = write_output_to_local_and_bucket(
@@ -244,6 +245,13 @@ def lambda_handler(event, context):
         reply_to_address = addr
     print(f"email from {sender_name} ({addr}) reply-to {reply_to_address}")
 
+    # Generate run-id as an idempotency key for re-runs
+    if msg['Date']:
+        run_idempotency_key = email.utils.parsedate_to_datetime(msg['Date'])
+    else:
+        print("Could not find 'Date' header in the email, defaulting to `Message-ID`")
+        run_idempotency_key = msg['Message-ID']
+
     # Process the attachments
     attachment_file_paths = []
     for part in msg.walk():
@@ -271,8 +279,9 @@ def lambda_handler(event, context):
     except Exception as err:
         print(f"ERROR: Could not send confirmation to {reply_to_address} cause {err}")
 
+    # TODO: Merge all attachment transcripts into one input
     for attachment_num, file_path in enumerate(attachment_file_paths):
-        object_prefix = f"{sender_name}-{RUN_ID}-{attachment_num}"
+        object_prefix = f"{sender_name}-{run_idempotency_key}-{attachment_num}"
         object_prefix = re.sub(r'\s', '-', object_prefix)
         process_file(
             file_path=file_path,
