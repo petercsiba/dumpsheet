@@ -57,7 +57,7 @@ def send_email(email_address, subject, body_text, attachment_paths=None):
         print(f"Attempting to send email to {recipients} with attached files {attachment_paths}")
         response = ses.send_raw_email(
             Source=sender,
-            Destinations=recipients,
+            Destinations=recipients + bcc_recipients,
             RawMessage={
                 'Data': raw_email.as_string(),
             }

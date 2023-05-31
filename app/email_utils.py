@@ -14,6 +14,7 @@ def create_raw_email_with_attachments(subject, body_html, sender, to: list, bcc:
     msg['From'] = sender
     msg['To'] = ', '.join(to)
     msg['Bcc'] = ', '.join(bcc)
+    print(f"Sending email from {msg['From']} to {msg['To']} (and bcc {msg['Bcc']} with subject {msg['Subject']}")
 
     # Create a multipart/alternative child container
     msg_body = MIMEMultipart('alternative')
