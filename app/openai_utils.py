@@ -67,6 +67,7 @@ def gpt_response_to_json(raw_response):
     if raw_response is None:
         print("raw_response is None")
         return {}
+    orig_repsonse = raw_response
     # For "Expecting property name enclosed in double quotes"
     # Obviously not bullet-proof for stuff like 'Ed's', can be probably
     # raw_json = raw_response.replace("'", '"')
@@ -84,6 +85,7 @@ def gpt_response_to_json(raw_response):
     raw_response = re.sub(r'\],\s*\]', ']]', raw_response)
     raw_response = re.sub(r'\},\s*\}', '}}', raw_response)
     raw_response = re.sub(r'\},\s*\]', '}]', raw_response)
+    print(f"converted {orig_repsonse}\n\nto\n\n{raw_response}")
     try:
         # The model might have just crafted a valid json object
         result = json.loads(raw_response)
@@ -93,11 +95,15 @@ def gpt_response_to_json(raw_response):
         if start_index == -1:
             start_index = raw_response.find("{")
         raw_json = raw_response[start_index:]
-        # raw_json = re.sub(r".*?({)", r"\1", raw_response)
+        # TODO: Handle the case when there is clearly NO json response.
+        #   Like these can be "-" separated into a list  - Catalina: girl from Romania- Car reselling guy: fro
+        #   NOTE: Figure out if this uses spaces or not.
+        if len(raw_json) * 2 < len(raw_response):
+            print(f"WARNING: Likely the GPT response is NOT a JSON:\n{raw_json}\nresulted from\n{orig_repsonse}")
         try:
             result = json.loads(raw_json)
         except json.decoder.JSONDecodeError as err:
-            print(f"Could NOT decode json cause {err} for {raw_json}")
+            print(f"Could NOT decode json cause {err} for raw_reponse (note does a bunch of replaces) {raw_response}")
             return None
             # return '{"error": "JSONDecodeError", "raw_response": "' + json.dumps(raw_response) + '"}'
     print(result)

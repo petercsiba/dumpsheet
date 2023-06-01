@@ -201,6 +201,18 @@ def process_email(raw_email, network_calls=True):
     )
 
 
+# TODO: Remove the retry mechanism (leads to two confirmation emails).
+# TODO: Send email on failure via CloudWatch monitoring
+#     CloudWatch rules respond to system events such as changes to AWS resources.
+#     To create a rule that triggers when your Lambda function logs an error message:
+#     Go to the CloudWatch service in the AWS Management Console.
+#     In the navigation pane, click on "Rules", then "Create rule".
+#     For the "Event Source", choose "Event Pattern".
+#     Choose "Build event pattern to match events by service".
+#     Choose "Service Name" -> "Lambda", "Event Type" -> "AWS API Call via CloudTrail".
+#     Then specify the "errorCode" as needed to match error events from your function.
+#     For "Targets", choose "SNS topic" and select the SNS topic you created in step 2.
+#     Configure input, tags, and permissions as required and create the rule.
 def lambda_handler(event, context):
     print(f"Received Event: {event}")
     # Get the bucket name and file key from the event
@@ -222,6 +234,7 @@ def lambda_handler(event, context):
 # TODO: Make this an automated-ish test (although would require further mocking of OpenAI calls from the test_.. stuff)
 if __name__ == "__main__":
     OUTPUT_BUCKET_NAME = None
-    with open("input/test-email-short", "rb") as handle:
+    # Maybe all test cases?
+    with open("test/katka-multimodal", "rb") as handle:
         file_contents = handle.read()
         process_email(file_contents, network_calls=False)

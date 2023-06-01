@@ -68,12 +68,14 @@ def get_per_person_transcript(raw_transcript):
     token_count = len(transcript_words)
     print(f"Transcript has {token_count} words")
     # Make sure to include the whole string without gaps.
-    assert(token_count < 3500)  # todo implement this case
+    # TODO: Eventually we would need to implement this case
+    assert(token_count < 3500, f"raw_transcript too long: {token_count}")
 
     query_people = """ 
-    Enumerate all persons the following transcript talks about, 
-    formatted as a json list of strings in format name : 5 words describing them, 
-    if two people without name sound similar then they are the same
+    Enumerate all persons the transcript in the end talks about, 
+    please output a valid json list of strings in format "name : 5 to 10 words describing the person". 
+    If two people without name sound similar then they are the same.
+    If the gender he or she changes, these are likely different people.
     The transcript: {}
     """.format(raw_transcript)
     if test_get_names is None:
@@ -88,6 +90,7 @@ def get_per_person_transcript(raw_transcript):
 
     result = {}
     size = 5
+    # TODO: Handle people null case
     sublists = [people[i:i+size] for i in range(0, len(people), size)]
     # Output format: json map of name to list of strings mentioning them
     # lead to non-parsaeble json like : ...cool",    ], (the extra comma)
@@ -213,7 +216,7 @@ def generate_first_outreaches(name, person_transcript, intents):
 
 # =============== MAIN FUNCTIONS TO BE CALLED  =================
 def extract_per_person_summaries(raw_transcript):
-    print(f"Running networking_dump on raw_transcript of size {len(raw_transcript)}")
+    print(f"Running networking_dump on raw_transcript of {len(raw_transcript.split())} token size")
 
     if test_person_to_transcript is None:
         person_to_transcript = get_per_person_transcript(raw_transcript=raw_transcript)
