@@ -169,6 +169,7 @@ def process_email(raw_email, network_calls=True):
 
     try:
         if network_calls:
+            # TODO: Add email body text count
             send_confirmation(reply_to_address, attachment_file_paths)
         else:
             print(f"would have sent confirmation to {reply_to_address} with {attachment_file_paths}")

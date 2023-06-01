@@ -253,13 +253,14 @@ def generate_todo_list(summaries):
     # Priority 5 is the highest, 1 is lowest
     todo_list = []
     for person in summaries:
-        intents = ["to learn more about their company"]
-        follow_ups = person.get("follow_ups", None)
-        if follow_ups is None:
-            intents.append("to thank you, say good to meet you")
-        else:
-            for follow_up in follow_ups:
-                intents.append(f"to {follow_up}")
+        intents = []
+        for follow_up in person.get("follow_ups", None):
+            intents.append(f"to follow up on {follow_up}")
+        intents.extend([
+            "to thank you, mentions the good vibes, say nice to meet you",
+            "to learn more about them or their company",
+            "to give them feedback",
+        ])
 
         outreaches = generate_first_outreaches(
             person["name"],
