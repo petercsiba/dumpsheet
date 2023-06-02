@@ -2,7 +2,7 @@ import json
 import openai
 import pprint
 
-from openai_utils import gpt_response_to_json, run_prompt, Timer
+from openai_utils import gpt_response_to_json, gpt_response_to_plaintext, run_prompt, Timer
 from storage_utils import get_fileinfo
 
 # config = toml.load('secrets.toml')
@@ -74,10 +74,13 @@ def get_per_person_transcript(raw_transcript):
     assert(token_count < 3500, f"raw_transcript too long: {token_count}")
 
     query_people = """ 
-    Enumerate all persons the transcript in the end talks about, 
-    please output a valid json list of strings in format "name : 5 to 10 words describing the person". 
-    If two people without name sound similar then they are the same.
-    If the gender he or she changes, these are likely different people.
+    Enumerate all people mentioned in the attached transcript, 
+    please output a valid json list of strings in format: 
+    * "person identifier (such as name): a 5-10 word description".
+    Note that: 
+    * There might be many un-named people, make sure to include them all.
+    * If two people without name sound similar then they are the same.
+    * If the pronoun he, she, them or it changes, these are likely different people. 
     The transcript: {}
     """.format(raw_transcript)
     if test_get_names is None:
@@ -86,9 +89,15 @@ def get_per_person_transcript(raw_transcript):
     else:
         people = gpt_response_to_json(test_get_names)
     print(f"People: {json.dumps(people)}")
+
     # Solves TypeError: unhashable type: 'slice'
     if isinstance(people, dict):
         people = [f"{key}: {value}" for key, value in people.items()]
+    elif isinstance(people, list):
+        # Sometimes it's a list of dicts, so convert each person object to just a plain string.
+        people = [gpt_response_to_plaintext(str(person)) for person in people]
+    else:
+        print(f"ERROR people response got un-expected type {type(people)}: {people}")
 
     result = {}
     size = 5
@@ -100,7 +109,7 @@ def get_per_person_transcript(raw_transcript):
         # TODO: Try using the Chat API to re-use the same input transcript
         #   Might be NOT possible cause it takes a list of messages
         query_mentions = """
-        For each of the follow people, get all substrings which mention them from the transcript.
+        For each of the follow people with their description, get all substrings which mention them in the transcript.
         If they are referenced multiple times, make sure to include all full original substrings as a list of strings.
         Input format: json list of strings where each strings has format of name: super short characteristic
         Output format: {}
@@ -150,7 +159,7 @@ def per_person_transcripts_to_summaries(person_to_transcript):
         I want to structure the following note describing me meeting a person.
         Input: a transcript of me talking about the person.
         Output: a json dict with the following key value pairs:
-    * name: name
+    * name: name (or 2-3 word description)
     * role: current role or past experience 
     * industry: one two works for the are of their specialty, or null if not sure
     * vibes: my first impression and general vibes of them

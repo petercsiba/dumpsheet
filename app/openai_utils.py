@@ -75,11 +75,12 @@ def get_first_occurrence(s: str, list_of_chars: list):
         return -1
 
 
-def gpt_response_to_json(raw_response):
+def gpt_response_to_json(raw_response, debug=True):
     if raw_response is None:
-        print("raw_response is None")
-        return {}
-    orig_repsonse = raw_response
+        if debug:
+            print("raw_response is None")
+        return None
+    orig_response = raw_response
     # For "Expecting property name enclosed in double quotes"
     # Obviously not bullet-proof for stuff like 'Ed's', can be probably
     # raw_json = raw_response.replace("'", '"')
@@ -97,7 +98,8 @@ def gpt_response_to_json(raw_response):
     raw_response = re.sub(r'\],\s*\]', ']]', raw_response)
     raw_response = re.sub(r'\},\s*\}', '}}', raw_response)
     raw_response = re.sub(r'\},\s*\]', '}]', raw_response)
-    print(f"converted {orig_repsonse}\n\nto\n\n{raw_response}")
+    if debug:
+        print(f"converted {orig_response}\n\nto\n\n{raw_response}")
     try:
         # The model might have just crafted a valid json object
         result = json.loads(raw_response)
@@ -108,17 +110,40 @@ def gpt_response_to_json(raw_response):
         # TODO: Handle the case when there is clearly NO json response.
         #   Like these can be "-" separated into a list  - Catalina: girl from Romania- Car reselling guy: fro
         #   NOTE: Figure out if this uses spaces or not.
-        if len(raw_json) * 2 < len(raw_response):
-            print(f"WARNING: Likely the GPT response is NOT a JSON:\n{raw_json}\nresulted from\n{orig_repsonse}")
+        if debug and len(raw_json) * 2 < len(raw_response):
+            print(f"WARNING: Likely the GPT response is NOT a JSON:\n{raw_json}\nresulted from\n{orig_response}")
         try:
             result = json.loads(raw_json)
         except json.decoder.JSONDecodeError as sub_err:
-            print(
-                f"Could NOT decode json cause SUB ERROR: {sub_err} for raw_reponse "
-                f"(note does a bunch of replaces) {raw_response}. ORIGINAL ERROR: {orig_err}"
-            )
+            if debug:
+                print(
+                    f"Could NOT decode json cause SUB ERROR: {sub_err} for raw_reponse "
+                    f"(note does a bunch of replaces) {raw_response}. ORIGINAL ERROR: {orig_err}"
+                )
             return None
-            # return '{"error": "JSONDecodeError", "raw_response": "' + json.dumps(raw_response) + '"}'
-    print(result)
-    # pp.pprint(result)
     return result
+
+
+# When you expect a string, but you don't quite get it such from chat-gpt.
+# Output just raw text, without braces, bullet points.
+def gpt_response_to_plaintext(raw_response) -> str:
+    if raw_response is None:
+        return "None"
+    try:
+        json_response = gpt_response_to_json(raw_response, debug=False)
+        if json_response is None:
+            return str(raw_response)
+
+        if isinstance(json_response, list):
+            return " ".join([str(x) for x in json_response])
+        # TypeError: sequence item 0: expected str instance, dict found
+        if isinstance(json_response, dict):
+            items = []
+            for key, value in json_response.items():
+                items.append(f"{key}: {value}")
+            return " ".join([str(x) for x in items])
+        # TODO(P2): Implement more fancy cases, nested objects and such.
+        return str
+    except Exception:
+        return str(raw_response)
+    # Maybe it's a JSON

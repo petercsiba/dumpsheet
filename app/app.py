@@ -187,7 +187,8 @@ def process_email(raw_email, network_calls=True):
 
     try:
         if network_calls:
-            # TODO: Add email body text count
+            # TODO(P0): Only send the email at most once, with retries.
+            # * We need to store the message id somehow.
             send_confirmation(reply_to_address, sender_first_name, attachment_file_paths)
         else:
             print(f"would have sent confirmation to {reply_to_address} with {attachment_file_paths}")
