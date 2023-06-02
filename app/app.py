@@ -1,4 +1,12 @@
-# TODO: Prioritize all TODOs lol
+# TODO(P0): Prioritize all TODOs lol
+# TODO(high-level): General product extension ideas:
+#   * Get GPT-4 access
+#   * Vertical SaaS (same infra, customizable format), two ways:
+#       * guess event type and come up with field summaries.
+#       * ideally prompt-engineer per recording type
+#   * Merge / update - add knowledge from previous encounters
+#   * Event prep - know who will be there
+#   * Share networking hacks, like on learning names "use it or lose it", "by association nick from nw", "take notes"
 import boto3
 import email
 import os
@@ -68,12 +76,12 @@ def convert_audio_to_mp4(file_path):
 
 
 def process_transcript(raw_transcript, sender_name=None, reply_to_address=None, object_prefix=None, network_calls=True):
-    # Output storage
-    # TODO: Use more proper temp fs
+    # TODO(P3): Use more proper temp fs
     local_output_prefix = f"/tmp/{object_prefix}"
 
+    # TODO(P0): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
     print(f"Running Sekretar-katka")
-    # TODO: Support longer than 3000 word inputs by some smart chunking.
+    # TODO(P1): Support longer than 3000 word token inputs by some smart chunking.
     summaries = extract_per_person_summaries(raw_transcript=raw_transcript)
     summaries_filepath, _ = write_output_to_local_and_bucket(
         data=summaries,
@@ -85,6 +93,7 @@ def process_transcript(raw_transcript, sender_name=None, reply_to_address=None, 
     )
 
     print(f"Running generate todo-list")
+    # TODO(P1): Improve CSV format.
     todo_list = generate_todo_list(summaries)
     todo_list_filepath, _ = write_output_to_local_and_bucket(
         data=todo_list,
@@ -105,11 +114,13 @@ def process_transcript(raw_transcript, sender_name=None, reply_to_address=None, 
         bucket_name=STATIC_HOSTING_BUCKET_NAME,
         bucket_object_prefix=object_prefix
     )
-    # TODO: Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
+    # TODO(P2): Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
     webpage_link = f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{bucket_key}"
 
     if reply_to_address is not None:
         if network_calls:
+            # TODO(P0): The general context on people count, event type, summary fields used, your inferred vibes
+            #   should be passed back for response email generation.
             send_response(
                 reply_to_address,
                 webpage_link=webpage_link,
@@ -202,8 +213,8 @@ def process_email(raw_email, network_calls=True):
     )
 
 
-# TODO: Remove the retry mechanism (leads to two confirmation emails).
-# TODO: Send email on failure via CloudWatch monitoring
+# TODO(P1): Remove the retry mechanism (leads to two confirmation emails).
+# TODO(P1): Send email on failure via CloudWatch monitoring
 #     CloudWatch rules respond to system events such as changes to AWS resources.
 #     To create a rule that triggers when your Lambda function logs an error message:
 #     Go to the CloudWatch service in the AWS Management Console.
@@ -232,7 +243,8 @@ def lambda_handler(event, context):
 
 
 # For local testing without emails or S3, great for bigger refactors.
-# TODO: Make this an automated-ish test (although would require further mocking of OpenAI calls from the test_.. stuff)
+# TODO(P2): Make this an automated-ish test
+#  although would require further mocking of OpenAI calls from the test_.. stuff
 if __name__ == "__main__":
     OUTPUT_BUCKET_NAME = None
     # Maybe all test cases?

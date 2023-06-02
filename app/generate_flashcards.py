@@ -97,6 +97,7 @@ def generate_page(page_title, summaries=None, todo_list=None, template=None):
             SUB_TEMPLATE_KEY: {
                 "follow_ups": follow_ups
             },
+            # TODO(P0, vertical-saas): The summary list should be generated here.
             "person_body.element_id": element_id,
             "person_body.style_display": style_display,
             "person_body.name": name,

@@ -128,6 +128,7 @@ def send_email(email_address, subject, body_text, attachment_paths=None):
         print(f'Email with subjectL {subject} failed to send. {e}')
 
 
+# TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
 def send_confirmation(email_address: str, attachment_file_paths: list):
     if len(attachment_file_paths) == 0:
         subject = "Yo boss - where is the attachment?"
@@ -169,8 +170,9 @@ def send_confirmation(email_address: str, attachment_file_paths: list):
 
 
 def send_response(email_address, webpage_link, attachment_paths, people_count, todo_count):
-    # TODO: Generate with GPT ideally personalized to the transcript.
+    # TODO(P1): Generate with GPT ideally personalized to the transcript.
 
+    # TODO(P0): Update the subject to be different.
     subject = "The summary from your recent networking event is ready for your review!"
     body_text = (
         "  <h3>Hey there! 👋</h3>     "

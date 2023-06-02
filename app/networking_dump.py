@@ -138,12 +138,12 @@ def get_per_person_transcript(raw_transcript):
 #  .. well, cause matching the original raw transcript to the output of this, easiest seems to just do it one-by-one
 #  I am paying by tokens so the overhead is the "function definition" (which we can fine-tune later on).
 def per_person_transcripts_to_summaries(person_to_transcript):
-    # These we can derive later in the "keep your relationship warm" funnel.
-    # * location: currently located at, or null if i don't mention it
-    # * next_message_drafts: ideas of messages i can reach out with which have some value to them
-    # * desires: what they want to achieve long-term, null for empty
-    # * offers: list of skills they have, topics they understand or services they advertise, null for empty
-    # TODO: Well, maybe it's better to just always include the full transcript when scraping for a person
+    # TODO(P0): Dynamic summary categories based off:
+    #   * Background of the speaker: https://www.reversecontact.com/case-studies
+    #   * General question / note categories (chat-gpt)
+    #   * Static list to fill-in if not enough (get top 5 say).
+    #   * The above 3 lists consolidate with GPT.
+    #   NOTE: This also needs more templates.
     query_summarize = """
         I want to structure the following note describing me meeting a person.
         Input: a transcript of me talking about the person.
@@ -189,15 +189,18 @@ def per_person_transcripts_to_summaries(person_to_transcript):
     return summaries
 
 
+# TODO(P1): Rename the entire pipeline to drafts and topics.
 def generate_first_outreaches(name, person_transcript, intents):
+    # TODO(P2): Try adding context on the person who inputs the transcripts, mid-term can be automated with
+    #   tools like https://www.reversecontact.com
     result = []
     for intent in intents:
-        # Historical note: tried to do it in batch and parsing the JSON output, but GPT isn't the most consistent
-        # about it. For future rather run more tokens / queries then trying to batch it (for now).
-        # TODO: The problem with individual queries are more frequent rate limits :/
+        # TODO(P2): The problem with individual queries are more frequent rate limits :/
         #   Well, have to find a way to parse a general "list" response from GPT (without using GPT)
-        # Note: Didn't work:
-        # I am venture capitalist from czech republic.
+        # Note: Didn't work: I am venture capitalist from czech republic.
+        # Note: tried to do it in batch and parsing the JSON output, but GPT isn't the most consistent
+        # about it. For future rather run more tokens / queries then trying to batch it (for now).
+        # TODO(P0, vertical-saas): We should improve generalize these
         query_outreaches = """ 
         For the following person I met at a networking event last night generate a short casual outreach message
         personalized to the facts of the person with the intent {}.
@@ -253,19 +256,26 @@ def generate_todo_list(summaries):
     # Priority 5 is the highest, 1 is lowest
     todo_list = []
     for person in summaries:
-        intents = []
+        drafts_for = []
         for follow_up in person.get("follow_ups", None):
-            intents.append(f"to follow up on {follow_up}")
-        intents.extend([
-            "to thank you, mentions the good vibes, say nice to meet you",
-            "to learn more about them or their company",
-            "to give them feedback",
+            drafts_for.append(f"to follow up on {follow_up}")
+        # TODO(P0): Here we should again use the 3-way approach for sub-prompts:
+        #   * GPT gather general action items across people
+        #   * Parse per-person
+        #   * Use a static list
+        #   AND pick the 3 most relevant (long-term using embeddings).
+        drafts_for.extend([
+            # Given data / intent of the networking person
+            "appreciate to meet them, with compliment on their efforts",
+            "to say it was great to meet you last night, let me know if I can ever do anything for you!",
+            "an intent to meet again, with a compliment, a feedback (if mentioned) and topics to discuss",
         ])
+        # TODO(P1, small): Draft a thank you note to the event host.
 
         outreaches = generate_first_outreaches(
             person["name"],
             person_transcript=person.get("transcript"),
-            intents=intents
+            intents=drafts_for
         )
         todo_list.extend(outreaches)
 
