@@ -15,6 +15,7 @@ SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
 DEBUG_RECIPIENTS = ["petherz@gmail.com", "kata.sabo@gmail.com"]
 
 
+# TODO(P0): Have a way to test email-renderings for bugs before deployment.
 def get_text_from_email(msg):
     print("get_text_from_email")
     parts = []
@@ -131,11 +132,11 @@ def send_email(email_address, subject, body_text, attachment_paths=None):
 
 
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
-def send_confirmation(email_address: str, attachment_file_paths: list):
+def send_confirmation(email_address: str, sender_first_name: str, attachment_file_paths: list):
     if len(attachment_file_paths) == 0:
-        subject = "Yo boss - where is the attachment?"
+        subject = f"Yo {sender_first_name} - where is the attachment?"
         body_text = ("""
-            <h3>Hello there! 👋</h3>
+            <h3>Hello there""" + sender_first_name + """! 👋</h3>
     <p>Thanks for trying out katka.ai - your personal networking assistant - 
     aka the backoffice hero who takes care of the admin so that you can focus on what truly matters.</p>
     <p>But yo boss, where is the attachment? ☕ I would love to brew you a coffee, but I ain't real, 
@@ -154,9 +155,9 @@ def send_confirmation(email_address: str, attachment_file_paths: list):
             file_list.append(f"<li>{os.path.basename(file_path)} ({file_size})</li>")
         file_list_str = "\n".join(file_list)
 
-        subject = "Hey boss - got your recording and I am already crunching through it!"
+        subject = f"Hey {sender_first_name} - got your recording and I am already crunching through it!"
         body_text = ("""
-    <h3>Hello there! 👋</h3>
+    <h3>Hello there """ + sender_first_name + """! 👋</h3>
     <p>Thanks for trying out katka.ai - your personal networking assistant - aka the backoffice guru who takes care 
         of the admin so that you can focus on what truly matters.</p>
     <p>Guess what? 🎉 I've received the following files:</p>

@@ -145,6 +145,8 @@ def process_email(raw_email, network_calls=True):
     from_address = msg.get('From')
     # Parse the address
     sender_name, addr = parseaddr(from_address)
+    sender_name = "Person" if sender_name is None else sender_name
+    sender_first_name = sender_name.split()[0]
     reply_to_address = msg.get('Reply-To')
     if reply_to_address is None or not isinstance(reply_to_address, str):
         print("No reply-to address provided, falling back to from_address")
@@ -186,7 +188,7 @@ def process_email(raw_email, network_calls=True):
     try:
         if network_calls:
             # TODO: Add email body text count
-            send_confirmation(reply_to_address, attachment_file_paths)
+            send_confirmation(reply_to_address, sender_first_name, attachment_file_paths)
         else:
             print(f"would have sent confirmation to {reply_to_address} with {attachment_file_paths}")
     except Exception as err:
