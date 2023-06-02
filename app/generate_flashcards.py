@@ -1,3 +1,4 @@
+import datetime
 import re
 
 from flashcards_template import get_flashcard_template
@@ -54,7 +55,7 @@ def fill_template(template, template_vars, depth=1):
 
 # Whole function is about translating the input JSON objects into my custom
 # fill_template templating framework (really just a function).
-def generate_page(page_title, summaries=None, todo_list=None, template=None):
+def generate_page(project_name, email_datetime, summaries=None, todo_list=None, template=None):
     if template is None:
         template = get_flashcard_template()
 
@@ -110,9 +111,11 @@ def generate_page(page_title, summaries=None, todo_list=None, template=None):
         }
         person_bodies.append(body)
 
+    email_dt_str = email_datetime.strftime('%B %d, %H:%M')
     template_vars = {
-        "title": page_title,
-        "project_name": page_title,  # ideally the networking event name
+        "title": f"{project_name} - {email_dt_str}",
+        "project_name": project_name,  # ideally the event name
+        "sub_project_name": email_dt_str,
         SUB_TEMPLATE_KEY: {
             "person_head": person_heads,
             "person_body": person_bodies,
@@ -184,7 +187,8 @@ if __name__ == "__main__":
     with open("assets/index.html.template", "r") as handle:
         template = handle.read()
     page1 = generate_page(
-        "My Test Page",
+        "Katka Sabo",
+        datetime.datetime.now(),
         gpt_response_to_json(test_summaries),
         gpt_response_to_json(test_todolist),
         template=template,

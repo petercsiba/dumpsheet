@@ -1,4 +1,5 @@
 import boto3
+import datetime
 import os
 
 from bs4 import BeautifulSoup
@@ -169,34 +170,40 @@ def send_confirmation(email_address: str, attachment_file_paths: list):
         send_email(email_address, subject, body_text)
 
 
-def send_response(email_address, webpage_link, attachment_paths, people_count, todo_count):
+def send_response(email_address, email_datetime, webpage_link, attachment_paths, people_count, todo_count):
     # TODO(P1): Generate with GPT ideally personalized to the transcript.
 
     # TODO(P0): Update the subject to be different.
-    subject = "The summary from your recent networking event is ready for your review!"
+    email_dt_str = email_datetime.strftime('%B %d, %H:%M')
+    time_to_generate = datetime.datetime.now() - email_datetime
+    total_seconds = int(time_to_generate.total_seconds())
+    minutes, seconds = divmod(total_seconds, 60)
+    to_generate_str = f'{minutes} minutes {seconds} seconds'
+
+    subject = f"The summary from your event sent at {email_dt_str} is ready for your review!"
     body_text = (
         "  <h3>Hey there! 👋</h3>     "
-        "  <p>Looks like you had an absolute blast at your recent event! Bravo to you for rocking it! 🎉🥳</p>     "
+        "  <p>Looks like you had a great time at your recent event! Excellent job!</p>     "
         "  <p><strong>Here's a little recap of your success:</strong></p>     "
         "  <ul>     "
-        f"      <li>You had the chance to meet {people_count} amazing individuals. 🤝</li>     "
-        f"      <li>And you've got {todo_count} follow-ups lined up, complete with some killer draft messages to      "
-        "      ignite those new relationships! 🔥💼</li>     "
+        f"      <li>You had the chance to meet {people_count} impressive individuals. 🤝</li>     "
+        f"      <li>And you've got {todo_count} potential actions to choose from, "
+        f"          complete with drafted messages to start building those new relationships.</li>     "
         "  </ul>     "
-        "  <h4>Now, let's talk about what's next, shall we? 💪</h4>     "
+        "  <h4>Now, let's discuss what's next, shall we? 💪</h4>     "
         "  <p><strong>Here's your game plan:</strong></p>     "
         "  <ul>     "
-        f"      <li>Head over to this awesome page: <a href=\"{webpage_link}\">follow-up draft messages</a>. "
-        f"          It's your treasure trove of well-crafted messages. 📩✉️</li>     "
-        "      <li>Choose the one that suits your style, give it a personal touch if necessary, "
-        "          and hit that send button to impress your new connections. ✨📧</li>     "
-        "      <li>Oh, and by the way, we've attached a nifty table format of all "
-        "          the juicy summaries for your convenience. 📄📊</li>     "
+        f"      <li>First, head over to <a href=\"{webpage_link}\">your event summary from {email_dt_str}</a>. "
+        f"          It's your directory of people with proposed draft messages. ✉️</li>     "
+        "      <li>Choose the one draft that suits your style, personalize it if necessary, "
+        "          and hit send to start building your new connections. 📧</li>     "
+        "      <li>We've also attached a detailed table of all the key summaries for your excel-cirse skills. 📊</li>     "
         "  </ul>     "
-        "  <p>Got any burning questions? No worries! 😊</p>     "
-        f"  <p>Just hit reply or shoot an email to my exceptional supervisors at {DEBUG_RECIPIENTS}. "
-        "      They've got your back. 📮👩‍💼👨‍💼</p>     "
-        "  <h4>Keep slaying it! 💪🔥</h4>     "
-        "  <p>Your awesome team at katka.ai</p>     "
+        "  <p>Have any questions? No problem! 😊</p>     "
+        f"  <p>Just hit reply or send an email to my supervisors at {DEBUG_RECIPIENTS}. "
+        "      They're here to help. 👍</p>     "
+        "  <h4>Keep up the great work! 💪</h4>     "
+        "  <p>Your team at katka.ai</p>     "
+        f"This summary took {to_generate_str} to generate"
     )
     send_email(email_address, subject, body_text, attachment_paths)

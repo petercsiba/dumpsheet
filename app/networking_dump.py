@@ -28,7 +28,7 @@ def transcribe_audio(audio_filepath):
     if test_transcript is not None:
         return test_transcript
 
-    prompt_hint = "notes from a networking event about the new people I met with my impressions and follow up ideas"
+    prompt_hint = "these are notes from an event I attended describing the people I met, my impressions and actions"
 
     # (2023, May): File uploads are currently limited to 25 MB and the following input file types are supported:
     #   mp3, mp4, mpeg, mpga, m4a, wav, and webm
@@ -202,10 +202,12 @@ def generate_first_outreaches(name, person_transcript, intents):
         # about it. For future rather run more tokens / queries then trying to batch it (for now).
         # TODO(P0, vertical-saas): We should improve generalize these
         query_outreaches = """ 
-        For the following person I met at a networking event last night generate a short casual outreach message
-        personalized to the facts of the person with the intent {}.
-        Only output the resulting message - do not use double quotes.
-        My knowledge of {} is {}
+        From the notes on the following person I met at an event 
+        please generate a short casual outreach message
+        personalized to the facts of the person, with mentioning what I enjoyed or appreciated in the conversation
+        with my into intent to say "{}".
+        Only output the resulting message - do not use double quotes at all.
+        My notes on person {} are as follows {}
         """.format(intent, name, person_transcript)
         raw_response = run_prompt(query_outreaches)
         result.append({
@@ -266,9 +268,9 @@ def generate_todo_list(summaries):
         #   AND pick the 3 most relevant (long-term using embeddings).
         drafts_for.extend([
             # Given data / intent of the networking person
-            "appreciate to meet them, with compliment on their efforts",
-            "to say it was great to meet you last night, let me know if I can ever do anything for you!",
-            "an intent to meet again, with a compliment, a feedback (if mentioned) and topics to discuss",
+            "appreciate meeting them at the event",
+            "great to meet you, let me know if I can ever do anything for you!",
+            "I want to meet again with one or two topics to discuss",
         ])
         # TODO(P1, small): Draft a thank you note to the event host.
 

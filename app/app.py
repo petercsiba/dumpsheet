@@ -8,6 +8,7 @@
 #   * Event prep - know who will be there
 #   * Share networking hacks, like on learning names "use it or lose it", "by association nick from nw", "take notes"
 import boto3
+import datetime
 import email
 import os
 import re
@@ -75,7 +76,7 @@ def convert_audio_to_mp4(file_path):
     return audio_file
 
 
-def process_transcript(raw_transcript, sender_name=None, reply_to_address=None, object_prefix=None, network_calls=True):
+def process_transcript(raw_transcript, email_datetime, sender_name=None, reply_to_address=None, object_prefix=None, network_calls=True):
     # TODO(P3): Use more proper temp fs
     local_output_prefix = f"/tmp/{object_prefix}"
 
@@ -105,7 +106,7 @@ def process_transcript(raw_transcript, sender_name=None, reply_to_address=None, 
     )
 
     print(f"Running generate webpage")
-    page_contents = generate_page(sender_name, summaries, todo_list)
+    page_contents = generate_page(sender_name, email_datetime, summaries, todo_list)
     _, bucket_key = write_output_to_local_and_bucket(
         data=page_contents,
         suffix=".html",
@@ -123,6 +124,7 @@ def process_transcript(raw_transcript, sender_name=None, reply_to_address=None, 
             #   should be passed back for response email generation.
             send_response(
                 reply_to_address,
+                email_datetime,
                 webpage_link=webpage_link,
                 attachment_paths=[summaries_filepath],
                 people_count=len(summaries),
@@ -150,9 +152,11 @@ def process_email(raw_email, network_calls=True):
 
     # Generate run-id as an idempotency key for re-runs
     if msg['Date']:
-        run_idempotency_key = email.utils.parsedate_to_datetime(msg['Date'])
+        email_datetime = email.utils.parsedate_to_datetime(msg['Date'])
+        run_idempotency_key = email_datetime
     else:
         print("Could not find 'Date' header in the email, defaulting to `Message-ID`")
+        email_datetime = datetime.datetime.now()
         run_idempotency_key = msg['Message-ID']
 
     # Process the attachments
@@ -206,6 +210,7 @@ def process_email(raw_email, network_calls=True):
     raw_transcript = "\n\n".join(raw_transcripts)
     process_transcript(
         raw_transcript=raw_transcript,
+        email_datetime=email_datetime,
         sender_name=sender_name,
         reply_to_address=reply_to_address,
         object_prefix=object_prefix,
