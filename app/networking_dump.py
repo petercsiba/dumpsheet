@@ -24,6 +24,8 @@ test_summaries = None
 
 
 # TODO: Maybe better place in openai_utils
+# TODO(P2): Multi-language support (chinese, slovak), ideally we need to derive the language for transcript
+#   * https://platform.openai.com/docs/api-reference/audio
 def transcribe_audio(audio_filepath):
     if test_transcript is not None:
         return test_transcript
@@ -258,8 +260,11 @@ def generate_todo_list(summaries):
     # Priority 5 is the highest, 1 is lowest
     todo_list = []
     for person in summaries:
+        if person is None:
+            print("skipping None person from summaries")
+            continue
         drafts_for = []
-        for follow_up in person.get("follow_ups", None):
+        for follow_up in person.get("follow_ups", []):
             drafts_for.append(f"to follow up on {follow_up}")
         # TODO(P0): Here we should again use the 3-way approach for sub-prompts:
         #   * GPT gather general action items across people
