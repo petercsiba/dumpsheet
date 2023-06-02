@@ -56,11 +56,23 @@ def run_prompt(prompt: str, model="gpt-3.5-turbo", retry_timeout=60, print_promp
         # You can retry your request, or contact us through our help center at help.openai.com if the error persists.
         # (Please include the request ID 7ed28a69c5cda5378f57266336539b7d in your message.)
         except openai.error.RateLimitError as err:
-            print(f"Got RATE-LIMITED!!! Sleeping for {retry_timeout}")
+            print(f"Got RATE-LIMITED!!! Sleeping for {retry_timeout}. Raw error: {err}")
             time.sleep(retry_timeout)
             return run_prompt(prompt, model, 2 * retry_timeout)  # exponential backoff
     print(f"Token usage {json.dumps(response['usage'])}")
     return response.choices[0].message.content.strip().replace("\n", "")
+
+
+def get_first_occurrence(s: str, list_of_chars: list):
+    first_occurrence = len(s)  # initialize to length of the string
+
+    for char in list_of_chars:
+        index = s.find(char)
+        if index != -1 and index < first_occurrence:  # update if char found and it's earlier
+            first_occurrence = index
+
+    if first_occurrence == len(s):
+        return -1
 
 
 def gpt_response_to_json(raw_response):
@@ -89,12 +101,10 @@ def gpt_response_to_json(raw_response):
     try:
         # The model might have just crafted a valid json object
         result = json.loads(raw_response)
-    except json.decoder.JSONDecodeError as err:
+    except json.decoder.JSONDecodeError as orig_err:
         # In case there is something before the actual json output
-        start_index = raw_response.find("[")
-        if start_index == -1:
-            start_index = raw_response.find("{")
-        raw_json = raw_response[start_index:]
+        start_index = get_first_occurrence(raw_response, ['{', '['])
+        raw_json = raw_response[start_index:]  # -1 works
         # TODO: Handle the case when there is clearly NO json response.
         #   Like these can be "-" separated into a list  - Catalina: girl from Romania- Car reselling guy: fro
         #   NOTE: Figure out if this uses spaces or not.
@@ -102,8 +112,11 @@ def gpt_response_to_json(raw_response):
             print(f"WARNING: Likely the GPT response is NOT a JSON:\n{raw_json}\nresulted from\n{orig_repsonse}")
         try:
             result = json.loads(raw_json)
-        except json.decoder.JSONDecodeError as err:
-            print(f"Could NOT decode json cause {err} for raw_reponse (note does a bunch of replaces) {raw_response}")
+        except json.decoder.JSONDecodeError as sub_err:
+            print(
+                f"Could NOT decode json cause SUB ERROR: {sub_err} for raw_reponse "
+                f"(note does a bunch of replaces) {raw_response}. ORIGINAL ERROR: {orig_err}"
+            )
             return None
             # return '{"error": "JSONDecodeError", "raw_response": "' + json.dumps(raw_response) + '"}'
     print(result)

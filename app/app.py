@@ -11,6 +11,7 @@ import boto3
 import datetime
 import email
 import os
+import pytz
 import re
 import subprocess
 import time
@@ -156,7 +157,7 @@ def process_email(raw_email, network_calls=True):
         run_idempotency_key = email_datetime
     else:
         print("Could not find 'Date' header in the email, defaulting to `Message-ID`")
-        email_datetime = datetime.datetime.now()
+        email_datetime = datetime.datetime.now(pytz.UTC)
         run_idempotency_key = msg['Message-ID']
 
     # Process the attachments

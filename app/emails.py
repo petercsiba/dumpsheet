@@ -1,5 +1,6 @@
 import boto3
 import datetime
+import pytz
 import os
 
 from bs4 import BeautifulSoup
@@ -175,10 +176,15 @@ def send_response(email_address, email_datetime, webpage_link, attachment_paths,
 
     # TODO(P0): Update the subject to be different.
     email_dt_str = email_datetime.strftime('%B %d, %H:%M')
-    time_to_generate = datetime.datetime.now() - email_datetime
-    total_seconds = int(time_to_generate.total_seconds())
-    minutes, seconds = divmod(total_seconds, 60)
-    to_generate_str = f'{minutes} minutes {seconds} seconds'
+    now = datetime.datetime.now(pytz.utc)
+    try:
+        time_to_generate = now - email_datetime
+        total_seconds = int(time_to_generate.total_seconds())
+        minutes, seconds = divmod(total_seconds, 60)
+        to_generate_str = f'{minutes} minutes {seconds} seconds'
+    except Exception as err:
+        print(f"couldn't get time-to-generate for {now} - {email_datetime}")
+        to_generate_str = "unknown"
 
     subject = f"The summary from your event sent at {email_dt_str} is ready for your review!"
     body_text = (

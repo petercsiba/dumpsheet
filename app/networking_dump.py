@@ -264,7 +264,9 @@ def generate_todo_list(summaries):
             print("skipping None person from summaries")
             continue
         drafts_for = []
-        for follow_up in person.get("follow_ups", []):
+        mentioned_follow_ups = person.get("follow_ups", None)
+        mentioned_follow_ups = [] if mentioned_follow_ups is None else mentioned_follow_ups
+        for follow_up in mentioned_follow_ups:
             drafts_for.append(f"to follow up on {follow_up}")
         # TODO(P0): Here we should again use the 3-way approach for sub-prompts:
         #   * GPT gather general action items across people
