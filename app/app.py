@@ -8,6 +8,7 @@
 #   * Event prep - know who will be there
 #   * Share networking hacks, like on learning names "use it or lose it", "by association nick from nw", "take notes"
 import boto3
+import copy
 import datetime
 import email
 import os
@@ -19,7 +20,7 @@ import time
 from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
 
-from emails import get_text_from_email, send_confirmation, send_response
+from emails import get_text_from_email, send_confirmation, send_response, Email
 from generate_flashcards import generate_page
 from networking_dump import generate_draft_outreaches, extract_per_person_summaries, transcribe_audio
 from storage_utils import pretty_filesize, write_to_csv
@@ -76,7 +77,13 @@ def convert_audio_to_mp4(file_path):
     return audio_file
 
 
-def process_transcript(raw_transcript, email_datetime, sender_name=None, reply_to_address=None, object_prefix=None, network_calls=True):
+def process_transcript(
+        email_params: Email,
+        raw_transcript,
+        email_datetime,
+        object_prefix=None,
+        network_calls=True
+):
     # TODO(P3): Use more proper temp fs
     local_output_prefix = f"/tmp/{object_prefix}"
 
@@ -107,7 +114,7 @@ def process_transcript(raw_transcript, email_datetime, sender_name=None, reply_t
 
     print(f"Running generate webpage")
     # TODO(P1): Would be nice to include the full-transcript as a button in the LHS menu
-    page_contents = generate_page(sender_name, email_datetime, summaries, drafts)
+    page_contents = generate_page(email_params, email_datetime, summaries, drafts)
     _, bucket_key = write_output_to_local_and_bucket(
         data=page_contents,
         suffix=".html",
@@ -119,20 +126,19 @@ def process_transcript(raw_transcript, email_datetime, sender_name=None, reply_t
     # TODO(P2): Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
     webpage_link = f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{bucket_key}"
 
-    if reply_to_address is not None:
-        if network_calls:
-            # TODO(P0): The general context on people count, event type, summary fields used, your inferred vibes
-            #   should be passed back for response email generation.
-            send_response(
-                reply_to_address,
-                email_datetime,
-                webpage_link=webpage_link,
-                attachment_paths=[summaries_filepath],
-                people_count=len(summaries),
-                drafts_count=len(drafts),
-            )
-        else:
-            print(f"Would have sent email to {reply_to_address} with {webpage_link}")
+    email_params.attachment_paths = [summaries_filepath]
+    if network_calls:
+        # TODO(P0): The general context on people count, event type, summary fields used, your inferred vibes
+        #   should be passed back for response email generation.
+        send_response(
+            email_params=email_params,
+            email_datetime=email_datetime,
+            webpage_link=webpage_link,
+            people_count=len(summaries),
+            drafts_count=len(drafts),
+        )
+    else:
+        print(f"Would have sent email to {email_params.recipient} with {webpage_link}")
     # TODO: Get total token usage as a fun fact (probably need to instantiate a singleton openai class wrapper)
 
 
@@ -164,6 +170,13 @@ def process_email(raw_email, network_calls=True):
         email_datetime = datetime.datetime.now(pytz.UTC)
         run_idempotency_key = msg['Message-ID']
 
+    base_email_params = Email(
+        sender=orig_to_address,
+        recipient=sender_name,
+        subject=f"Re: {orig_subject}",
+        reply_to=[reply_to_address],
+    )
+
     # Process the attachments
     attachment_file_paths = []
     for part in msg.walk():
@@ -189,11 +202,12 @@ def process_email(raw_email, network_calls=True):
 
     try:
         if network_calls:
-            # TODO(P0): Only send the email at most once, with retries.
-            # * We need to store the message id somehow.
-            send_confirmation(orig_to_address, orig_subject, reply_to_address, sender_first_name, attachment_file_paths)
+            # TODO(P0): Only send the email at most once, with retries (blocked by storing stuff).
+            confirmation_email_params = copy.deepcopy(base_email_params)
+            confirmation_email_params.attachment_paths = attachment_file_paths
+            send_confirmation(confirmation_email_params, sender_first_name=sender_first_name)
         else:
-            print(f"would have sent confirmation to {reply_to_address} with {attachment_file_paths}")
+            print(f"would have sent confirmation email {base_email_params}")
     except Exception as err:
         print(f"ERROR: Could not send confirmation to {reply_to_address} cause {err}")
 
@@ -214,11 +228,13 @@ def process_email(raw_email, network_calls=True):
     email_body_text = get_text_from_email(msg)
     raw_transcripts.append(email_body_text)
     raw_transcript = "\n\n".join(raw_transcripts)
+
+    result_email_params = copy.deepcopy(base_email_params)
+    result_email_params.attachment_paths = None
     process_transcript(
+        email_params=result_email_params,
         raw_transcript=raw_transcript,
         email_datetime=email_datetime,
-        sender_name=sender_name,
-        reply_to_address=reply_to_address,
         object_prefix=object_prefix,
         network_calls=network_calls,
     )
