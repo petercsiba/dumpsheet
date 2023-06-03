@@ -143,6 +143,8 @@ def process_email(raw_email, network_calls=True):
     # Parse the email
     msg = email.message_from_bytes(raw_email)
     from_address = msg.get('From')
+    orig_to_address = msg.get('To')
+    orig_subject = msg.get('Subject')
     # Parse the address
     sender_name, addr = parseaddr(from_address)
     sender_name = "Person" if sender_name is None else sender_name
@@ -189,7 +191,7 @@ def process_email(raw_email, network_calls=True):
         if network_calls:
             # TODO(P0): Only send the email at most once, with retries.
             # * We need to store the message id somehow.
-            send_confirmation(reply_to_address, sender_first_name, attachment_file_paths)
+            send_confirmation(orig_to_address, orig_subject, reply_to_address, sender_first_name, attachment_file_paths)
         else:
             print(f"would have sent confirmation to {reply_to_address} with {attachment_file_paths}")
     except Exception as err:

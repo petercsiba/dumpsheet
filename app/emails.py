@@ -88,14 +88,19 @@ def create_raw_email_with_attachments(
 
 # TODO: Move the logic of parsing the email attachment to here
 
-
-def send_email(email_address, subject, body_text, attachment_paths=None):
+# TODO(P0): Gmail marks us as spam - no clear way around it. Some easy-ish ways:
+# * Maybe use the same email sender ddres
+# * Authenticate emails DKIM, DMARC, SPF
+# * Unsubscribe button
+# * Opt-in (verify email)
+# * Over-time, the higher the engagement the better.
+def send_email(sender, email_address, subject, body_text, attachment_paths=None):
     if not isinstance(email_address, str):
         print(f"email_adress is NOT a string {email_address}, falling back to {DEBUG_RECIPIENTS}")
         email_address = DEBUG_RECIPIENTS[0]
 
     ses = boto3.client('ses')
-    sender = SENDER_EMAIL
+    sender = sender
     recipients = [email_address]
     bcc_recipients = list(set(DEBUG_RECIPIENTS) - {email_address})
     body_html = """<html>
@@ -132,11 +137,17 @@ def send_email(email_address, subject, body_text, attachment_paths=None):
 
 
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
-def send_confirmation(email_address: str, sender_first_name: str, attachment_file_paths: list):
+def send_confirmation(
+        orig_to_address: str,
+        orig_subject: str,
+        email_address: str,
+        sender_first_name: str,
+        attachment_file_paths: list
+):
+    subject = f"Re: {orig_subject}"
     if len(attachment_file_paths) == 0:
-        subject = f"Yo {sender_first_name} - where is the attachment?"
         body_text = ("""
-            <h3>Hello there""" + sender_first_name + """! 👋</h3>
+            <h3>Yo """ + sender_first_name + """, did you forgot the attachment?</h3>
     <p>Thanks for trying out katka.ai - your personal networking assistant - 
     aka the backoffice hero who takes care of the admin so that you can focus on what truly matters.</p>
     <p>But yo boss, where is the attachment? ☕ I would love to brew you a coffee, but I ain't real, 
@@ -147,7 +158,7 @@ def send_confirmation(email_address: str, sender_first_name: str, attachment_fil
     <p>Keep rocking it!</p>
     <p>Your amazing team at katka.ai 🚀</p>
         """)
-        send_email(email_address, subject, body_text)
+        send_email(sender=orig_to_address, email_address=email_address, subject=subject, body_text=body_text)
     else:
         file_list = []
         for file_path in attachment_file_paths:
@@ -155,27 +166,31 @@ def send_confirmation(email_address: str, sender_first_name: str, attachment_fil
             file_list.append(f"<li>{os.path.basename(file_path)} ({file_size})</li>")
         file_list_str = "\n".join(file_list)
 
-        subject = f"Hey {sender_first_name} - got your recording and I am already crunching through it!"
+        subject = f"Hey {sender_first_name} - !"
         body_text = ("""
     <h3>Hello there """ + sender_first_name + """! 👋</h3>
     <p>Thanks for trying out katka.ai - your personal networking assistant - aka the backoffice guru who takes care 
         of the admin so that you can focus on what truly matters.</p>
-    <p>Guess what? 🎉 I've received the following files:</p>
+    <h3>Rest assured, I got your recording and I am already crunching through it!</h3>
+    <p>I've received the following files:</p>
     <ul>""" + f"{file_list_str}" + """</ul>
-    <p>No worries, I'll handle them swiftly like a pro. This task should take me approximately 2-15 minutes. ⏱️</p>
+    <h3>What's next?</h3>
+    <ul>
+    <li> Relax for about 2 to 10 minutes until I work through your brain-dump boss.. ⏱️️</li>
+    <li> Be on a look-out for an email from """ + SENDER_EMAIL + """</li>
+    </ul>
     <h3>Got any questions? 🔥</h3>""" +
-                     f"<p>Feel free to hit reply or reach out to my supervisors at {DEBUG_RECIPIENTS}. "
+                     f"<p>Feel free to hit reply or reach out to my supervisors at {' or '.join(DEBUG_RECIPIENTS)}. "
                      f"They're here to assist you with anything you need. 📞👩‍💼👨‍💼</p>" +
                      """<p>Keep rocking it!</p>
     <p>Your amazing team at katka.ai 🚀</p>
         """)
-        send_email(email_address, subject, body_text)
+        send_email(sender=orig_to_address, email_address=email_address, subject=subject, body_text=body_text)
 
 
 def send_response(email_address, email_datetime, webpage_link, attachment_paths, people_count, drafts_count):
     # TODO(P1): Generate with GPT ideally personalized to the transcript.
 
-    # TODO(P0): Update the subject to be different.
     email_dt_str = email_datetime.strftime('%B %d, %H:%M')
     now = datetime.datetime.now(pytz.utc)
     try:
@@ -184,7 +199,7 @@ def send_response(email_address, email_datetime, webpage_link, attachment_paths,
         minutes, seconds = divmod(total_seconds, 60)
         to_generate_str = f'{minutes} minutes {seconds} seconds'
     except Exception as err:
-        print(f"couldn't get time-to-generate for {now} - {email_datetime}")
+        print(f"couldn't get time-to-generate for {now} - {email_datetime} cause {err}")
         to_generate_str = "unknown"
 
     subject = f"The summary from your event sent at {email_dt_str} is ready for your review!"
@@ -204,13 +219,19 @@ def send_response(email_address, email_datetime, webpage_link, attachment_paths,
         f"          It's your directory of people with proposed draft messages. ✉️</li>     "
         "      <li>Choose the one draft that suits your style, personalize it if necessary, "
         "          and hit send to start building your new connections. 📧</li>     "
-        "      <li>We've also attached a detailed table of all the key summaries for your excel-cirse skills. 📊</li>     "
+        "      <li>We've also attached a detailed table of all the key summaries for your excel-cirse skills. 📊</li>"
         "  </ul>     "
         "  <p>Have any questions? No problem! 😊</p>     "
-        f"  <p>Just hit reply or send an email to my supervisors at {DEBUG_RECIPIENTS}. "
+        f"  <p>Just hit reply or send an email to my supervisors at {' or '.join(DEBUG_RECIPIENTS)}. "
         "      They're here to help. 👍</p>     "
         "  <h4>Keep up the great work! 💪</h4>     "
         "  <p>Your team at katka.ai</p>     "
         f"This summary took {to_generate_str} to generate"
     )
-    send_email(email_address, subject, body_text, attachment_paths)
+    send_email(
+        sender=SENDER_EMAIL,
+        email_address=email_address,
+        subject=subject,
+        body_text=body_text,
+        attachment_paths=attachment_paths
+    )
