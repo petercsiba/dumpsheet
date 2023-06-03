@@ -5,6 +5,8 @@ import pprint
 from openai_utils import gpt_response_to_json, gpt_response_to_plaintext, run_prompt, Timer
 from storage_utils import get_fileinfo
 
+MAX_TRANSCRIPT_TOKEN_COUNT = 2500
+
 # config = toml.load('secrets.toml')
 # TODO: Change after some time - I am lazy to remove from commits or do ENV variables :D
 openai.api_key = "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"
@@ -71,7 +73,9 @@ def get_per_person_transcript(raw_transcript):
     print(f"Transcript has {token_count} words")
     # Make sure to include the whole string without gaps.
     # TODO: Eventually we would need to implement this case
-    assert(token_count < 3500, f"raw_transcript too long: {token_count}")
+    if token_count < MAX_TRANSCRIPT_TOKEN_COUNT:
+        print(f"ERROR: raw_transcript too long ({token_count}), truncating to {MAX_TRANSCRIPT_TOKEN_COUNT}")
+        raw_transcript = " ".join(transcript_words[:MAX_TRANSCRIPT_TOKEN_COUNT])
 
     query_people = """ 
     Enumerate all people mentioned in the attached transcript, 
@@ -136,8 +140,7 @@ def get_per_person_transcript(raw_transcript):
             people = gpt_response_to_json(raw_response)
             # TODO: Some error handling and defaulting to retry one-by-one? I can see it a recurring theme
             #   of batch gpt failing and retrying with one-by-one.
-        # TODO: wtf WARNING: mentions size 2 different from input size 2
-        if len(people) != len(sublists):
+        if len(people) != len(sublist):
             print(f"WARNING: mentions size {len(people)} different from input size {len(sublist)}")
         # Update the existing map with the new entries
         result.update(people)
@@ -180,6 +183,8 @@ def per_person_transcripts_to_summaries(person_to_transcript):
             raw_response = run_prompt(query_summarize.format(transcript), print_prompt=True)
             # One failure shouldn't block the entire thing, log the error, return name, transcript for manual fix.
             summary = gpt_response_to_json(raw_response)
+            # TODO(P1): Handle this error case:
+            # Sorry, there is no information in the input transcript to structure a note describing a person
             if summary is None:
                 print(f"Could NOT parse summary for {name}, defaulting to hand-crafted")
                 summary = {
@@ -212,17 +217,20 @@ def generate_first_outreaches(name, person_transcript, intents):
         # Note: tried to do it in batch and parsing the JSON output, but GPT isn't the most consistent
         # about it. For future rather run more tokens / queries then trying to batch it (for now).
         # TODO(P0, vertical-saas): We should improve generalize these
+        # TODO(P1): Personalize the messages to my general transcript vibes.
         query_outreaches = """ 
         From the notes on the following person I met at an event 
-        please generate a short casual outreach message
-        personalized to the facts of the person, with mentioning what I enjoyed or appreciated in the conversation
-        with my into intent to say "{}".
+        please generate a short casual yet professional outreach text message to say "{}"  (up to 250 characters)
+        Make sure that:
+        * saying that I enjoyed OR appreciated in the conversation
+        * include a fact from our conversation
+        * reflect my note-taking style into the generated text
         Only output the resulting message - do not use double quotes at all.
-        My notes on person {} are as follows {}
+        My notes of person {} are as follows {}
         """.format(intent, name, person_transcript)
         raw_response = run_prompt(query_outreaches)
         result.append({
-            "name": name,
+            "name": name,  # used to join on the summaries
             "message_type": intent,
             "outreach_draft": raw_response,
         })

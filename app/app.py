@@ -7,6 +7,8 @@
 #   * Merge / update - add knowledge from previous encounters
 #   * Event prep - know who will be there
 #   * Share networking hacks, like on learning names "use it or lose it", "by association nick from nw", "take notes"
+import traceback
+
 import boto3
 import copy
 import datetime
@@ -73,6 +75,7 @@ def convert_audio_to_mp4(file_path):
         print(f'Converted file saved as: {audio_file}')
     except subprocess.CalledProcessError as e:
         print(f'ffmpeg error occurred: {e}')
+        traceback.print_exc()
         return None
     return audio_file
 
@@ -144,7 +147,7 @@ def process_transcript(
 
 def process_email(raw_email, network_calls=True):
     # TODO: Refactor the email processing to another function which returns some custom object maybe
-    print(f"Read raw_email body with {len(raw_email)} bytes")
+    print(f"Read raw_email body with {len(raw_email)} bytes, network_calls={network_calls}")
 
     # Parse the email
     msg = email.message_from_bytes(raw_email)
@@ -210,6 +213,7 @@ def process_email(raw_email, network_calls=True):
             print(f"would have sent confirmation email {base_email_params}")
     except Exception as err:
         print(f"ERROR: Could not send confirmation to {reply_to_address} cause {err}")
+        traceback.print_exc()
 
     raw_transcripts = []
     for attachment_num, attachment_file_path in enumerate(attachment_file_paths):
@@ -263,7 +267,7 @@ def lambda_handler(event, context):
     try:
         response = s3.get_object(Bucket=bucket, Key=key)
     except NoCredentialsError as e:
-        print(e)
+        print(f"No creds for S3 cause {e}")
         return 'Execution failed'
 
     process_email(raw_email=response['Body'].read())

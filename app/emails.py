@@ -2,6 +2,7 @@ import boto3
 import datetime
 import pytz
 import os
+import traceback
 
 from bs4 import BeautifulSoup
 from dataclasses import dataclass
@@ -126,10 +127,10 @@ def create_raw_email_with_attachments(params: Email):
 # TODO(P0): Gmail marks us as spam - no clear way around it. Some easy-ish ways:
 #     * [DONE] Use the same email sender address
 #     * [DONE] Authenticate emails DKIM, DMARC, SPF
-#     * Next: "Prime" your domain, blast emails, make everyone to open it (this will happen over time).
-#     * Unsubscribe button
-#     * Opt-in (verify email)
-#     * Over-time, the higher the engagement the better.
+#     * Next(Mehdi): "Prime" your domain, blast emails, make everyone to open it (this will happen over time).
+#     * Add Unsubscribe button
+#     * Opt-in process (verify email)
+#     * Over-time, the higher the engagement with our emails the better.
 def send_email(params: Email):
     params.bcc = DEBUG_RECIPIENTS
     raw_email = create_raw_email_with_attachments(params)
@@ -148,7 +149,9 @@ def send_email(params: Email):
         print(f'Email sent! Message ID: {message_id}, Subject: {params.subject}')
         return message_id
     except Exception as e:
-        print(f'Email with subjectL {params.subject} failed to send. {e}')
+        print(f'Email with subject {params.subject} failed to send. {e}')
+        traceback.print_exc()
+        return None
 
 
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.

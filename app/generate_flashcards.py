@@ -55,9 +55,16 @@ def fill_template(template, template_vars, depth=1):
 
 # Whole function is about translating the input JSON objects into my custom
 # fill_template templating framework (really just a function).
-def generate_page(project_name, email_datetime, summaries=None, drafts=None, template=None):
+def generate_page(project_name, email_datetime, summaries=None, orig_drafts=None, template=None):
     if template is None:
         template = get_flashcard_template()
+
+    drafts = []
+    for d in orig_drafts:
+        # Yeah, GPT outputs are in-consistent.
+        if not isinstance(d, dict):
+            print(f"WARNING: received draft is not a dict, skipping: {d}")
+        drafts.append(d)
 
     person_heads = []
     person_bodies = []
@@ -73,7 +80,11 @@ def generate_page(project_name, email_datetime, summaries=None, drafts=None, tem
         person_heads.append(head)
 
         # TODO(P2): Join drafts with summaries on more stable key than "name".
-        filtered_drafts = [d for d in drafts if d.get("name") == name]
+        filtered_drafts = []
+        for d in drafts:
+            if d.get("name") == name:
+                filtered_drafts.append(d)
+
         follow_ups = []
         for j, todo in enumerate(filtered_drafts):
             message_type = todo.get("message_type")
