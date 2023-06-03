@@ -106,6 +106,7 @@ def process_transcript(raw_transcript, email_datetime, sender_name=None, reply_t
     )
 
     print(f"Running generate webpage")
+    # TODO(P1): Would be nice to include the full-transcript as a button in the LHS menu
     page_contents = generate_page(sender_name, email_datetime, summaries, drafts)
     _, bucket_key = write_output_to_local_and_bucket(
         data=page_contents,
