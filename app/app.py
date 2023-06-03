@@ -81,9 +81,10 @@ def convert_audio_to_mp4(file_path):
 
 
 def process_transcript(
+        project_name: str,
+        raw_transcript: str,
         email_params: Email,
-        raw_transcript,
-        email_datetime,
+        email_datetime: datetime.datetime,
         object_prefix=None,
         network_calls=True
 ):
@@ -117,7 +118,12 @@ def process_transcript(
 
     print(f"Running generate webpage")
     # TODO(P1): Would be nice to include the full-transcript as a button in the LHS menu
-    page_contents = generate_page(email_params, email_datetime, summaries, drafts)
+    page_contents = generate_page(
+        project_name=project_name,
+        email_datetime=email_datetime,
+        summaries=summaries,
+        drafts=drafts,
+    )
     _, bucket_key = write_output_to_local_and_bucket(
         data=page_contents,
         suffix=".html",
@@ -236,8 +242,9 @@ def process_email(raw_email, network_calls=True):
     result_email_params = copy.deepcopy(base_email_params)
     result_email_params.attachment_paths = None
     process_transcript(
-        email_params=result_email_params,
+        project_name=sender_first_name,
         raw_transcript=raw_transcript,
+        email_params=result_email_params,
         email_datetime=email_datetime,
         object_prefix=object_prefix,
         network_calls=network_calls,
