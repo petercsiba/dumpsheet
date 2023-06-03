@@ -55,7 +55,7 @@ def fill_template(template, template_vars, depth=1):
 
 # Whole function is about translating the input JSON objects into my custom
 # fill_template templating framework (really just a function).
-def generate_page(project_name, email_datetime, summaries=None, todo_list=None, template=None):
+def generate_page(project_name, email_datetime, summaries=None, drafts=None, template=None):
     if template is None:
         template = get_flashcard_template()
 
@@ -72,10 +72,10 @@ def generate_page(project_name, email_datetime, summaries=None, todo_list=None, 
         }
         person_heads.append(head)
 
-        # TODO: Join them more stable than on a key
-        filtered_todos = [d for d in todo_list if d.get("name") == name]
+        # TODO(P2): Join drafts with summaries on more stable key than "name".
+        filtered_drafts = [d for d in drafts if d.get("name") == name]
         follow_ups = []
-        for j, todo in enumerate(filtered_todos):
+        for j, todo in enumerate(filtered_drafts):
             message_type = todo.get("message_type")
             if message_type.startswith("to "):
                 message_type = message_type[3:]

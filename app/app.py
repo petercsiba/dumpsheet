@@ -1,5 +1,5 @@
 # TODO(P0): Prioritize all TODOs lol
-# TODO(high-level): General product extension ideas:
+# TODO(_): General product extension ideas:
 #   * Get GPT-4 access
 #   * Vertical SaaS (same infra, customizable format), two ways:
 #       * guess event type and come up with field summaries.
@@ -21,7 +21,7 @@ from email.utils import parseaddr
 
 from emails import get_text_from_email, send_confirmation, send_response
 from generate_flashcards import generate_page
-from networking_dump import generate_todo_list, extract_per_person_summaries, transcribe_audio
+from networking_dump import generate_draft_outreaches, extract_per_person_summaries, transcribe_audio
 from storage_utils import pretty_filesize, write_to_csv
 
 s3 = boto3.client('s3')
@@ -44,7 +44,6 @@ def write_output_to_local_and_bucket(
     if suffix.endswith(".csv"):
         write_to_csv(data, local_filepath)
     else:
-        # TODO: We might need to support binary data
         with open(local_filepath, "w") as file_handle:
             file_handle.write(data)
     print(f"Written {pretty_filesize(local_filepath)} to {local_filepath}")
@@ -95,10 +94,10 @@ def process_transcript(raw_transcript, email_datetime, sender_name=None, reply_t
     )
 
     print(f"Running generate todo-list")
-    # TODO(P1): Improve CSV format.
-    todo_list = generate_todo_list(summaries)
-    todo_list_filepath, _ = write_output_to_local_and_bucket(
-        data=todo_list,
+    # TODO(P2): Improve CSV format.
+    drafts = generate_draft_outreaches(summaries)
+    drafts, _ = write_output_to_local_and_bucket(
+        data=drafts,
         suffix="-todo.csv",
         content_type="text/csv",
         local_output_prefix=local_output_prefix,
@@ -107,7 +106,7 @@ def process_transcript(raw_transcript, email_datetime, sender_name=None, reply_t
     )
 
     print(f"Running generate webpage")
-    page_contents = generate_page(sender_name, email_datetime, summaries, todo_list)
+    page_contents = generate_page(sender_name, email_datetime, summaries, drafts)
     _, bucket_key = write_output_to_local_and_bucket(
         data=page_contents,
         suffix=".html",
@@ -129,7 +128,7 @@ def process_transcript(raw_transcript, email_datetime, sender_name=None, reply_t
                 webpage_link=webpage_link,
                 attachment_paths=[summaries_filepath],
                 people_count=len(summaries),
-                todo_count=len(todo_list),
+                drafts_count=len(drafts),
             )
         else:
             print(f"Would have sent email to {reply_to_address} with {webpage_link}")

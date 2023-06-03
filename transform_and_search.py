@@ -55,7 +55,7 @@ def transform_fields(orig_person):
     # Convert the JSON to a string and pass it into the prompt argument
     # TODO(peter): Do prompt engineering, clearly:
     #   * Chat-gpt is assuming nice skills like collaboration, team-work, leadership
-    #   * Sometimes even makes things up - just cause Peter lives in Zurich he might like skiing
+    #   * Sometimes even makes things up - just cause Peter lives in Zurich he likes skiing
     prompt = (
             f"Input json is a persons professional experience - please summarize into the followings attributes"
             f" output as a json dictionary with the corresponding dictionary keys"

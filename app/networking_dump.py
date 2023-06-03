@@ -264,10 +264,10 @@ def extract_per_person_summaries(raw_transcript):
     return summaries
 
 
-def generate_todo_list(summaries):
-    print(f"Running generate_todo_list on {len(summaries)} summaries")
+def generate_draft_outreaches(summaries):
+    print(f"Running generate_draft_outreaches on {len(summaries)} summaries")
     # Priority 5 is the highest, 1 is lowest
-    todo_list = []
+    drafts = []
     for person in summaries:
         if person is None:
             print("skipping None person from summaries")
@@ -295,8 +295,8 @@ def generate_todo_list(summaries):
             person_transcript=person.get("transcript"),
             intents=drafts_for
         )
-        todo_list.extend(outreaches)
+        drafts.extend(outreaches)
 
-    print("=== All todo_list === ")
-    print(json.dumps(todo_list))
-    return todo_list
+    print("=== All drafts dumped === ")
+    print(json.dumps(drafts))
+    return drafts

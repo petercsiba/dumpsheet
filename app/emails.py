@@ -172,7 +172,7 @@ def send_confirmation(email_address: str, sender_first_name: str, attachment_fil
         send_email(email_address, subject, body_text)
 
 
-def send_response(email_address, email_datetime, webpage_link, attachment_paths, people_count, todo_count):
+def send_response(email_address, email_datetime, webpage_link, attachment_paths, people_count, drafts_count):
     # TODO(P1): Generate with GPT ideally personalized to the transcript.
 
     # TODO(P0): Update the subject to be different.
@@ -194,7 +194,7 @@ def send_response(email_address, email_datetime, webpage_link, attachment_paths,
         "  <p><strong>Here's a little recap of your success:</strong></p>     "
         "  <ul>     "
         f"      <li>You had the chance to meet {people_count} impressive individuals. 🤝</li>     "
-        f"      <li>And you've got {todo_count} potential actions to choose from, "
+        f"      <li>And you've got {drafts_count} potential actions to choose from, "
         f"          complete with drafted messages to start building those new relationships.</li>     "
         "  </ul>     "
         "  <h4>Now, let's discuss what's next, shall we? 💪</h4>     "
