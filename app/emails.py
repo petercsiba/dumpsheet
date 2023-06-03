@@ -20,6 +20,7 @@ DEBUG_RECIPIENTS = ["petherz@gmail.com", "kata.sabo@gmail.com"]
 @dataclass
 class Email:
     sender: str
+    # To keep things simple, we only support one recipient for now (although adding more is simple)
     recipient: str
     subject: str
     body_text: str = None
@@ -67,8 +68,6 @@ def create_raw_email_with_attachments(params: Email):
         params.attachment_paths = []
 
     # I mean the params expect a list, but this is python and developers move fast.
-    if not isinstance(params.recipient, list):
-        params.recipient = [str(params.recipient)]
     if not isinstance(params.reply_to, list):
         params.reply_to = [str(params.reply_to)]
 
@@ -94,7 +93,7 @@ def create_raw_email_with_attachments(params: Email):
     msg = MIMEMultipart('mixed')
     msg['Subject'] = params.subject
     msg['From'] = params.sender
-    msg['To'] = ', '.join(params.recipient)
+    msg['To'] = params.recipient
     msg['Reply-To'] = ", ".join(params.reply_to)
     if params.bcc is not None:
         msg['Bcc'] = ', '.join(params.bcc)
