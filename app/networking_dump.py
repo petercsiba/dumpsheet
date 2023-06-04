@@ -73,7 +73,7 @@ def get_per_person_transcript(raw_transcript):
     print(f"Transcript has {token_count} words")
     # Make sure to include the whole string without gaps.
     # TODO: Eventually we would need to implement this case
-    if token_count < MAX_TRANSCRIPT_TOKEN_COUNT:
+    if token_count > MAX_TRANSCRIPT_TOKEN_COUNT:
         print(f"ERROR: raw_transcript too long ({token_count}), truncating to {MAX_TRANSCRIPT_TOKEN_COUNT}")
         raw_transcript = " ".join(transcript_words[:MAX_TRANSCRIPT_TOKEN_COUNT])
 

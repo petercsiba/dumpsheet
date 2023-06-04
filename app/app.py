@@ -22,7 +22,7 @@ import time
 from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
 
-from emails import get_text_from_email, send_confirmation, send_response, Email
+from emails import get_text_from_email, send_confirmation, send_response, Email, DEBUG_RECIPIENTS
 from generate_flashcards import generate_page
 from networking_dump import generate_draft_outreaches, extract_per_person_summaries, transcribe_audio
 from storage_utils import pretty_filesize, write_to_csv
@@ -107,7 +107,7 @@ def process_transcript(
     print(f"Running generate todo-list")
     # TODO(P2): Improve CSV format.
     drafts = generate_draft_outreaches(summaries)
-    drafts, _ = write_output_to_local_and_bucket(
+    drafts_file_path, _ = write_output_to_local_and_bucket(
         data=drafts,
         suffix="-todo.csv",
         content_type="text/csv",
@@ -155,20 +155,24 @@ def process_email(raw_email, network_calls=True):
     # TODO: Refactor the email processing to another function which returns some custom object maybe
     print(f"Read raw_email body with {len(raw_email)} bytes, network_calls={network_calls}")
 
-    # Parse the email
+    # ======== Parse the email
+    # TODO(P1): Move this to emails, essentially generate reply-to EmailParams
     msg = email.message_from_bytes(raw_email)
-    from_address = msg.get('From')
+    email_from = msg.get('From')
     orig_to_address = msg.get('To')
     orig_subject = msg.get('Subject')
     # Parse the address
-    sender_name, addr = parseaddr(from_address)
-    sender_name = "Person" if sender_name is None else sender_name
-    sender_first_name = sender_name.split()[0]
+    sender_full_name, sender_email_addr = parseaddr(email_from)
+    sender_full_name = "Person" if sender_full_name is None else sender_full_name
+    sender_first_name = sender_full_name.split()[0]
     reply_to_address = msg.get('Reply-To')
     if reply_to_address is None or not isinstance(reply_to_address, str):
         print("No reply-to address provided, falling back to from_address")
-        reply_to_address = addr
-    print(f"email from {sender_name} ({addr}) reply-to {reply_to_address}")
+        reply_to_address = sender_email_addr
+    print(
+        f"email from {sender_full_name} ({sender_email_addr}) reply-to {reply_to_address} "
+        f"orig_to_address {orig_to_address}, orig_subject {orig_subject}"
+    )
 
     # Generate run-id as an idempotency key for re-runs
     if msg['Date']:
@@ -181,9 +185,9 @@ def process_email(raw_email, network_calls=True):
 
     base_email_params = Email(
         sender=orig_to_address,
-        recipient=sender_name,
+        recipient=reply_to_address,
         subject=f"Re: {orig_subject}",
-        reply_to=[reply_to_address],
+        reply_to=DEBUG_RECIPIENTS,  # We skip the orig_to_address, as that would trigger another transcription.
     )
 
     # Process the attachments
@@ -214,13 +218,14 @@ def process_email(raw_email, network_calls=True):
             # TODO(P0): Only send the email at most once, with retries (blocked by storing stuff).
             confirmation_email_params = copy.deepcopy(base_email_params)
             confirmation_email_params.attachment_paths = attachment_file_paths
-            send_confirmation(confirmation_email_params, sender_first_name=sender_first_name)
+            send_confirmation(params=confirmation_email_params, sender_first_name=sender_first_name)
         else:
             print(f"would have sent confirmation email {base_email_params}")
     except Exception as err:
         print(f"ERROR: Could not send confirmation to {reply_to_address} cause {err}")
         traceback.print_exc()
 
+    # ===== Actually perform black magic
     raw_transcripts = []
     for attachment_num, attachment_file_path in enumerate(attachment_file_paths):
         print(f"Processing attachment {attachment_num} out of {len(attachment_file_paths)}")
@@ -228,7 +233,7 @@ def process_email(raw_email, network_calls=True):
         if bool(audio_filepath):
             raw_transcripts.append(transcribe_audio(audio_filepath=audio_filepath))
 
-    object_prefix = f"{sender_name}-{run_idempotency_key}"
+    object_prefix = f"{sender_full_name}-{run_idempotency_key}"
     object_prefix = re.sub(r'\s', '-', object_prefix)
 
     # Here we merge all successfully processed
