@@ -14,16 +14,15 @@ import boto3
 import copy
 import datetime
 import email
-import os
 import pytz
 import re
 import subprocess
-import time
 
 from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
 
-from emails import get_text_from_email, send_confirmation, send_response, Email, DEBUG_RECIPIENTS
+from emails import get_text_from_email, send_confirmation, send_response, Email, DEBUG_RECIPIENTS, \
+    store_and_get_attachments_from_email, get_email_params_for_reply
 from generate_flashcards import generate_page
 from networking_dump import generate_draft_outreaches, extract_per_person_summaries, transcribe_audio
 from storage_utils import pretty_filesize, write_to_csv
@@ -159,21 +158,7 @@ def process_email(raw_email, network_calls=True):
     # ======== Parse the email
     # TODO(P1): Move this to emails, essentially generate reply-to EmailParams
     msg = email.message_from_bytes(raw_email)
-    email_from = msg.get('From')
-    orig_to_address = msg.get('To')
-    orig_subject = msg.get('Subject')
-    # Parse the address
-    sender_full_name, sender_email_addr = parseaddr(email_from)
-    sender_full_name = "Person" if sender_full_name is None else sender_full_name
-    sender_first_name = sender_full_name.split()[0]
-    reply_to_address = msg.get('Reply-To')
-    if reply_to_address is None or not isinstance(reply_to_address, str):
-        print("No reply-to address provided, falling back to from_address")
-        reply_to_address = sender_email_addr
-    print(
-        f"email from {sender_full_name} ({sender_email_addr}) reply-to {reply_to_address} "
-        f"orig_to_address {orig_to_address}, orig_subject {orig_subject}"
-    )
+    base_email_params = get_email_params_for_reply(msg)
 
     # Generate run-id as an idempotency key for re-runs
     if msg['Date']:
@@ -184,46 +169,18 @@ def process_email(raw_email, network_calls=True):
         email_datetime = datetime.datetime.now(pytz.UTC)
         run_idempotency_key = msg['Message-ID']
 
-    base_email_params = Email(
-        sender=orig_to_address,
-        recipient=reply_to_address,
-        subject=f"Re: {orig_subject}",
-        reply_to=DEBUG_RECIPIENTS,  # We skip the orig_to_address, as that would trigger another transcription.
-    )
-
-    # Process the attachments
-    attachment_file_paths = []
-    for part in msg.walk():
-        if part.get_content_maintype() == 'multipart':
-            continue
-        if part.get('Content-Disposition') is None:
-            continue
-
-        # Get the attachment's filename
-        orig_file_name = part.get_filename()
-        print(f"Parsing attachment {orig_file_name}")
-
-        if not bool(orig_file_name):
-            continue
-
-        # If there is an attachment, save it to a file
-        file_name = f"{time.time()}-{orig_file_name}"
-        file_path = os.path.join('/tmp/', file_name)
-        with open(file_path, 'wb') as f:
-            f.write(part.get_payload(decode=True))
-
-        attachment_file_paths.append(file_path)
+    attachment_file_paths = store_and_get_attachments_from_email(msg)
 
     try:
         if network_calls:
             # TODO(P0): Only send the email at most once, with retries (blocked by storing stuff).
             confirmation_email_params = copy.deepcopy(base_email_params)
             confirmation_email_params.attachment_paths = attachment_file_paths
-            send_confirmation(params=confirmation_email_params, sender_first_name=sender_first_name)
+            send_confirmation(params=confirmation_email_params)
         else:
             print(f"would have sent confirmation email {base_email_params}")
     except Exception as err:
-        print(f"ERROR: Could not send confirmation to {reply_to_address} cause {err}")
+        print(f"ERROR: Could not send confirmation to {base_email_params.recipient} cause {err}")
         traceback.print_exc()
 
     # ===== Actually perform black magic
@@ -234,7 +191,7 @@ def process_email(raw_email, network_calls=True):
         if bool(audio_filepath):
             raw_transcripts.append(transcribe_audio(audio_filepath=audio_filepath))
 
-    object_prefix = f"{sender_full_name}-{run_idempotency_key}"
+    object_prefix = f"{base_email_params.recipient_full_name}-{run_idempotency_key}"
     object_prefix = re.sub(r'\s', '-', object_prefix)
 
     # Here we merge all successfully processed
@@ -248,7 +205,7 @@ def process_email(raw_email, network_calls=True):
     result_email_params = copy.deepcopy(base_email_params)
     result_email_params.attachment_paths = None
     process_transcript(
-        project_name=sender_first_name,
+        project_name=result_email_params.recipient_full_name,
         raw_transcript=raw_transcript,
         email_params=result_email_params,
         email_datetime=email_datetime,

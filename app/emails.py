@@ -2,6 +2,7 @@ import boto3
 import datetime
 import pytz
 import os
+import time
 import traceback
 
 from bs4 import BeautifulSoup
@@ -23,12 +24,68 @@ class Email:
     sender: str
     # To keep things simple, we only support one recipient for now (although adding more is simple)
     recipient: str
+    recipient_full_name: str
     subject: str
     body_text: str = None
     body_html: str = None
     reply_to: list[str] = None
     bcc: list[str] = None
     attachment_paths: list = None
+
+    def get_recipient_first_name(self):
+        return self.recipient_full_name.split()[0]
+
+
+def store_and_get_attachments_from_email(msg):
+    # Process the attachments
+    attachment_file_paths = []
+    for part in msg.walk():
+        if part.get_content_maintype() == 'multipart':
+            continue
+        if part.get('Content-Disposition') is None:
+            continue
+
+        # Get the attachment's filename
+        orig_file_name = part.get_filename()
+        print(f"Parsing attachment {orig_file_name}")
+
+        if not bool(orig_file_name):
+            continue
+
+        # If there is an attachment, save it to a file
+        file_name = f"{time.time()}-{orig_file_name}"
+        file_path = os.path.join('/tmp/', file_name)
+        with open(file_path, 'wb') as f:
+            f.write(part.get_payload(decode=True))
+
+        attachment_file_paths.append(file_path)
+    return attachment_file_paths
+
+
+def get_email_params_for_reply(msg):
+    # The variable naming is a bit confusing here, as `msg` refers to received email,
+    # while all the returned Email params are for the reply (i.e. recipient = reply_to)
+    email_from = msg.get('From')
+    orig_to_address = msg.get('To')
+    orig_subject = msg.get('Subject')
+    # Parse the address
+    sender_full_name, sender_email_addr = parseaddr(email_from)
+    sender_full_name = "Person" if sender_full_name is None else sender_full_name
+    reply_to_address = msg.get('Reply-To')
+    if reply_to_address is None or not isinstance(reply_to_address, str):
+        print("No reply-to address provided, falling back to from_address")
+        reply_to_address = sender_email_addr
+    print(
+        f"email from {sender_full_name} ({sender_email_addr}) reply-to {reply_to_address} "
+        f"orig_to_address {orig_to_address}, orig_subject {orig_subject}"
+    )
+    return Email(
+        sender=orig_to_address,
+        recipient=reply_to_address,
+        recipient_full_name=sender_full_name,
+        subject=f"Re: {orig_subject}",
+        reply_to=DEBUG_RECIPIENTS,  # We skip the orig_to_address, as that would trigger another transcription.
+    )
 
 
 # TODO(P0): Have a way to test email-renderings for bugs before deployment.
@@ -161,13 +218,11 @@ def send_email(params: Email):
 
 
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
-def send_confirmation(
-        params: Email,
-        sender_first_name: str,
-):
+#   * OR maybe even to SES.
+def send_confirmation(params: Email):
     if len(params.attachment_paths) == 0:
         params.body_text = ("""
-            <h3>Yo """ + sender_first_name + """, did you forgot the attachment?</h3>
+            <h3>Yo """ + params.get_recipient_first_name() + """, did you forgot the attachment?</h3>
         <p>Thanks for trying out katka.ai - your personal networking assistant - 
         aka the backoffice hero who takes care of the admin so that you can focus on what truly matters.</p>
         <p>But yo boss, where is the attachment? ☕ I would love to brew you a coffee, but I ain't real, 
@@ -186,9 +241,9 @@ def send_confirmation(
             file_list.append(f"<li>{os.path.basename(file_path)} ({file_size})</li>")
         file_list_str = "\n".join(file_list)
 
-        # subject = f"Hey {sender_first_name} - !"
+        # subject = f"Hey {params.get_recipient_first_name()} - !"
         params.body_text = ("""
-    <h3>Hello there """ + sender_first_name + """! 👋</h3>
+    <h3>Hello there """ + params.get_recipient_first_name() + """! 👋</h3>
         <p>Thanks for trying out katka.ai - your personal networking assistant - aka the backoffice guru who takes care 
             of the admin so that you can focus on what truly matters.</p>
     <h3>Rest assured, I got your recording and I am already crunching through it!</h3>
