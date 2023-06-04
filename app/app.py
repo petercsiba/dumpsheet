@@ -7,6 +7,7 @@
 #   * Merge / update - add knowledge from previous encounters
 #   * Event prep - know who will be there
 #   * Share networking hacks, like on learning names "use it or lose it", "by association nick from nw", "take notes"
+#   * Self-tact
 import traceback
 
 import boto3

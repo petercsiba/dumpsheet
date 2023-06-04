@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
+from email.utils import parseaddr
 
 from storage_utils import pretty_filesize
 
@@ -62,6 +63,11 @@ def create_raw_email_with_attachments(params: Email):
     if not isinstance(params.recipient, str):
         print(f"email_address is NOT a string {params.recipient}, falling back to {DEBUG_RECIPIENTS}")
         params.recipient = DEBUG_RECIPIENTS[0]
+    # Fill in sender name
+    sender_name, sender_email = parseaddr(params.sender)
+    if sender_name == "":
+        params.sender = f"Katka.AI Assistant <{sender_email}>"
+
     if params.reply_to is None:
         params.reply_to = [params.sender]
     if params.attachment_paths is None:
@@ -190,7 +196,7 @@ def send_confirmation(
         <ul>""" + f"{file_list_str}" + """</ul>
     <h3>What's next?</h3>
         <ul>
-            <li> Relax for about 2 to 10 minutes until I work through your brain-dump boss.. ⏱️️</li>
+            <li> Relax for about 2 to 10 minutes until I work through your brain-dump boss. ⏱️️</li>
             <li> Be on a look-out for an email from """ + params.sender + """</li>
         </ul>
     <h3>Got any questions? 🔥</h3>

@@ -217,10 +217,13 @@ def generate_first_outreaches(name, person_transcript, intents):
         # Note: tried to do it in batch and parsing the JSON output, but GPT isn't the most consistent
         # about it. For future rather run more tokens / queries then trying to batch it (for now).
         # TODO(P0, vertical-saas): We should improve generalize these
+        # TODO(P0, fine-tune): Add a text area which allows to fine-tune, regenerate the draft with extra prompts
+        #   i.e. have an embedded chat gpt experience
         # TODO(P1): Personalize the messages to my general transcript vibes.
         query_outreaches = """ 
         From the notes on the following person I met at an event 
-        please generate a short casual yet professional outreach text message to say "{}"  (up to 250 characters)
+        please generate short outreach message writing as a smooth casual friendly yet professional talker 
+        to say "{}"  (up to 250 characters)
         Make sure that:
         * saying that I enjoyed OR appreciated in the conversation
         * include a fact from our conversation
