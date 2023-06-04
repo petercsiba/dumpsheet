@@ -81,6 +81,8 @@ def convert_audio_to_mp4(file_path):
     return audio_file
 
 
+# TODO(P0, migration): This will become the second lambda, operating on DynamoDB activity events
+#   when new DataEntry items are added.
 def process_transcript(
         project_name: str,
         raw_transcript: str,
@@ -89,12 +91,11 @@ def process_transcript(
         object_prefix=None,
         network_calls=True
 ):
-    # TODO(P3): Use more proper temp fs
+    # TODO(P3, infra): Use more proper temp fs
     local_output_prefix = f"/tmp/{object_prefix}"
 
-    # TODO(P0): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
+    # TODO(P0, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
     print(f"Running Sekretar-katka")
-    # TODO(P1): Support longer than 3000 word token inputs by some smart chunking.
     summaries = extract_per_person_summaries(raw_transcript=raw_transcript)
     summaries_filepath, _ = write_output_to_local_and_bucket(
         data=summaries,
@@ -106,7 +107,7 @@ def process_transcript(
     )
 
     print(f"Running generate todo-list")
-    # TODO(P2): Improve CSV format.
+    # TODO(P2, feature): Improve CSV format.
     drafts = generate_draft_outreaches(summaries)
     drafts_file_path, _ = write_output_to_local_and_bucket(
         data=drafts,
@@ -118,7 +119,7 @@ def process_transcript(
     )
 
     print(f"Running generate webpage")
-    # TODO(P1): Would be nice to include the full-transcript as a button in the LHS menu
+    # TODO(P1, ux): Would be nice to include the full-transcript as a button in the LHS menu
     page_contents = generate_page(
         project_name=project_name,
         email_datetime=email_datetime,
@@ -133,13 +134,12 @@ def process_transcript(
         bucket_name=STATIC_HOSTING_BUCKET_NAME,
         bucket_object_prefix=object_prefix
     )
-    # TODO(P2): Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
+    # TODO(P2, infra): Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
     webpage_link = f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{bucket_key}"
 
     email_params.attachment_paths = [summaries_filepath]
     if network_calls:
-        # TODO(P0): The general context on people count, event type, summary fields used, your inferred vibes
-        #   should be passed back for response email generation.
+        # TODO(P1, peter): Would be nice to pass total tokens used, queries and GPT time.
         send_response(
             email_params=email_params,
             email_datetime=email_datetime,
@@ -153,7 +153,7 @@ def process_transcript(
 
 
 def process_email(raw_email, network_calls=True):
-    # TODO: Refactor the email processing to another function which returns some custom object maybe
+    # TODO(P1, migration): Refactor the email processing to another function which returns some custom object maybe
     print(f"Read raw_email body with {len(raw_email)} bytes, network_calls={network_calls}")
 
     # ======== Parse the email

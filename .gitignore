@@ -1,6 +1,6 @@
 __pycache__*
 assets/index.html
-data*
+/data*
 dynamodb_local_latest*
 DynamoDBLocal*
 input*
