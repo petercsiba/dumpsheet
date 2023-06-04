@@ -98,7 +98,7 @@ def create_raw_email_with_attachments(params: Email):
     if params.bcc is not None:
         msg['Bcc'] = ', '.join(params.bcc)
 
-    print(f"Sending email from {msg['From']} to {msg['To']} (and bcc {msg['Bcc']} with subject {msg['Subject']}")
+    print(f"Sending email from {msg['From']} to {msg['To']} (and bcc {msg['Bcc']}) with subject {msg['Subject']}")
 
     # Create a multipart/alternative child container
     msg_body = MIMEMultipart('alternative')
@@ -139,7 +139,8 @@ def send_email(params: Email):
         ses = boto3.client('ses')
         response = ses.send_raw_email(
             Source=params.sender,
-            Destinations=list(params.recipient) + params.bcc,
+            # TIL, list(str) returns characters, instead of having a single entry list [str]
+            Destinations=[params.recipient] + params.bcc,
             RawMessage={
                 'Data': raw_email.as_string(),
             }

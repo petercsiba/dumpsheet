@@ -41,7 +41,7 @@ def fill_template(template, template_vars, depth=1):
             continue
 
         value = "Unknown" if value is None else str(value)
-        print(f"replacing {var} with {value}")
+        # print(f"replacing {var} with {value}")
         template = re.sub(r"{{ " + var + " }}", value, template, flags=re.DOTALL)
 
     if depth == 1:
