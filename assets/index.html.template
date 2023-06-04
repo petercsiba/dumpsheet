@@ -92,7 +92,7 @@
             </button>
         </div>
         <h1><a href="{{ website_url }}" class="logo">{{ project_name }}</a></h1>
-        <h3>{{ sub_project_name }}</h3>
+        <h3><a href="{{ website_url }}" class="logo">{{ sub_project_name }}</a></h3>
         <ul class="list-unstyled components mb-5">
     {{ person_head.begin }}
             <li class="gpt-nav-button {{ person_head.style_display }}"

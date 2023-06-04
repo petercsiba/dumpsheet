@@ -6,34 +6,18 @@ import time
 import traceback
 
 from bs4 import BeautifulSoup
-from dataclasses import dataclass
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.utils import parseaddr
 
+from aws_utils import is_running_in_aws
+from datashare import EmailParams
 from storage_utils import pretty_filesize
 
 SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
 DEBUG_RECIPIENTS = ["petherz@gmail.com", "kata.sabo@gmail.com"]
-
-
-@dataclass
-class Email:
-    sender: str
-    # To keep things simple, we only support one recipient for now (although adding more is simple)
-    recipient: str
-    recipient_full_name: str
-    subject: str
-    body_text: str = None
-    body_html: str = None
-    reply_to: list[str] = None
-    bcc: list[str] = None
-    attachment_paths: list = None
-
-    def get_recipient_first_name(self):
-        return self.recipient_full_name.split()[0]
 
 
 def store_and_get_attachments_from_email(msg):
@@ -79,7 +63,7 @@ def get_email_params_for_reply(msg):
         f"email from {sender_full_name} ({sender_email_addr}) reply-to {reply_to_address} "
         f"orig_to_address {orig_to_address}, orig_subject {orig_subject}"
     )
-    return Email(
+    return EmailParams(
         sender=orig_to_address,
         recipient=reply_to_address,
         recipient_full_name=sender_full_name,
@@ -116,7 +100,7 @@ def get_text_from_email(msg):
     return result
 
 
-def create_raw_email_with_attachments(params: Email):
+def create_raw_email_with_attachments(params: EmailParams):
     if not isinstance(params.recipient, str):
         print(f"email_address is NOT a string {params.recipient}, falling back to {DEBUG_RECIPIENTS}")
         params.recipient = DEBUG_RECIPIENTS[0]
@@ -193,10 +177,14 @@ def create_raw_email_with_attachments(params: Email):
 #     * Add Unsubscribe button
 #     * Opt-in process (verify email)
 #     * Over-time, the higher the engagement with our emails the better.
-def send_email(params: Email):
+def send_email(params: EmailParams):
     params.bcc = DEBUG_RECIPIENTS
     raw_email = create_raw_email_with_attachments(params)
 
+    if not is_running_in_aws():
+        # TODO(P2, testing): Ideally we should also test the translation from params to raw email.
+        print(f"Skipping ses.send_raw_email cause NOT in AWS. Dumping the email contents {params}")
+        return params.subject
     try:
         print(f"Attempting to send email to {params.recipient} with attached files {params.attachment_paths}")
         ses = boto3.client('ses')
@@ -207,6 +195,8 @@ def send_email(params: Email):
             RawMessage={
                 'Data': raw_email.as_string(),
             }
+            # TODO(P0, ux): Add support for only send the email at most once using
+            #   MessageDeduplicationId=deduplication_id
         )
         message_id = response["MessageId"]
         print(f'Email sent! Message ID: {message_id}, Subject: {params.subject}')
@@ -219,7 +209,7 @@ def send_email(params: Email):
 
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
 #   * OR maybe even to SES.
-def send_confirmation(params: Email):
+def send_confirmation(params: EmailParams):
     if len(params.attachment_paths) == 0:
         params.body_text = ("""
             <h3>Yo """ + params.get_recipient_first_name() + """, did you forgot the attachment?</h3>
@@ -264,12 +254,13 @@ def send_confirmation(params: Email):
 
 
 def send_response(
-        email_params: Email,
+        email_params: EmailParams,
         email_datetime: datetime.datetime,
         webpage_link: str,
         people_count: int,
         drafts_count: int
 ):
+    # TODO(P1, migration): Get it from DataEntry.event_name
     email_dt_str = email_datetime.strftime('%B %d, %H:%M')
     now = datetime.datetime.now(pytz.utc)
     try:

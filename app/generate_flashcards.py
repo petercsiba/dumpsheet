@@ -143,6 +143,7 @@ test_todolist = """[{"name": "Wojciech Kretowski", "message_type": "to learn mor
 test_template_vars = {
     "title": "My Test Page",
     "project_name": "My Test Page",  # ideally the networking event name
+    "website_url": "#",
     SUB_TEMPLATE_KEY: {
         "person_head": [{
             "person_head.element_id": "person1",
