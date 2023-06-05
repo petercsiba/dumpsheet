@@ -20,7 +20,7 @@ from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
 
 from aws_utils import get_bucket_url
-from datashare import DataEntry, EmailParams
+from datashare import DataEntry, EmailParams, User
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
 from generate_flashcards import generate_page
 from networking_dump import generate_draft_outreaches, extract_per_person_summaries, transcribe_audio
@@ -157,7 +157,7 @@ def process_email_input(raw_email, bucket_url=None,) -> DataEntry:
 
     # TODO(P0, migration): Map email address to user_id through DynamoDB
     result = DataEntry(
-        user_id=base_email_params.recipient,
+        user_id=User.generate_user_id(),
         event_name=email_datetime.strftime('%B %d, %H:%M'),
         event_timestamp=email_datetime,
         email_reply_params=base_email_params,
