@@ -28,9 +28,10 @@ test_person_to_transcript = None
 test_summaries = None
 
 
-# TODO: Maybe better place in openai_utils
-# TODO(P2): Multi-language support (chinese, slovak), ideally we need to derive the language for transcript
-#   * https://platform.openai.com/docs/api-reference/audio
+# TODO(P0): Multi-language support (chinese, slovak), ideally we need to derive the language for transcript
+#   * Use https://api.openai.com/v1/audio/translations
+#   They support a shitload of languages.
+# TODO(P1, devx): Maybe better place in openai_utils
 def transcribe_audio(audio_filepath):
     if test_transcript is not None:
         return test_transcript

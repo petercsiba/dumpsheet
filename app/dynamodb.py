@@ -9,7 +9,7 @@ import time
 
 from dataclasses import asdict, is_dataclass
 
-from datashare import DataEntry, EmailParams, Person, DataEntryKey
+from datashare import DataEntry, EmailParams, PersonDataEntry, DataEntryKey
 
 TABLE_NAME_DATA_ENTRY = "KatkaAI_DataEntry"
 TABLE_NAME_PERSON = "KatkaAI_Person"
@@ -91,7 +91,7 @@ class DynamoDBManager:
                     result_dict[key] = EmailParams(**value)
             elif isinstance(value, list):
                 if key == 'output_people_snapshot':
-                    result_dict[key] = [Person(**item) if isinstance(item, dict) else item for item in value]
+                    result_dict[key] = [PersonDataEntry(**item) if isinstance(item, dict) else item for item in value]
             elif isinstance(value, datetime.datetime):
                 result_dict[key] = value
 
