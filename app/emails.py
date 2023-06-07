@@ -168,16 +168,14 @@ def create_raw_email_with_attachments(params: EmailParams):
     return msg
 
 
-# TODO: Move the logic of parsing the email attachment to here
-
-# TODO(P0): Gmail marks us as spam - no clear way around it. Some easy-ish ways:
+# TODO(P2): Gmail marks us as spam - no clear way around it. Some easy-ish ways:
 #     * [DONE] Use the same email sender address
 #     * [DONE] Authenticate emails DKIM, DMARC, SPF
 #     * Next(Mehdi): "Prime" your domain, blast emails, make everyone to open it (this will happen over time).
 #     * Add Unsubscribe button
 #     * Opt-in process (verify email)
 #     * Over-time, the higher the engagement with our emails the better.
-def send_email(params: EmailParams):
+def send_email(params: EmailParams, dedup_id=None):
     params.bcc = DEBUG_RECIPIENTS
     raw_email = create_raw_email_with_attachments(params)
 
@@ -194,9 +192,10 @@ def send_email(params: EmailParams):
             Destinations=[params.recipient] + params.bcc,
             RawMessage={
                 'Data': raw_email.as_string(),
-            }
-            # TODO(P0, ux): Add support for only send the email at most once using
-            #   MessageDeduplicationId=deduplication_id
+            },
+            # TODO(P1, cx): We need DB for this too, as MessageDeduplicationId is for SQS (and this is SES).
+            #   check_message_id_in_database, store_message_id_in_database (anyway would be nice to store all msgs)
+            # MessageDeduplicationId=dedup_id,
         )
         message_id = response["MessageId"]
         print(f'Email sent! Message ID: {message_id}, Subject: {params.subject}')
@@ -209,7 +208,7 @@ def send_email(params: EmailParams):
 
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
 #   * OR maybe even to SES.
-def send_confirmation(params: EmailParams):
+def send_confirmation(params: EmailParams, dedup_prefix=None):
     if len(params.attachment_paths) == 0:
         params.body_text = ("""
             <h3>Yo """ + params.get_recipient_first_name() + """, did you forgot the attachment?</h3>
@@ -223,7 +222,7 @@ def send_confirmation(params: EmailParams):
         <p>Keep rocking it!</p>
         <p>Your amazing team at katka.ai 🚀</p>
         """)
-        send_email(params=params)
+        send_email(params=params, dedup_id=None if dedup_prefix is None else f"{dedup_prefix}-forgot-attachment")
     else:
         file_list = []
         for file_path in params.attachment_paths:
@@ -250,7 +249,7 @@ def send_confirmation(params: EmailParams):
         <p>Keep rocking it!</p>
         <p>Your amazing team at katka.ai 🚀</p>
         """)
-        send_email(params=params)
+        send_email(params=params,  dedup_id=None if dedup_prefix is None else f"{dedup_prefix}-confirmation")
 
 
 def send_response(

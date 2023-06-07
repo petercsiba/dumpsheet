@@ -67,7 +67,7 @@ def transcribe_audio(audio_filepath):
 # * Many un-attributed gaps (which was painful to map)
 # * Repeat mentions doesn't work
 # My mistake was that I tried to optimize token count, returning only indexes, which made the code very complicated.
-def get_per_person_transcript(raw_transcript):
+def get_per_person_transcript(raw_transcript: str):
     transcript_words = raw_transcript.split()
     token_count = len(transcript_words)
     print(f"Transcript has {token_count} words")
@@ -242,7 +242,7 @@ def generate_first_outreaches(name, person_transcript, intents):
 
 
 # =============== MAIN FUNCTIONS TO BE CALLED  =================
-def extract_per_person_summaries(raw_transcript):
+def extract_per_person_summaries(raw_transcript: str):
     print(f"Running networking_dump on raw_transcript of {len(raw_transcript.split())} token size")
 
     if test_person_to_transcript is None:

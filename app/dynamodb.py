@@ -1,10 +1,13 @@
+import datetime
+from typing import Optional
+
 import boto3
 import json
 import os
 import subprocess
 import time
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, is_dataclass
 
 from datashare import DataEntry, EmailParams, Person, DataEntryKey
 
@@ -25,68 +28,96 @@ class DynamoDBManager:
         self.data_entry_table = self.create_data_entry_table_if_not_exists()
         self.person_table = self.create_person_table_if_not_exists()
 
-    def write_data_entry(self, data_entry: DataEntry):
-        print(f"write_data_entry for user_id {data_entry.user_id} event_name {data_entry.event_name}")
+    # TODO(P0, devx): Generalize to any table.
+    def write_dataclass(self, data: DataEntry):
+        print(f"write_dataclass {data}")
         # Convert the data_entry object to a dictionary, and then json.dumps
         # the complex objects to store them as strings in DynamoDB.
-        data_entry_dict = asdict(data_entry)
-        for key, value in data_entry_dict.items():
-            if isinstance(value, (EmailParams, Person, dict)):
-                data_entry_dict[key] = json.dumps(asdict(value))
+        item_dict = asdict(data)
+        for key, value in item_dict.items():
+            if is_dataclass(value):
+                item_dict[key] = json.dumps(asdict(value))
+            # elif isinstance(value, dict):
+                # TODO(P2, devx): Technically, we should support key -> dataclass here.
+                # item_dict[key] = json.dumps(value)
             elif isinstance(value, list):
-                data_entry_dict[key] = json.dumps(
-                    [asdict(item) if isinstance(item, (EmailParams, Person)) else item for item in value]
+                item_dict[key] = json.dumps(
+                    [asdict(item) if is_dataclass(item) else item for item in value]
                 )
+            elif isinstance(value, datetime.datetime):
+                item_dict[key] = value.isoformat()
+            else:
+                print(f"skipping {key} as basic type")
 
-        return self.data_entry_table.put_item(Item=data_entry_dict)
+        print(f"data_entry_dict: {item_dict}")
+        return self.data_entry_table.put_item(Item=item_dict)
 
-    def read_data_entry(self, key: DataEntryKey) -> DataEntry:
+    # TODO(P1, devx): Generalize this to any data-class -
+    #  - MAYBE we can include class information on the object when serializing.
+    def read_into_dataclass(self, key: DataEntryKey) -> Optional[DataEntry]:
         response = self.data_entry_table.get_item(
             Key={
                 'user_id': key.user_id,
                 'event_name': key.event_name
             }
         )
-        transcript = response['Item'] if 'Item' in response else None
-        print(f"read_transcript {key} of size {'NOT FOUND' if transcript is None else len(transcript)}")
+        if 'Item' not in response:
+            print(f"Item with key {key} NOT found")
+            return None
 
-    def update_transcript(self, key: DataEntryKey, summaries, drafts):
-        print(f"update_transcript {key} with summaries {len(summaries)} and drafts {len(drafts)}")
-        response = self.transcript_table.update_item(
-            Key={
-                'email': key.email,
-                'timestamp': key.timestamp
-            },
-            UpdateExpression="set summaries=:s, drafts=:d",
-            ExpressionAttributeValues={
-                ':s': summaries,
-                ':d': drafts
-            },
-            ReturnValues="UPDATED_NEW"
-        )
-        return response
+        result_dict = response['Item']
+        # Iterate over the items in the dictionary
+        for key, value in result_dict.items():
+            if isinstance(value, str):
+                # If the value is a string, it might be a JSON-encoded complex object or a datetime
+                try:
+                    # Try to JSON decode the value
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    # If JSON decoding fails, it might be a datetime string
+                    try:
+                        value = datetime.datetime.fromisoformat(value)
+                    except ValueError:
+                        # If it's not a datetime string, leave it as is
+                        pass
 
-    def create_data_entry_table_if_not_exists(self):
-        existing_tables = self.dynamodb.list_tables()['TableNames']
+            # If the value is a dictionary or list, it might represent a dataclass
+            if isinstance(value, dict):
+                if key == 'email_reply_params':
+                    result_dict[key] = EmailParams(**value)
+            elif isinstance(value, list):
+                if key == 'output_people_snapshot':
+                    result_dict[key] = [Person(**item) if isinstance(item, dict) else item for item in value]
 
-        if TABLE_NAME_DATA_ENTRY in existing_tables:
-            print(f"Table {TABLE_NAME_DATA_ENTRY} already exists.")
+        return DataEntry(**result_dict)
+
+    def get_table_if_exists(self, table_name):
+        existing_tables = [t.name for t in self.dynamodb.tables.all()]
+        print(f"existing_tables: {existing_tables}")
+
+        if table_name in existing_tables:
+            print(f"Table {table_name} already exists.")
             return self.dynamodb.Table(TABLE_NAME_DATA_ENTRY)
 
+        return None
+
+    def create_data_entry_table_if_not_exists(self):
+        result = self.get_table_if_exists(TABLE_NAME_DATA_ENTRY)
+        if result is not None:
+            return result
+
         return self.create_table_with_option(
-            table_name = TABLE_NAME_DATA_ENTRY,
+            table_name=TABLE_NAME_DATA_ENTRY,
             pk_name="user_id",
-            sk_name="email",
+            sk_name="event_name",
             has_sort_key=True,
             has_gsi=False
         )
 
     def create_person_table_if_not_exists(self):
-        existing_tables = self.dynamodb.list_tables()['TableNames']
-
-        if TABLE_NAME_PERSON in existing_tables:
-            print(f"Table {TABLE_NAME_PERSON} already exists.")
-            return self.dynamodb.Table(TABLE_NAME_PERSON)
+        result = self.get_table_if_exists(TABLE_NAME_PERSON)
+        if result is not None:
+            return result
 
         return self.create_table_with_option(
             table_name = TABLE_NAME_PERSON,
@@ -95,11 +126,9 @@ class DynamoDBManager:
         )
 
     def create_user_table_if_not_exists(self):
-        existing_tables = self.dynamodb.list_tables()['TableNames']
-
-        if TABLE_NAME_USER in existing_tables:
-            print(f"Table {TABLE_NAME_USER} already exists.")
-            return self.dynamodb.Table(TABLE_NAME_USER)
+        result = self.get_table_if_exists(TABLE_NAME_USER)
+        if result is not None:
+            return result
 
         # TODO(clean, P2): Would be nice to somehow derive the schema with compile-time checks.
         return self.create_table_with_option(
@@ -110,7 +139,7 @@ class DynamoDBManager:
             has_gsi=True,
         )
 
-    # TODO(P1, utils): Currentluy we require primary_key (pk) and sort_key (sk) to be strings.
+    # TODO(P1, utils): Currently we require primary_key (pk) and sort_key (sk) to be strings.
     def create_table_with_option(
             self,
             table_name: str,
@@ -180,20 +209,28 @@ class DynamoDBManager:
 
 
 # ========== MOSTLY LOCAL SHIT =========== #
-def write_files_to_dynamodb(manager: DynamoDBManager, directory: str):
+def load_files_to_dynamodb(manager: DynamoDBManager, directory: str):
     for filename in os.listdir(directory):
-        email, timestamp = filename.rsplit('.', 1)[0].split('_')
-        key = DataEntryKey(email=email, timestamp=timestamp)
-
         with open(f"{directory}/{filename}", 'r') as file:
-            transcript = file.read()
-
-        manager.write_transcript(key, transcript)
+            data_entry = json.load(file)
+            print(f"load_files_to_dynamodb importing fixture {filename} key={data_entry.user_id, data_entry.event_name}")
+            manager.write_dataclass(data_entry)
 
 
 def setup_dynamodb_local():
-    # Adjust the path to DynamoDBLocal.jar and DynamoDBLocal_lib as needed
-    cmd = 'java -Djava.library.path=' + LIB_PATH + ' -jar ' + JAR_PATH + ' -sharedDb -inMemory'
+    port = 8000
+    try:
+        print(f"gonna kill lagging local dynamodb if running on port {port}")
+        pid = subprocess.check_output(['lsof', '-i', f':{port}', '|', 'awk', '{print $2}', '|', 'tail', '-1'])
+        pid = pid.decode('utf-8').strip()  # Convert bytes to string and remove extra whitespace
+
+        # Kill the process
+        subprocess.check_output(['kill', '-9', pid])
+    except subprocess.CalledProcessError:
+        pass
+
+    # Startup the local DynamoDB
+    cmd = 'java -Djava.library.path=' + LIB_PATH + ' -jar ' + JAR_PATH + f" -sharedDb -inMemory -port {port}"
     dynamodb_process = subprocess.Popen(cmd, shell=True)
 
     # Sleep for a short while to ensure DynamoDB Local has time to start up
@@ -201,8 +238,6 @@ def setup_dynamodb_local():
     time.sleep(1)
 
     manager = DynamoDBManager(endpoint_url='http://localhost:8000')
-    manager.create_transcript_table_if_not_exists()
-    write_files_to_dynamodb()
 
     return dynamodb_process, manager
 
@@ -213,8 +248,8 @@ def teardown_dynamodb_local(dynamodb_process):
 
 
 if __name__ == "__main__":
-    process = setup_dynamodb_local()
+    process, mngr = setup_dynamodb_local()
 
-    write_files_to_dynamodb('test/fixtures/transcripts')
+    load_files_to_dynamodb(mngr, "test/fixtures/dynamodb")
 
     teardown_dynamodb_local(process)

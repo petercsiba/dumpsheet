@@ -123,8 +123,9 @@ class DataEntryKey:
 class DataEntry:
     # Partition Key, Sort Key
     user_id: str
-    event_name: str
+    event_name: str  # used as human identifier, e.g. date, location, actual event name
     # Additional items
+    event_id: str  # used as computer idempotency key, e.g. received email Message-id
     event_timestamp: datetime.datetime
     email_reply_params: EmailParams
     input_s3_url: Optional[str] = None  # No S3 for local testing

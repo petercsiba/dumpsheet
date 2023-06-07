@@ -19,8 +19,9 @@ import traceback
 from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
 
+from dynamodb import setup_dynamodb_local, load_files_to_dynamodb, teardown_dynamodb_local, TABLE_NAME_DATA_ENTRY
 from aws_utils import get_bucket_url
-from datashare import DataEntry, EmailParams, User
+from datashare import DataEntry, EmailParams, User, DataEntryKey
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
 from generate_flashcards import generate_page
 from networking_dump import generate_draft_outreaches, extract_per_person_summaries, transcribe_audio
@@ -114,30 +115,7 @@ def process_transcript(
     # TODO: Get total token usage as a fun fact (probably need to instantiate a singleton openai class wrapper)
 
 
-# The second lambda
-def process_data_entry(data_entry):
-    # ===== Actually perform black magic
-    full_name = data_entry.email_reply_params.recipient_full_name
-    object_prefix = f"{full_name}-{data_entry.event_timestamp}"
-    object_prefix = re.sub(r'\s', '-', object_prefix)
-    # Here we merge all successfully processed
-    # * audio attachments
-    # * email bodies
-    # into one giant transcript.
-    raw_transcript = "\n\n".join(data_entry.input_transcripts)
-
-    result_email_params = copy.deepcopy(data_entry.email_reply_params)
-    result_email_params.attachment_paths = None
-    process_transcript(
-        project_name=result_email_params.recipient_full_name,
-        raw_transcript=raw_transcript,
-        email_params=result_email_params,
-        email_datetime=data_entry.event_timestamp,
-        bucket_object_prefix=object_prefix,
-    )
-
-
-def process_email_input(raw_email, bucket_url=None,) -> DataEntry:
+def process_email_input(raw_email, bucket_url=None) -> DataEntry:
     # TODO(P1, migration): Refactor the email processing to another function which returns some custom object maybe
     print(f"Read raw_email body with {len(raw_email)} bytes")
 
@@ -159,6 +137,7 @@ def process_email_input(raw_email, bucket_url=None,) -> DataEntry:
     result = DataEntry(
         user_id=User.generate_user_id(),
         event_name=email_datetime.strftime('%B %d, %H:%M'),
+        event_id=msg['Message-ID'],
         event_timestamp=email_datetime,
         email_reply_params=base_email_params,
         input_s3_url=bucket_url,
@@ -167,7 +146,7 @@ def process_email_input(raw_email, bucket_url=None,) -> DataEntry:
     try:
         confirmation_email_params = copy.deepcopy(base_email_params)
         confirmation_email_params.attachment_paths = attachment_file_paths
-        send_confirmation(params=confirmation_email_params)
+        send_confirmation(params=confirmation_email_params, dedup_prefix=result.event_id)
     except Exception as err:
         print(f"ERROR: Could not send confirmation to {base_email_params.recipient} cause {err}")
         traceback.print_exc()
@@ -179,6 +158,30 @@ def process_email_input(raw_email, bucket_url=None,) -> DataEntry:
             result.input_transcripts.append(transcribe_audio(audio_filepath=audio_filepath))
 
     return result
+
+
+# The second lambda
+def process_data_entry(data_entry):
+    # ===== Actually perform black magic
+    full_name = data_entry.email_reply_params.recipient_full_name
+    object_prefix = f"{full_name}-{data_entry.event_timestamp}"
+    object_prefix = re.sub(r'\s', '-', object_prefix)
+    # Here we merge all successfully processed
+    # * audio attachments
+    # * email bodies
+    # into one giant transcript.
+    raw_transcript = "\n\n".join(data_entry.input_transcripts)
+    print(f"raw_transcript: {raw_transcript}")
+
+    result_email_params = copy.deepcopy(data_entry.email_reply_params)
+    result_email_params.attachment_paths = None
+    process_transcript(
+        project_name=result_email_params.recipient_full_name,
+        raw_transcript=raw_transcript,
+        email_params=result_email_params,
+        email_datetime=data_entry.event_timestamp,
+        bucket_object_prefix=object_prefix,
+    )
 
 
 # TODO(P1, devx): Send email on failure via CloudWatch monitoring (ask GPT how to do it)
@@ -213,8 +216,22 @@ def lambda_handler(event, context):
 #  although would require further mocking of OpenAI calls from the test_.. stuff
 if __name__ == "__main__":
     OUTPUT_BUCKET_NAME = None
+
+    process, dynamodb = setup_dynamodb_local()
+
+    load_files_to_dynamodb(dynamodb, "test/fixtures/dynamodb")
+
     # Maybe all test cases?
     with open("test/katka-multimodal", "rb") as handle:
         file_contents = handle.read()
-        local_data_entry = process_email_input(file_contents)
-        process_data_entry(local_data_entry)
+        orig_data_entry = process_email_input(file_contents)
+        dynamodb.write_dataclass(orig_data_entry)
+
+        loaded_data_entry = dynamodb.read_into_dataclass(
+            key=DataEntryKey(orig_data_entry.user_id, orig_data_entry.event_name)
+        )
+        print(f"loaded_data_entry: {loaded_data_entry}")
+
+        process_data_entry(loaded_data_entry)
+
+    teardown_dynamodb_local(process)
