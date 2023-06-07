@@ -37,13 +37,15 @@ class DynamoDBManager:
         for key, value in item_dict.items():
             if is_dataclass(value):
                 item_dict[key] = json.dumps(asdict(value))
-            # elif isinstance(value, dict):
+            elif isinstance(value, dict):
                 # TODO(P2, devx): Technically, we should support key -> dataclass here.
-                # item_dict[key] = json.dumps(value)
+                if key == 'email_reply_params':
+                    item_dict[key] = json.dumps(value)
             elif isinstance(value, list):
-                item_dict[key] = json.dumps(
-                    [asdict(item) if is_dataclass(item) else item for item in value]
-                )
+                if key == 'output_people_snapshot':
+                    item_dict[key] = json.dumps(
+                        [asdict(item) if is_dataclass(item) else item for item in value]
+                    )
             elif isinstance(value, datetime.datetime):
                 item_dict[key] = value.isoformat()
             else:
@@ -88,6 +90,8 @@ class DynamoDBManager:
             elif isinstance(value, list):
                 if key == 'output_people_snapshot':
                     result_dict[key] = [Person(**item) if isinstance(item, dict) else item for item in value]
+            elif isinstance(value, datetime.datetime):
+                result_dict[key] = value
 
         return DataEntry(**result_dict)
 

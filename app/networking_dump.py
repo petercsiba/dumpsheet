@@ -184,7 +184,10 @@ def per_person_transcripts_to_summaries(person_to_transcript):
             # One failure shouldn't block the entire thing, log the error, return name, transcript for manual fix.
             summary = gpt_response_to_json(raw_response)
             # TODO(P1): Handle this error case:
-            # Sorry, there is no information in the input transcript to structure a note describing a person
+            #   For inputs like The input transcript: ['The Riga, there was one moderator']
+            #   Sorry, there is no information in the input transcript to structure a note describing a person
+            #   Sorry, the input transcript is too short to extract any meaningful information about a person I met.
+            #       Please provide a longer transcript with more details about the person
             if summary is None:
                 print(f"Could NOT parse summary for {name}, defaulting to hand-crafted")
                 summary = {
