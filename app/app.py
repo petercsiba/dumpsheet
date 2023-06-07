@@ -24,7 +24,7 @@ from aws_utils import get_bucket_url
 from datashare import DataEntry, EmailParams, User, DataEntryKey
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
 from generate_flashcards import generate_page
-from networking_dump import generate_draft_outreaches, extract_per_person_summaries, transcribe_audio
+from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries, transcribe_audio
 from storage_utils import write_output_to_local_and_bucket
 
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
@@ -61,10 +61,9 @@ def process_transcript(
     local_output_prefix = f"/tmp/{bucket_object_prefix}"
 
     # TODO(P0, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
-    print(f"Running Sekretar-katka")
-    summaries = extract_per_person_summaries(raw_transcript=raw_transcript)
+    person_data_entries = extract_per_person_summaries(raw_transcript=raw_transcript)
     summaries_filepath, _ = write_output_to_local_and_bucket(
-        data=summaries,
+        data=person_data_entries,
         suffix="-summaries.csv",
         content_type="text/csv",
         local_output_prefix=local_output_prefix,
@@ -72,25 +71,13 @@ def process_transcript(
         bucket_object_prefix=bucket_object_prefix
     )
 
-    print(f"Running generate todo-list")
-    # TODO(P2, feature): Improve CSV format.
-    drafts = generate_draft_outreaches(summaries)
-    drafts_file_path, _ = write_output_to_local_and_bucket(
-        data=drafts,
-        suffix="-todo.csv",
-        content_type="text/csv",
-        local_output_prefix=local_output_prefix,
-        bucket_name=OUTPUT_BUCKET_NAME,
-        bucket_object_prefix=bucket_object_prefix
-    )
+    fill_in_draft_outreaches(person_data_entries)
 
-    print(f"Running generate webpage")
     # TODO(P1, ux): Would be nice to include the full-transcript as a button in the LHS menu
     page_contents = generate_page(
         project_name=project_name,
         email_datetime=email_datetime,
-        summaries=summaries,
-        drafts=drafts,
+        person_data_entries=person_data_entries,
     )
     _, bucket_key = write_output_to_local_and_bucket(
         data=page_contents,
@@ -109,8 +96,8 @@ def process_transcript(
         email_params=email_params,
         email_datetime=email_datetime,
         webpage_link=webpage_link,
-        people_count=len(summaries),
-        drafts_count=len(drafts),
+        people_count=len(person_data_entries),
+        drafts_count=sum([len(p.drafts) for p in person_data_entries]),
     )
     # TODO: Get total token usage as a fun fact (probably need to instantiate a singleton openai class wrapper)
 

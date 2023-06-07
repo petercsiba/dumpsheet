@@ -7,7 +7,7 @@ import os
 import subprocess
 import time
 
-from dataclasses import dataclass, asdict, is_dataclass
+from dataclasses import asdict, is_dataclass
 
 from datashare import DataEntry, EmailParams, Person, DataEntryKey
 
@@ -39,9 +39,11 @@ class DynamoDBManager:
                 item_dict[key] = json.dumps(asdict(value))
             elif isinstance(value, dict):
                 # TODO(P2, devx): Technically, we should support key -> dataclass here.
+                # Just a data-class
                 if key == 'email_reply_params':
                     item_dict[key] = json.dumps(value)
             elif isinstance(value, list):
+                # List of Dataclasses
                 if key == 'output_people_snapshot':
                     item_dict[key] = json.dumps(
                         [asdict(item) if is_dataclass(item) else item for item in value]

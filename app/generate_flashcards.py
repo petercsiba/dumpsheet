@@ -1,6 +1,8 @@
 import datetime
 import re
+from typing import List
 
+from app.datashare import PersonDataEntry
 from flashcards_template import get_flashcard_template
 from openai_utils import gpt_response_to_json
 
@@ -55,22 +57,16 @@ def fill_template(template, template_vars, depth=1):
 
 # Whole function is about translating the input JSON objects into my custom
 # fill_template templating framework (really just a function).
-def generate_page(project_name, email_datetime, summaries=None, drafts=None, page_template=None):
+def generate_page(project_name, email_datetime, person_data_entries: List[PersonDataEntry], page_template=None):
+    print(f"Running generate webpage")
     if page_template is None:
         page_template = get_flashcard_template()
 
-    pre_filtered_drafts = []
-    for d in drafts:
-        # Yeah, GPT outputs are in-consistent.
-        if not isinstance(d, dict):
-            print(f"WARNING: received draft is not a dict, skipping: {d}")
-        pre_filtered_drafts.append(d)
-
     person_heads = []
     person_bodies = []
-    for i, person in enumerate(summaries):
+    for i, person in enumerate(person_data_entries):
         element_id = f"person{i}"
-        name = person["name"]
+        name = person.name
         style_display = "gpt-active-button" if i == 0 else ""
         head = {
             "person_head.element_id": element_id,
@@ -79,19 +75,14 @@ def generate_page(project_name, email_datetime, summaries=None, drafts=None, pag
         }
         person_heads.append(head)
 
-        # TODO(P2): Join drafts with summaries on more stable key than "name".
-        filtered_drafts = []
-        for d in pre_filtered_drafts:
-            if d.get("name") == name:
-                filtered_drafts.append(d)
-
         follow_ups = []
-        for j, todo in enumerate(filtered_drafts):
-            message_type = todo.get("message_type")
+        for j, draft in enumerate(person.drafts):
+            message_type = draft.get("message_type")
             if message_type.startswith("to "):
                 message_type = message_type[3:]
+
             todo_element_id = f"{element_id}-todo{j}"
-            outreach_draft = todo.get("outreach_draft", "NO DRAFT GENERATE").strip('"')
+            outreach_draft = draft.get("outreach_draft", "NO DRAFT GENERATED").strip('"')
             follow_up = {
                 "follow_ups.element_id": todo_element_id,
                 "follow_ups.feedback_element_id": f"feedback-{todo_element_id}",
@@ -101,7 +92,7 @@ def generate_page(project_name, email_datetime, summaries=None, drafts=None, pag
             }
             follow_ups.append(follow_up)
 
-        transcript = person.get("transcript")
+        transcript = person.transcript
         if isinstance(transcript, list):
             transcript = "<br />".join(transcript)
         style_display = "block" if i == 0 else "none"
@@ -113,11 +104,13 @@ def generate_page(project_name, email_datetime, summaries=None, drafts=None, pag
             "person_body.element_id": element_id,
             "person_body.style_display": style_display,
             "person_body.name": name,
-            "person_body.priority": person.get("priority"),
-            "person_body.industry": person.get("industry"),
-            "person_body.vibes": person.get("vibes"),
-            "person_body.role": person.get("role"),
-            "person_body.contact_info": person.get("contact_info"),
+            "person_body.mnemonic": person.mnemonic,
+            "person_body.mnemonic_explanation": person.mnemonic_explanation,
+            "person_body.priority": person.priority,
+            "person_body.industry": person.industry,
+            "person_body.vibes": person.vibes,
+            "person_body.role": person.role,
+            # "person_body.contact_info": person.contact_info,
             "person_body.transcript": transcript,
         }
         person_bodies.append(body)

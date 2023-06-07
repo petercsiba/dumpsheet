@@ -4,6 +4,8 @@ import pprint
 import re
 import time
 
+# TODO(P0, devx): Make it class, add a caching layer with DynamoDB (more robust testing, faster prod re-runs).
+#   * After that we can also easily collect total tokens used and such.
 
 pp = pprint.PrettyPrinter(indent=4)
 

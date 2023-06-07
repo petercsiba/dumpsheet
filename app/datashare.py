@@ -61,22 +61,6 @@ class EmailParams:
         return self.recipient_full_name.split()[0]
 
 
-# NOT a separate table, just a sub-structure of the Person object which keeps track of all
-# DataEntries mentioning this person, i.e. the raw-un-merged data (between events).
-@dataclass
-class PersonDataEntry:
-    event_name: str
-    event_timestamp: datetime  # to have it handy
-    transcript: str
-    # These are the follow_ups explicitly mentioned in this transcript
-    follow_ups: List[str] = field(default_factory=list)
-    # These are actual copy-paste-able drafts from the mentioned follow-ups, hard coded list and such
-    # Maps the action to draft.
-    drafts: Dict[str, str] = field(default_factory=list)
-    # Future-looking feature
-    needs: Optional[List[str]] = None
-
-
 # TODO(P1): One day we will need to support merging to one canonical key.
 @dataclass
 class PersonKey:
@@ -85,19 +69,44 @@ class PersonKey:
 
 
 @dataclass
-class Person:
-    # Partition Key, Sort Key
-    user_id: str
-    name: str
-    # Additional items
-    vibes: str
-    role: str
-    priority: int
-    data_entries: Dict[str, PersonDataEntry]
-    # Type to Url
-    contact_info: Dict[str, str]
+# These are pre-merged snapshots of a person
+class PersonDataEntry:
+    # Main identifier
+    name: str = None
+
+    # INPUTS
+    # All text mentioning them joined into one string
+    transcript: str = None
+
+    # OUTPUTS
+    # Additional structured  items
+    mnemonic: str = None
+    mnemonic_explanation: str = None
+    vibes: str = None
+    role: str = None
+    industry: str = None
+    priority: str = None
+    # Explicitly mentioned actions to take
+    follow_ups: List[str] = field(default_factory=list)
+    # Future-looking feature
+    needs: List[str] = field(default_factory=list)
     # For everything else interesting, their children names, where are they from, what they like
     additional_metadata: Dict[str, any] = field(default_factory=dict)
+
+    # These are actual copy-paste-able drafts from the mentioned follow-ups, hard coded list and such
+    # intent => draft (ideally would be a sub-dataclass, but it's a bit tough to deal with nested ones.
+    drafts: List[Dict[str, str]] = field(default_factory=list)
+
+    parsing_error: str = None
+
+    # Katka really wants text priorities
+    PRIORITIES_MAPPING = {
+        5: "P0 - DO IT ASAP!",
+        4: "P1 - High: This is important & needed",
+        3: "P2 - Medium: Nice to have",
+        2: "P3 - Unsure: Check if you have time",
+        1: "P4 - Low: Just don't bother",
+    }
 
 
 @dataclass
@@ -131,7 +140,7 @@ class DataEntry:
     input_s3_url: Optional[str] = None  # No S3 for local testing
     input_transcripts: List[str] = field(default_factory=list)
     # Note: these are pre-merged before serializing into the People table
-    output_people_snapshot: List[Person] = field(default_factory=list)
+    output_people_snapshot: List[PersonDataEntry] = field(default_factory=list)
     output_webpage_url: str = None
 
     def double_check_inputs(self):

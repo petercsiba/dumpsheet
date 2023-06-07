@@ -1,7 +1,10 @@
 import json
+from typing import Dict, List
+
 import openai
 import pprint
 
+from app.datashare import PersonDataEntry
 from openai_utils import gpt_response_to_json, gpt_response_to_plaintext, run_prompt, Timer
 from storage_utils import get_fileinfo
 
@@ -151,101 +154,109 @@ def get_per_person_transcript(raw_transcript: str):
 # TODO: Assess what is a good amount of transcripts to send at the same time
 #  .. well, cause matching the original raw transcript to the output of this, easiest seems to just do it one-by-one
 #  I am paying by tokens so the overhead is the "function definition" (which we can fine-tune later on).
-def per_person_transcripts_to_summaries(person_to_transcript):
+def summarize_transcripts_to_person_data_entries(person_to_transcript: Dict[str, str]) -> List[PersonDataEntry]:
     # TODO(P0): Dynamic summary categories based off:
     #   * Background of the speaker: https://www.reversecontact.com/case-studies
     #   * General question / note categories (chat-gpt)
     #   * Static list to fill-in if not enough (get top 5 say).
     #   * The above 3 lists consolidate with GPT.
     #   NOTE: This also needs more templates.
+    # Old stuff:
+    # * contact_info: what channel we can contact like text, sms, linkedin, instagram and similar or null if none
     query_summarize = """
         I want to structure the following note describing me meeting a person.
         Input: a transcript of me talking about the person.
         Output: a json dict with the following key value pairs:
-    * name: name (or 2-3 word description)
-    * role: current role or past experience 
-    * industry: one two works for the are of their specialty, or null if not sure
+    * name: name (or 2-3 word description) 
+    * mnemonic: two word mnemonic to remember this person, both words starting with the same letter as their name
+    * mnemonic_explanation: include a short explanation for the above mnemonic
+    * industry: which business area they specialize in professionally
+    * role: current role or past experience
     * vibes: my first impression and general vibes of them
     * priority: on scale from 1 to 5 how excited i am to follow up, never null 
-    * needs: list of what they are looking for soon or right now, null for empty
-    * contact_info: what channel we can contact like text, sms, linkedin, instagram and similar or null if none
     * follow_ups: list of action items or follow ups i mentioned, null if none 
+    * needs: list of their pain points, wants or blockers, null for empty
     The input transcript: {}"""
     if test_summaries is not None:
-        summaries = gpt_response_to_json(test_summaries)
+        # TODO(P2, testing): We now return PersonDataEntry instead of JSON so this won't work. Maybe cleanup.
+        result = gpt_response_to_json(test_summaries)
     else:
-        summaries = []
+        result = []
         for name, transcript in person_to_transcript.items():
             # Note: when I did "batch 20 structured summaries" it took 120 seconds.
             # Takes 10 second per person.
             print(f"Getting all mentions for {name}")
-            # TODO: We might need to go back to the original slicing? Or at least somehow attribute the missing parts
             raw_response = run_prompt(query_summarize.format(transcript), print_prompt=True)
             # One failure shouldn't block the entire thing, log the error, return name, transcript for manual fix.
-            summary = gpt_response_to_json(raw_response)
             # TODO(P1): Handle this error case:
             #   For inputs like The input transcript: ['The Riga, there was one moderator']
             #   Sorry, there is no information in the input transcript to structure a note describing a person
             #   Sorry, the input transcript is too short to extract any meaningful information about a person I met.
             #       Please provide a longer transcript with more details about the person
-            if summary is None:
+            raw_summary = gpt_response_to_json(raw_response)
+
+            person = PersonDataEntry()
+            result.append(person)
+            if raw_summary is None:
                 print(f"Could NOT parse summary for {name}, defaulting to hand-crafted")
-                summary = {
-                    "role": None,
-                    "industry": None,
-                    "vibes": None,
-                    "priority": 2,
-                    "needs": None,
-                    "contact_info": None,
-                    "follow_ups": [],
-                    "error": raw_response,
-                }
-            summary["name"] = name
-            summary["transcript"] = transcript
-            summary["error"] = None
-            summaries.append(summary)
+                person.parsing_error = raw_response
+                continue
 
-    return summaries
+            summary_name = raw_summary.get("name", name)
+            if summary_name != name:
+                print(f"INFO: name from person chunking {name} ain't equal the one from the summary {summary_name}")
+
+            person.name = name
+            person.transcript = transcript
+            person.priority = PersonDataEntry.PRIORITIES_MAPPING.get(raw_summary.get("priority", 2))
+            person.mnemonic = raw_summary.get("mnemonic", None)
+            person.mnemonic_explanation = raw_summary.get("mnemonic_explanation", None)
+            person.industry = raw_summary.get("industry", None)
+            person.vibes = raw_summary.get("vibes", "unknown")
+            person.role = raw_summary.get("role", None)
+            person.follow_ups = raw_summary.get("follow_ups", [])
+            person.needs = raw_summary.get("needs", [])
+            # TODO(P1, ux): Custom fields like their children names, or responses to recurring questions from me.
+            person.additional_metadata = {}
+
+    return result
 
 
-# TODO(P1): Rename the entire pipeline to drafts and topics.
-def generate_first_outreaches(name, person_transcript, intents):
-    # TODO(P2): Try adding context on the person who inputs the transcripts, mid-term can be automated with
-    #   tools like https://www.reversecontact.com
+def generate_first_outreaches(name: str, person_transcript: str, intents: List[str]) -> List[Dict[str, str]]:
     result = []
     for intent in intents:
-        # TODO(P2): The problem with individual queries are more frequent rate limits :/
-        #   Well, have to find a way to parse a general "list" response from GPT (without using GPT)
-        # Note: Didn't work: I am venture capitalist from czech republic.
-        # Note: tried to do it in batch and parsing the JSON output, but GPT isn't the most consistent
-        # about it. For future rather run more tokens / queries then trying to batch it (for now).
-        # TODO(P0, vertical-saas): We should improve generalize these
-        # TODO(P0, fine-tune): Add a text area which allows to fine-tune, regenerate the draft with extra prompts
-        #   i.e. have an embedded chat gpt experience
         # TODO(P1): Personalize the messages to my general transcript vibes.
+        # TODO(P2, feature): Add a text area which allows to fine-tune, regenerate the draft with extra prompts
+        #   i.e. have an embedded chat gpt experience.
+        #   Maybe add info from stalking tools like https://www.reversecontact.com
         query_outreaches = """ 
         From the notes on the following person I met at an event 
-        please generate short outreach message writing as a smooth casual friendly yet professional talker 
-        to say "{}"  (up to 250 characters)
-        Make sure that:
-        * saying that I enjoyed OR appreciated in the conversation
+        please generate a short outreach message written in style of 
+        a "smooth casual friendly yet professional person", ideally adjusted to the talking style from the note, 
+        to say that "{}"  (use up to 250 characters)
+        Please make sure that:
+        * to mention what I enjoyed OR appreciated in the conversation
         * include a fact from our conversation
-        * reflect my note-taking style into the generated text
         Only output the resulting message - do not use double quotes at all.
-        My notes of person {} are as follows {}
+        My notes of person "{}" are as follows "{}"
         """.format(intent, name, person_transcript)
         raw_response = run_prompt(query_outreaches)
+
+        is_it_json = gpt_response_to_json(raw_response, debug=False)
+        if isinstance(is_it_json, (dict, list)):
+            print(f"WARNING: generate_first_outreaches returned a dict or list {raw_response}")
+            raw_response = str(is_it_json)
+
         result.append({
-            "name": name,  # used to join on the summaries
             "message_type": intent,
             "outreach_draft": raw_response,
         })
-    # pp.pprint(result)
+
     return result
 
 
 # =============== MAIN FUNCTIONS TO BE CALLED  =================
-def extract_per_person_summaries(raw_transcript: str):
+def extract_per_person_summaries(raw_transcript: str) -> List[PersonDataEntry]:
     print(f"Running networking_dump on raw_transcript of {len(raw_transcript.split())} token size")
 
     if test_person_to_transcript is None:
@@ -257,60 +268,39 @@ def extract_per_person_summaries(raw_transcript: str):
     print(json.dumps(person_to_transcript))
 
     if test_summaries is not None:
-        summaries = gpt_response_to_json(test_summaries)
+        # TODO(P2, testing): Fix this, we might just do GPT-request caching through openai_utils.py via DynamoDB
+        person_data_entries = gpt_response_to_json(test_summaries)
     else:
-        summaries = per_person_transcripts_to_summaries(person_to_transcript)
+        person_data_entries = summarize_transcripts_to_person_data_entries(person_to_transcript)
     print("=== All summaries === ")
-    summaries = sorted(summaries, key=lambda x: x.get('priority', 2), reverse=True)
-    # Katka really wants text priorities
-    for i, person in enumerate(summaries):
-        priorities_mapping = {
-            5: "P0 - DO IT ASAP!",
-            4: "P1 - High: This is important & needed",
-            3: "P2 - Medium: Nice to have",
-            2: "P3 - Unsure: Check if you have time",
-            1: "P4 - Low: Just don't bother",
-        }
-        summaries[i]["priority"] = priorities_mapping.get(person.get("priority", 2))
+    # Sort by priority, these are now P0, P1 so do it ascending.
+    person_data_entries = sorted(person_data_entries, key=lambda pde: pde.priority)
 
-    print(json.dumps(summaries))
+    print(json.dumps(person_data_entries))
 
-    return summaries
+    return person_data_entries
 
 
-def generate_draft_outreaches(summaries):
-    print(f"Running generate_draft_outreaches on {len(summaries)} summaries")
-    # Priority 5 is the highest, 1 is lowest
-    drafts = []
-    for person in summaries:
-        if person is None:
-            print("skipping None person from summaries")
-            continue
-        drafts_for = []
-        mentioned_follow_ups = person.get("follow_ups", None)
-        mentioned_follow_ups = [] if mentioned_follow_ups is None else mentioned_follow_ups
-        for follow_up in mentioned_follow_ups:
-            drafts_for.append(f"to follow up on {follow_up}")
-        # TODO(P0): Here we should again use the 3-way approach for sub-prompts:
-        #   * GPT gather general action items across people
-        #   * Parse per-person
-        #   * Use a static list
-        #   AND pick the 3 most relevant (long-term using embeddings).
-        drafts_for.extend([
+def fill_in_draft_outreaches(person_data_entries: List[PersonDataEntry]):
+    print(f"Running generate_draft_outreaches on {len(person_data_entries)} person data entries")
+
+    for person in person_data_entries:
+        required_follow_ups = person.follow_ups or []
+        intents = required_follow_ups.copy()
+
+        # TODO(P1, cx): Here we should again use the 3-way approach for sub-prompts:
+        #   * To parsed and static list, also add GPT gather general action items across people
+        intents.extend([
             # Given data / intent of the networking person
-            "appreciate meeting them at the event",
-            "great to meet you, let me know if I can ever do anything for you!",
             "I want to meet again with one or two topics to discuss",
+            "Great to meet you, let me know if I can ever do anything for you!",
+            "Appreciate meeting them at the event",
         ])
-        # TODO(P1, small): Draft a thank you note to the event host.
+        top3_intents = intents[:max(3, len(required_follow_ups))]
 
-        outreaches = generate_first_outreaches(
-            person["name"],
-            person_transcript=person.get("transcript"),
-            intents=drafts_for
+        person.drafts = generate_first_outreaches(
+            person.name,
+            person_transcript=person.transcript,
+            intents=top3_intents
         )
-        drafts.extend(outreaches)
 
-    print("=== All drafts dumped === ")
-    print(json.dumps(drafts))
-    return drafts
