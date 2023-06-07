@@ -31,6 +31,13 @@ test_summaries = None
 # TODO(P0): Multi-language support (chinese, slovak), ideally we need to derive the language for transcript
 #   * Use https://api.openai.com/v1/audio/translations
 #   They support a shitload of languages.
+#   NICE: Seems we can even run it locally
+#     import whisper
+#     model = whisper.load_model("large")
+#     result = model.transcribe("recording.mp4", task='translate')
+#     result['text']
+#     And do it from public youtube videos with pytube
+#       https://towardsdatascience.com/whisper-transcribe-translate-audio-files-with-human-level-performance-df044499877
 # TODO(P1, devx): Maybe better place in openai_utils
 def transcribe_audio(audio_filepath):
     if test_transcript is not None:

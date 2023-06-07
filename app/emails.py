@@ -1,3 +1,5 @@
+from email.header import decode_header
+
 import boto3
 import datetime
 import pytz
@@ -46,6 +48,24 @@ def store_and_get_attachments_from_email(msg):
     return attachment_file_paths
 
 
+# TODO(P1, test this)
+def decode_str(s):
+    """Decode the specified RFC 2047 string."""
+    # Came up with Marting Stuebler represented as =?UTF-8?Q?Martin_St=C3=BCbler?=!
+    parts = decode_header(s)
+    decoded_parts = []
+    for part, encoding in parts:
+        if encoding:
+            decoded_parts.append(part.decode(encoding))
+        elif isinstance(part, bytes):
+            # bytes in us-ascii encoding
+            decoded_parts.append(part.decode('us-ascii'))
+        else:
+            # already str in us-ascii encoding
+            decoded_parts.append(part)
+    return ' '.join(decoded_parts)
+
+
 def get_email_params_for_reply(msg):
     # The variable naming is a bit confusing here, as `msg` refers to received email,
     # while all the returned Email params are for the reply (i.e. recipient = reply_to)
@@ -54,7 +74,7 @@ def get_email_params_for_reply(msg):
     orig_subject = msg.get('Subject')
     # Parse the address
     sender_full_name, sender_email_addr = parseaddr(email_from)
-    sender_full_name = "Person" if sender_full_name is None else sender_full_name
+    sender_full_name = "Person" if sender_full_name is None else decode_str(sender_full_name)
     reply_to_address = msg.get('Reply-To')
     if reply_to_address is None or not isinstance(reply_to_address, str):
         print("No reply-to address provided, falling back to from_address")
