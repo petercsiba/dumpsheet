@@ -142,6 +142,9 @@
             <p id="{{ person_body.element_id}}_transcript">
                 {{ person_body.transcript }}
             </p>
+            <p>
+                {{ person_body.parsing_error }}
+            </p>
         </div>
     {{ person_body.end }}
     </div>

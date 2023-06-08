@@ -1,10 +1,11 @@
 import json
+from dataclasses import asdict
 from typing import Dict, List
 
 import openai
 import pprint
 
-from app.datashare import PersonDataEntry
+from datashare import PersonDataEntry
 from openai_utils import gpt_response_to_json, gpt_response_to_plaintext, run_prompt, Timer
 from storage_utils import get_fileinfo
 
@@ -176,7 +177,7 @@ def summarize_transcripts_to_person_data_entries(person_to_transcript: Dict[str,
         Input: a transcript of me talking about the person.
         Output: a json dict with the following key value pairs:
     * name: name (or 2-3 word description) 
-    * mnemonic: two word mnemonic to remember this person, both words starting with the same letter as their name
+    * mnemonic: two word mnemonic to help remember this person, first letters of the mnemonic same as their first name 
     * mnemonic_explanation: include a short explanation for the above mnemonic
     * industry: which business area they specialize in professionally
     * role: current role or past experience
@@ -205,8 +206,12 @@ def summarize_transcripts_to_person_data_entries(person_to_transcript: Dict[str,
 
             person = PersonDataEntry()
             result.append(person)
+
+            person.name = name
+            person.transcript = transcript
             if raw_summary is None:
                 print(f"Could NOT parse summary for {name}, defaulting to hand-crafted")
+                person.priority = PersonDataEntry.PRIORITIES_MAPPING.get(1)
                 person.parsing_error = raw_response
                 continue
 
@@ -214,8 +219,6 @@ def summarize_transcripts_to_person_data_entries(person_to_transcript: Dict[str,
             if summary_name != name:
                 print(f"INFO: name from person chunking {name} ain't equal the one from the summary {summary_name}")
 
-            person.name = name
-            person.transcript = transcript
             person.priority = PersonDataEntry.PRIORITIES_MAPPING.get(raw_summary.get("priority", 2))
             person.mnemonic = raw_summary.get("mnemonic", None)
             person.mnemonic_explanation = raw_summary.get("mnemonic_explanation", None)
@@ -284,7 +287,7 @@ def extract_per_person_summaries(raw_transcript: str) -> List[PersonDataEntry]:
     # Sort by priority, these are now P0, P1 so do it ascending.
     person_data_entries = sorted(person_data_entries, key=lambda pde: pde.priority)
 
-    print(json.dumps(person_data_entries))
+    print(json.dumps([asdict(pde) for pde in person_data_entries]))
 
     return person_data_entries
 

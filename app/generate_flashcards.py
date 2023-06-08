@@ -2,7 +2,7 @@ import datetime
 import re
 from typing import List
 
-from app.datashare import PersonDataEntry
+from datashare import PersonDataEntry
 from flashcards_template import get_flashcard_template
 from openai_utils import gpt_response_to_json
 
@@ -112,6 +112,7 @@ def generate_page(project_name, email_datetime, person_data_entries: List[Person
             "person_body.role": person.role,
             # "person_body.contact_info": person.contact_info,
             "person_body.transcript": transcript,
+            "person_body.parsing_error": f"ParsingError: {person.parsing_error}" if person.parsing_error else "",
         }
         person_bodies.append(body)
 

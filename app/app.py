@@ -8,6 +8,8 @@
 #   * Event prep - know who will be there
 #   * Share networking hacks, like on learning names "use it or lose it", "by association nick from nw", "take notes"
 #   * Self-tact
+from dataclasses import asdict
+
 import boto3
 import copy
 import datetime
@@ -62,14 +64,20 @@ def process_transcript(
 
     # TODO(P0, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
     person_data_entries = extract_per_person_summaries(raw_transcript=raw_transcript)
-    summaries_filepath, _ = write_output_to_local_and_bucket(
-        data=person_data_entries,
-        suffix="-summaries.csv",
-        content_type="text/csv",
-        local_output_prefix=local_output_prefix,
-        bucket_name=OUTPUT_BUCKET_NAME,
-        bucket_object_prefix=bucket_object_prefix
-    )
+
+    try:
+        summaries_filepath, _ = write_output_to_local_and_bucket(
+            data=[asdict(pde) for pde in person_data_entries],
+            suffix="-summaries.csv",
+            content_type="text/csv",
+            local_output_prefix=local_output_prefix,
+            bucket_name=OUTPUT_BUCKET_NAME,
+            bucket_object_prefix=bucket_object_prefix
+        )
+    except Exception as err:
+        print(f"WARNING: could NOT write summaries to local cause {err}")
+        traceback.print_exc()
+        summaries_filepath = None
 
     fill_in_draft_outreaches(person_data_entries)
 
@@ -90,7 +98,7 @@ def process_transcript(
     # TODO(P2, infra): Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
     webpage_link = f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{bucket_key}"
 
-    email_params.attachment_paths = [summaries_filepath]
+    email_params.attachment_paths = [summaries_filepath] if bool(summaries_filepath) else []
     # TODO(P1, peter): Would be nice to pass total tokens used, queries and GPT time.
     send_response(
         email_params=email_params,
@@ -212,9 +220,9 @@ if __name__ == "__main__":
     with open("test/katka-multimodal", "rb") as handle:
         file_contents = handle.read()
         orig_data_entry = process_email_input(file_contents)
-        dynamodb.write_dataclass(orig_data_entry)
+        dynamodb.write_data_entry(orig_data_entry)
 
-        loaded_data_entry = dynamodb.read_into_dataclass(
+        loaded_data_entry = dynamodb.read_data_entry(
             key=DataEntryKey(orig_data_entry.user_id, orig_data_entry.event_name)
         )
         print(f"loaded_data_entry: {loaded_data_entry}")

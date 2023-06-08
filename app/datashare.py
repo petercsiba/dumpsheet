@@ -2,8 +2,9 @@ import datetime
 import json
 import time
 
-from dataclasses import dataclass, field, is_dataclass
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field, is_dataclass, asdict, fields
+from json import JSONEncoder
+from typing import Any, Dict, List, Optional, Type
 
 
 def check_required_str(name, s):
@@ -16,32 +17,48 @@ def check_required_list(name, lst):
         print(f"ERROR: DataEntry invalid list {name}: {lst}")
 
 
-def from_dict(data_class_type, data):
-    if not data:
-        return None
-    fields = {f.name: f.type for f in data_class_type.__dataclass_fields__.values()}
-    processed_data = {}
-    for k, v in data.items():
-        if fields.get(k) and is_dataclass(fields[k]):
-            processed_data[k] = from_dict(fields[k], v)
-        else:
-            processed_data[k] = v
-    return data_class_type(**processed_data)
+class DateTimeEncoder(JSONEncoder):
+    def default(self, o):
+        if isinstance(o, datetime.datetime):
+            return o.isoformat()
+
+        return super().default(o)
 
 
-def parse_complex_objects(data: Dict[str, Any]) -> Dict[str, Any]:
-    for key, value in data.items():
-        if isinstance(value, str):
+#  Python's json module does not offer a built-in way to use a custom decoder class, like it does for encoding.
+#  But you can use a function and pass that function to json.loads() as the object_hook parameter.
+def datetime_decoder(dict_):
+    for k, v in dict_.items():
+        if isinstance(v, str):  # Check if the value is string
             try:
-                data[key] = json.loads(value)
-            except json.JSONDecodeError:
-                print(f"parse_complex_objects unexpected item value for key {key} value {value}")
+                # Try to parse a datetime from the string
+                dict_[k] = datetime.datetime.fromisoformat(v)
+            except ValueError:
+                # If parsing failed, leave the value as it is
                 pass
-        elif isinstance(value, list):
-            data[key] = [parse_complex_objects(item) if isinstance(item, dict) else item for item in value]
-        elif isinstance(value, dict):
-            data[key] = parse_complex_objects(value)
-    return data
+    return dict_
+
+
+def dataclass_to_json(dataclass_obj: dataclass):
+    # Convert the data_entry object to a dictionary, and then json.dumps
+    # the complex objects to store them as strings in DynamoDB.
+    item_dict = asdict(dataclass_obj)
+    return json.dumps(item_dict, cls=DateTimeEncoder)
+
+
+def dict_to_dataclass(dict_, data_class_type: Type[Any]) -> dataclass:
+    init_values = {}
+    for f in fields(data_class_type):
+        if is_dataclass(f.type):
+            init_values[f.name] = dict_to_dataclass(dict_[f.name], f.type)
+        else:
+            init_values[f.name] = dict_[f.name]
+    return data_class_type(**init_values)
+
+
+def json_to_dataclass(json_data, data_class_type: Type[Any]) -> dataclass:
+    dict_ = json.loads(json_data, object_hook=datetime_decoder)
+    return dict_to_dataclass(dict_, data_class_type)
 
 
 @dataclass

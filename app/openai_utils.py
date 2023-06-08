@@ -77,11 +77,20 @@ def get_first_occurrence(s: str, list_of_chars: list):
         return -1
 
 
-def gpt_response_to_json(raw_response, debug=True):
+def gpt_response_to_json(raw_response: str, debug=True):
     if raw_response is None:
         if debug:
             print("raw_response is None")
         return None
+    wrong_input_responses = [
+        "Sorry, it is not possible to create a json dict",
+        "Sorry, as an AI language model"
+    ]
+    if any(raw_response.startswith(s) for s in wrong_input_responses):
+        if debug:
+            print(f"WARNING: Likely provided wrong input as GPT is complaining with {raw_response}")
+        return None
+
     orig_response = raw_response
     # For "Expecting property name enclosed in double quotes"
     # Obviously not bullet-proof for stuff like 'Ed's', can be probably
@@ -109,7 +118,7 @@ def gpt_response_to_json(raw_response, debug=True):
         # In case there is something before the actual json output
         start_index = get_first_occurrence(raw_response, ['{', '['])
         raw_json = raw_response[start_index:]  # -1 works
-        # TODO: Handle the case when there is clearly NO json response.
+        # TODO(P2, devx): Handle the case when there is clearly NO json response.
         #   Like these can be "-" separated into a list  - Catalina: girl from Romania- Car reselling guy: fro
         #   NOTE: Figure out if this uses spaces or not.
         if debug and len(raw_json) * 2 < len(raw_response):

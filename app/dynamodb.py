@@ -7,9 +7,7 @@ import os
 import subprocess
 import time
 
-from dataclasses import asdict, is_dataclass
-
-from datashare import DataEntry, EmailParams, PersonDataEntry, DataEntryKey
+from datashare import DataEntry, EmailParams, PersonDataEntry, DataEntryKey, dataclass_to_json, json_to_dataclass
 
 TABLE_NAME_DATA_ENTRY = "KatkaAI_DataEntry"
 TABLE_NAME_PERSON = "KatkaAI_Person"
@@ -28,37 +26,16 @@ class DynamoDBManager:
         self.data_entry_table = self.create_data_entry_table_if_not_exists()
         self.person_table = self.create_person_table_if_not_exists()
 
-    # TODO(P0, devx): Generalize to any table.
-    def write_dataclass(self, data: DataEntry):
-        print(f"write_dataclass {data}")
-        # Convert the data_entry object to a dictionary, and then json.dumps
-        # the complex objects to store them as strings in DynamoDB.
-        item_dict = asdict(data)
-        for key, value in item_dict.items():
-            if is_dataclass(value):
-                item_dict[key] = json.dumps(asdict(value))
-            elif isinstance(value, dict):
-                # TODO(P2, devx): Technically, we should support key -> dataclass here.
-                # Just a data-class
-                if key == 'email_reply_params':
-                    item_dict[key] = json.dumps(value)
-            elif isinstance(value, list):
-                # List of Dataclasses
-                if key == 'output_people_snapshot':
-                    item_dict[key] = json.dumps(
-                        [asdict(item) if is_dataclass(item) else item for item in value]
-                    )
-            elif isinstance(value, datetime.datetime):
-                item_dict[key] = value.isoformat()
-            else:
-                print(f"skipping {key} as basic type")
-
-        print(f"data_entry_dict: {item_dict}")
+    def write_data_entry(self, data_entry: DataEntry):
+        print(f"write_data_entry {data_entry}")
+        # TODO(p2, yeah very hacky)
+        item_json = dataclass_to_json(data_entry)
+        item_dict = json.loads(item_json)
         return self.data_entry_table.put_item(Item=item_dict)
 
     # TODO(P1, devx): Generalize this to any data-class -
     #  - MAYBE we can include class information on the object when serializing.
-    def read_into_dataclass(self, key: DataEntryKey) -> Optional[DataEntry]:
+    def read_data_entry(self, key: DataEntryKey) -> Optional[DataEntry]:
         response = self.data_entry_table.get_item(
             Key={
                 'user_id': key.user_id,
@@ -69,33 +46,9 @@ class DynamoDBManager:
             print(f"Item with key {key} NOT found")
             return None
 
-        result_dict = response['Item']
-        # Iterate over the items in the dictionary
-        for key, value in result_dict.items():
-            if isinstance(value, str):
-                # If the value is a string, it might be a JSON-encoded complex object or a datetime
-                try:
-                    # Try to JSON decode the value
-                    value = json.loads(value)
-                except json.JSONDecodeError:
-                    # If JSON decoding fails, it might be a datetime string
-                    try:
-                        value = datetime.datetime.fromisoformat(value)
-                    except ValueError:
-                        # If it's not a datetime string, leave it as is
-                        pass
-
-            # If the value is a dictionary or list, it might represent a dataclass
-            if isinstance(value, dict):
-                if key == 'email_reply_params':
-                    result_dict[key] = EmailParams(**value)
-            elif isinstance(value, list):
-                if key == 'output_people_snapshot':
-                    result_dict[key] = [PersonDataEntry(**item) if isinstance(item, dict) else item for item in value]
-            elif isinstance(value, datetime.datetime):
-                result_dict[key] = value
-
-        return DataEntry(**result_dict)
+        item_dict = response['Item']
+        item_json = json.dumps(item_dict)
+        return json_to_dataclass(item_json, DataEntry)
 
     def get_table_if_exists(self, table_name):
         existing_tables = [t.name for t in self.dynamodb.tables.all()]
@@ -220,7 +173,7 @@ def load_files_to_dynamodb(manager: DynamoDBManager, directory: str):
         with open(f"{directory}/{filename}", 'r') as file:
             data_entry = json.load(file)
             print(f"load_files_to_dynamodb importing fixture {filename} key={data_entry.user_id, data_entry.event_name}")
-            manager.write_dataclass(data_entry)
+            manager.write_data_entry(data_entry)
 
 
 def setup_dynamodb_local():
