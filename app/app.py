@@ -26,7 +26,7 @@ from urllib.parse import quote
 from openai_client import OpenAiClient
 from dynamodb import setup_dynamodb_local, load_files_to_dynamodb, teardown_dynamodb_local, DynamoDBManager
 from aws_utils import get_bucket_url
-from datashare import DataEntry, User
+from datashare import DataEntry
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
 from generate_flashcards import generate_page
 from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries, transcribe_audio
@@ -129,7 +129,7 @@ def process_transcript_from_data_entry(gpt_client, data_entry: DataEntry):
 
 
 # First lambda
-def process_email_input(raw_email, bucket_url=None) -> DataEntry:
+def process_email_input(dynamodb: DynamoDBManager, raw_email, bucket_url=None) -> DataEntry:
     # TODO(P1, migration): Refactor the email processing to another function which returns some custom object maybe
     print(f"Read raw_email body with {len(raw_email)} bytes")
 
@@ -148,8 +148,10 @@ def process_email_input(raw_email, bucket_url=None) -> DataEntry:
     attachment_file_paths = store_and_get_attachments_from_email(msg)
 
     # TODO(P0, migration): Map email address to user_id through DynamoDB
+    user = dynamodb.get_or_create_user(email_address=base_email_params.recipient)
+
     result = DataEntry(
-        user_id=User.generate_user_id(),
+        user_id=user.user_id,
         # IMPORTANT: This is used as idempotency-key all over the place!
         event_name=email_datetime.strftime('%B %d, %H:%M'),
         event_id=msg['Message-ID'],
@@ -203,7 +205,7 @@ def lambda_handler(event, context):
 
     # TODO(P1, multi-client): For Web/iOS uploads we would un-zip here, decide by bucket name.
     # First Lambda
-    data_entry = process_email_input(raw_email=response['Body'].read(), bucket_url=bucket_url)
+    data_entry = process_email_input(dynamodb=dynamodb_client, raw_email=response['Body'].read(), bucket_url=bucket_url)
     if bool(dynamodb_client):
         dynamodb_client.write_data_entry(data_entry)
 
@@ -221,21 +223,21 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     OUTPUT_BUCKET_NAME = None
 
-    process, dynamodb = setup_dynamodb_local()
+    process, local_dynamodb = setup_dynamodb_local()
 
-    load_files_to_dynamodb(dynamodb, "test/fixtures/dynamodb")
+    load_files_to_dynamodb(local_dynamodb, "test/fixtures/dynamodb")
 
     # Maybe all test cases?
     with open("test/test-katka-emails-kimberley", "rb") as handle:
         file_contents = handle.read()
-        orig_data_entry = process_email_input(file_contents)
-        dynamodb.write_data_entry(orig_data_entry)
+        orig_data_entry = process_email_input(dynamodb=local_dynamodb, raw_email=file_contents)
+        local_dynamodb.write_data_entry(orig_data_entry)
 
-        loaded_data_entry = dynamodb.read_data_entry(orig_data_entry.user_id, orig_data_entry.event_name)
+        loaded_data_entry = local_dynamodb.read_data_entry(orig_data_entry.user_id, orig_data_entry.event_name)
         print(f"loaded_data_entry: {loaded_data_entry}")
 
         # DynamoDB is used for caching between local test runs, spares both time and money!
-        open_ai_client = OpenAiClient(dynamodb=dynamodb)
+        open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
         process_transcript_from_data_entry(gpt_client=open_ai_client, data_entry=loaded_data_entry)
 
     teardown_dynamodb_local(process)

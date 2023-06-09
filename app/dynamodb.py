@@ -77,14 +77,18 @@ class DynamoDBManager:
         )
     # TODO(P2, devx): dynamodb.update is safer but no-time.
 
-    def write_user(self, user: User):
-        return write_data_class(self.user_table, user)
-
-    def read_user(self, user_id) -> Optional[User]:
-        return read_data_class(User, self.user_table, {
-                'user_id': user_id,
-            }
-                               )
+    def get_or_create_user(self, email_address: str):
+        user = read_data_class(data_class_type=User, table=self.user_table, key={
+            'email_address': email_address
+        })
+        if user is None:
+            new_user = User(
+                user_id=User.generate_user_id(),
+                email_address=email_address,
+            )
+            write_data_class(self.user_table, data=new_user)
+            return new_user
+        return user
 
     def get_table_if_exists(self, table_name):
         existing_tables = [t.name for t in self.dynamodb.tables.all()]

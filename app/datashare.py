@@ -150,10 +150,12 @@ class User:
     user_id: str
     # user_id maps one-to-one to email_address
     email_address: str
-    full_name: str
+
+    # TODO(P1, ux): Add more user-related fields
 
     @staticmethod
     def generate_user_id():
+        # TODO(P3, devx): Better user-name
         return f"user{time.time()}"
 
 
