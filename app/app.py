@@ -8,7 +8,7 @@
 #   * Event prep - know who will be there
 #   * Share networking hacks, like on learning names "use it or lose it", "by association nick from nw", "take notes"
 #   * Self-tact
-from dataclasses import asdict
+# TODO(P1, devx): Include black, isort, flake (ideally on file save).
 
 import boto3
 import copy
@@ -19,11 +19,14 @@ import subprocess
 import traceback
 
 from botocore.exceptions import NoCredentialsError
+from dataclasses import asdict
 from email.utils import parseaddr
+from urllib.parse import quote
 
-from dynamodb import setup_dynamodb_local, load_files_to_dynamodb, teardown_dynamodb_local, TABLE_NAME_DATA_ENTRY
+from openai_client import OpenAiClient
+from dynamodb import setup_dynamodb_local, load_files_to_dynamodb, teardown_dynamodb_local
 from aws_utils import get_bucket_url
-from datashare import DataEntry, EmailParams, User, DataEntryKey
+from datashare import DataEntry, User
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
 from generate_flashcards import generate_page
 from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries, transcribe_audio
@@ -50,24 +53,34 @@ def convert_audio_to_mp4(file_path):
     return audio_file
 
 
-# TODO(P0, migration): This will become the second lambda, operating on DynamoDB activity events
-#   when new DataEntry items are added.
-def process_transcript(
-        project_name: str,
-        raw_transcript: str,
-        email_params: EmailParams,
-        email_datetime: datetime.datetime,
-        bucket_object_prefix,
-):
+# Second lambda
+def process_transcript_from_data_entry(gpt_client, data_entry: DataEntry):
+    # ===== Actually perform black magic
+    full_name = data_entry.email_reply_params.recipient_full_name
+    bucket_object_prefix = f"{full_name}-{data_entry.event_timestamp}"
+    bucket_object_prefix = re.sub(r'\s', '-', bucket_object_prefix)
+    # Here we merge all successfully processed
+    # * audio attachments
+    # * email bodies
+    # into one giant transcript.
+    raw_transcript = "\n\n".join(data_entry.input_transcripts)
+    print(f"raw_transcript: {raw_transcript}")
+
+    email_params = copy.deepcopy(data_entry.email_reply_params)
+    email_params.attachment_paths = None
+    # TODO(P2, devx): Rename project name
+    project_name = email_params.recipient_full_name
+
     # TODO(P3, infra): Use more proper temp fs
     local_output_prefix = f"/tmp/{bucket_object_prefix}"
 
     # TODO(P0, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
-    person_data_entries = extract_per_person_summaries(raw_transcript=raw_transcript)
+    people_entries = extract_per_person_summaries(gpt_client, raw_transcript=raw_transcript)
+    data_entry.output_people_entries = people_entries
 
     try:
         summaries_filepath, _ = write_output_to_local_and_bucket(
-            data=[asdict(pde) for pde in person_data_entries],
+            data=[asdict(pde) for pde in people_entries],
             suffix="-summaries.csv",
             content_type="text/csv",
             local_output_prefix=local_output_prefix,
@@ -79,13 +92,14 @@ def process_transcript(
         traceback.print_exc()
         summaries_filepath = None
 
-    fill_in_draft_outreaches(person_data_entries)
+    # This mutates the underlying data_entry.
+    fill_in_draft_outreaches(gpt_client, people_entries)
 
     # TODO(P1, ux): Would be nice to include the full-transcript as a button in the LHS menu
     page_contents = generate_page(
         project_name=project_name,
-        email_datetime=email_datetime,
-        person_data_entries=person_data_entries,
+        event_timestamp=data_entry.event_timestamp,
+        person_data_entries=people_entries,
     )
     _, bucket_key = write_output_to_local_and_bucket(
         data=page_contents,
@@ -96,20 +110,22 @@ def process_transcript(
         bucket_object_prefix=bucket_object_prefix
     )
     # TODO(P2, infra): Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
-    webpage_link = f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{bucket_key}"
+    page_key = quote((bucket_key or "local").encode('utf-8'))
+    webpage_url = f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{page_key}"
+    data_entry.output_webpage_url = webpage_url
 
     email_params.attachment_paths = [summaries_filepath] if bool(summaries_filepath) else []
     # TODO(P1, peter): Would be nice to pass total tokens used, queries and GPT time.
     send_response(
         email_params=email_params,
-        email_datetime=email_datetime,
-        webpage_link=webpage_link,
-        people_count=len(person_data_entries),
-        drafts_count=sum([len(p.drafts) for p in person_data_entries]),
+        email_datetime=data_entry.event_timestamp,
+        webpage_link=webpage_url,
+        people_count=len(people_entries),
+        drafts_count=sum([len(p.drafts) for p in people_entries]),
     )
-    # TODO: Get total token usage as a fun fact (probably need to instantiate a singleton openai class wrapper)
 
 
+# First lambda
 def process_email_input(raw_email, bucket_url=None) -> DataEntry:
     # TODO(P1, migration): Refactor the email processing to another function which returns some custom object maybe
     print(f"Read raw_email body with {len(raw_email)} bytes")
@@ -155,30 +171,6 @@ def process_email_input(raw_email, bucket_url=None) -> DataEntry:
     return result
 
 
-# The second lambda
-def process_data_entry(data_entry):
-    # ===== Actually perform black magic
-    full_name = data_entry.email_reply_params.recipient_full_name
-    object_prefix = f"{full_name}-{data_entry.event_timestamp}"
-    object_prefix = re.sub(r'\s', '-', object_prefix)
-    # Here we merge all successfully processed
-    # * audio attachments
-    # * email bodies
-    # into one giant transcript.
-    raw_transcript = "\n\n".join(data_entry.input_transcripts)
-    print(f"raw_transcript: {raw_transcript}")
-
-    result_email_params = copy.deepcopy(data_entry.email_reply_params)
-    result_email_params.attachment_paths = None
-    process_transcript(
-        project_name=result_email_params.recipient_full_name,
-        raw_transcript=raw_transcript,
-        email_params=result_email_params,
-        email_datetime=data_entry.event_timestamp,
-        bucket_object_prefix=object_prefix,
-    )
-
-
 # TODO(P1, devx): Send email on failure via CloudWatch monitoring (ask GPT how to do it)
 #   * ALTERNATIVELY: Can catch exception(s) and send email from here.
 #   * BUT we catch some errors.
@@ -203,7 +195,8 @@ def lambda_handler(event, context):
     # First Lambda
     data_entry = process_email_input(raw_email=response['Body'].read(), bucket_url=bucket_url)
     # Second Lambda
-    process_data_entry(data_entry)
+    gpt_client = OpenAiClient(dynamodb=None)
+    process_transcript_from_data_entry(gpt_client, data_entry)
 
 
 # For local testing without emails or S3, great for bigger refactors.
@@ -217,16 +210,16 @@ if __name__ == "__main__":
     load_files_to_dynamodb(dynamodb, "test/fixtures/dynamodb")
 
     # Maybe all test cases?
-    with open("test/katka-multimodal", "rb") as handle:
+    with open("test/test-katka-emails-kimberley", "rb") as handle:
         file_contents = handle.read()
         orig_data_entry = process_email_input(file_contents)
         dynamodb.write_data_entry(orig_data_entry)
 
-        loaded_data_entry = dynamodb.read_data_entry(
-            key=DataEntryKey(orig_data_entry.user_id, orig_data_entry.event_name)
-        )
+        loaded_data_entry = dynamodb.read_data_entry(orig_data_entry.user_id, orig_data_entry.event_name)
         print(f"loaded_data_entry: {loaded_data_entry}")
 
-        process_data_entry(loaded_data_entry)
+        # DynamoDB is used for caching between local test runs, spares both time and money!
+        open_ai_client = OpenAiClient(dynamodb=dynamodb)
+        process_transcript_from_data_entry(gpt_client=open_ai_client, data_entry=loaded_data_entry)
 
     teardown_dynamodb_local(process)

@@ -1,25 +1,14 @@
 import json
+import hashlib
 import openai
-import pprint
 import re
 import time
 
-# TODO(P0, devx): Make it class, add a caching layer with DynamoDB (more robust testing, faster prod re-runs).
-#   * After that we can also easily collect total tokens used and such.
+from dataclasses import dataclass, field
+from dynamodb import DynamoDBManager, write_data_class, read_data_class
+from typing import Optional
 
-pp = pprint.PrettyPrinter(indent=4)
-
-
-class Timer:
-    def __init__(self, label):
-        self.label = label
-
-    def __enter__(self):
-        self.start_time = time.time()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        elapsed_time = time.time() - self.start_time
-        print("{}: {:.2f} seconds".format(self.label, elapsed_time))
+openai.api_key = "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"
 
 
 def truncate_string(input_string):
@@ -31,38 +20,113 @@ def truncate_string(input_string):
     return truncated_string
 
 
-# model = gpt-4, gpt-4-0314, gpt-4-32k, gpt-4-32k-0314, gpt-3.5-turbo, gpt-3.5-turbo-0301
-# For gpt-4 you need to be whitelisted.
-# About 0.4 cents per request (about 2000 tokens). Using gpt-4 would be 15x more expensive :/
-# TODO(peter): Do sth about max prompt length (4096 tokens INCLUDING the generated response)
-# TODO(peter, fine-tune): Feels like for repeated tasks it would be great to speed up and/or cost save
-#   https://platform.openai.com/docs/guides/fine-tuning/advanced-usage
-# TODO(peter): We should templatize the prompt into "function body" and "parameters";
-#   then we can re-use the "body" to "fine-tune" a model and have faster responses.
-def run_prompt(prompt: str, model="gpt-3.5-turbo", retry_timeout=60, print_prompt=True):
-    # wait is too long so carry one
-    if retry_timeout > 600:
-        return '{"error": "timeout ' + str(retry_timeout) + '"}'
-    if print_prompt:
-        # print(f"Asking {model} for: {truncate_string(prompt)}")
-        loggable_prompt = prompt.replace('\n', ' ')
-        print(f"Asking {model} for: {loggable_prompt}")
-    with Timer("ChatCompletion"):
-        # TODO: My testing on gpt-4 through the browswer gives better results
+@dataclass
+class PromptLog:
+    # The maximum size of a primary key (partition key and sort key combined) is 2048 bytes
+    prompt_hash: str
+    model: str
+
+    prompt: str
+    result: str = None
+    # Fcking DynamoDB and floats
+    request_time_ms: int = 0  # in milliseconds
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+    def total_tokens(self) -> int:
+        return self.prompt_tokens + self.completion_tokens
+
+    # Cannot over-ride the default init method as that's used by my custom DynamoDB driver.
+    @staticmethod
+    def create(prompt, model):
+        return PromptLog(
+            prompt = prompt,
+            prompt_hash = hashlib.sha256(prompt.encode()).hexdigest(),
+            model = model
+        )
+
+
+class OpenAiClient:
+    def __init__(self, dynamodb: Optional[DynamoDBManager]):
+        self.prompt_cache_table = dynamodb.create_prompt_table_if_not_exists() if bool(dynamodb) else None
+        # In-memory representation of the above to mostly sum up stats.
+        self.prompt_stats = field(default_factory=list)
+
+    def _run_prompt(self, prompt: str, model="gpt-3.5-turbo", retry_timeout=60):
+        # wait is too long so carry on
+        if retry_timeout > 600:
+            print("ERROR: waiting for prompt too long")
+            return None
+
+        # TODO(P1, ux): My testing on gpt-4 through the browswer gives better results
+        #  - get access and use it on drafts.
         try:
+            # TODO(P2, devx): This can get stuck-ish, we should handle that somewhat nicely.
             response = openai.ChatCompletion.create(
                 model=model,
                 messages=[{"role": "system", "content": prompt}]
             )
         # openai.error.RateLimitError: That model is currently overloaded with other requests.
-        # You can retry your request, or contact us through our help center at help.openai.com if the error persists.
+        # You can retry your request, or contact us through our help center at help.openai.com
+        # if the error persists.
         # (Please include the request ID 7ed28a69c5cda5378f57266336539b7d in your message.)
         except openai.error.RateLimitError as err:
             print(f"Got RATE-LIMITED!!! Sleeping for {retry_timeout}. Raw error: {err}")
             time.sleep(retry_timeout)
-            return run_prompt(prompt, model, 2 * retry_timeout)  # exponential backoff
-    print(f"Token usage {json.dumps(response['usage'])}")
-    return response.choices[0].message.content.strip().replace("\n", "")
+            return self._run_prompt(prompt, model, 2 * retry_timeout)  # exponential backoff
+
+        return response
+
+    # model = gpt-4, gpt-4-0314, gpt-4-32k, gpt-4-32k-0314, gpt-3.5-turbo, gpt-3.5-turbo-0301
+    # For gpt-4 you need to be whitelisted.
+    # About 0.4 cents per request (about 2000 tokens). Using gpt-4 would be 15x more expensive :/
+    # TODO(peter): Do sth about max prompt length (4096 tokens INCLUDING the generated response)
+    # TODO(peter, fine-tune): Feels like for repeated tasks it would be great to speed up and/or cost save
+    #   https://platform.openai.com/docs/guides/fine-tuning/advanced-usage
+    # TODO(peter): We should templatize the prompt into "function body" and "parameters";
+    #   then we can re-use the "body" to "fine-tune" a model and have faster responses.
+    def run_prompt(self, prompt: str, model="gpt-3.5-turbo", print_prompt=True):
+        prompt_log = PromptLog.create(prompt=prompt, model=model)
+
+        if print_prompt:
+            loggable_prompt = prompt.replace('\n', ' ')
+            print(f"Asking {model} for: {loggable_prompt}")
+
+        if bool(self.prompt_cache_table):
+            key = PromptLog.create(prompt, model)
+            cached_prompt: PromptLog = read_data_class(data_class_type=PromptLog, table=self.prompt_cache_table, key={
+                'prompt_hash': key.prompt_hash,
+                'model': key.model,
+            }, print_not_found=True)
+            if bool(cached_prompt):
+                print("cached_prompt: serving out of cache")
+                if cached_prompt.prompt != prompt:
+                    print(f"ERROR: hash collision for {key.prompt_hash} for prompt {prompt}")
+                else:
+                    return cached_prompt.result
+
+        start_time = time.time()
+        # ====== ACTUAL LOGIC, everything else is monitoring, caching and analytics.
+        response = self._run_prompt(prompt, model)
+
+        prompt_log.request_time_ms = int(1000 * (time.time() - start_time))
+        print(f"ChatCompletion: { prompt_log.request_time_ms / 1000} seconds")  # Note, includes retry time.
+
+        if response is None:
+            return None
+        result = response.choices[0].message.content.strip().replace("\n", "")
+
+        token_usage = response['usage']
+        prompt_log.result = result
+        prompt_log.prompt_tokens = token_usage.get("prompt_tokens", 0)
+        prompt_log.completion_tokens = token_usage.get("completion_tokens", 0)
+        print(f"Token usage {json.dumps(token_usage)}")
+
+        # Log and cache the result
+        if bool(self.prompt_cache_table):
+            write_data_class(self.prompt_cache_table, prompt_log)
+            print("cached_prompt: written to cache")
+        return result
 
 
 def get_first_occurrence(s: str, list_of_chars: list):
@@ -77,7 +141,7 @@ def get_first_occurrence(s: str, list_of_chars: list):
         return -1
 
 
-def gpt_response_to_json(raw_response: str, debug=True):
+def gpt_response_to_json(raw_response: Optional[str], debug=True):
     if raw_response is None:
         if debug:
             print("raw_response is None")
@@ -103,6 +167,7 @@ def gpt_response_to_json(raw_response: str, debug=True):
     raw_response = raw_response.replace(': ""', ': "').replace('""}', '"}')
     # Sometimes GPT adds the extra comma, well, everyone is guilty of that leading to a production outage so :shrug:
     # Examples: """her so it was cool",    ],"""
+    # TODO(P2, devx): Redundant character escape
     raw_response = re.sub(r'",\s*\]', '"]', raw_response)
     raw_response = re.sub(r'",\s*\}', '"}', raw_response)
     raw_response = re.sub(r'\],\s*\}', ']}', raw_response)
@@ -154,7 +219,7 @@ def gpt_response_to_plaintext(raw_response) -> str:
                 items.append(f"{key}: {value}")
             return " ".join([str(x) for x in items])
         # TODO(P2): Implement more fancy cases, nested objects and such.
-        return str
     except Exception:
-        return str(raw_response)
-    # Maybe it's a JSON
+        pass
+
+    return str(raw_response)

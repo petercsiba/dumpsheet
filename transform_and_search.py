@@ -166,7 +166,7 @@ for pair in random_pairs:
         continue
     person1 = transformed_data[pair[0]]
     person2 = transformed_data[pair[1]]
-    match_result = evaluate_match(person1=person1, person2=person2)
+    match_result = evaluate_match(orig_person1=person1, orig_person2=person2)
     match_results.append({
         "person1": person1,
         "person2": person2,

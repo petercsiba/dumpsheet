@@ -3,25 +3,13 @@ from dataclasses import asdict
 from typing import Dict, List
 
 import openai
-import pprint
 
-from datashare import PersonDataEntry
-from openai_utils import gpt_response_to_json, gpt_response_to_plaintext, run_prompt, Timer
+from datashare import PersonDataEntry, Draft
+from openai_client import gpt_response_to_json, gpt_response_to_plaintext, OpenAiClient
 from storage_utils import get_fileinfo
+from utils import Timer
 
 MAX_TRANSCRIPT_TOKEN_COUNT = 2500
-
-# config = toml.load('secrets.toml')
-# TODO: Change after some time - I am lazy to remove from commits or do ENV variables :D
-openai.api_key = "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"
-# AUDIO_FILE = "input/networking-transcript-1-katka-tech-roast-may-25.mp4"
-# command = f"ffmpeg -i input/{AUDIO_FILE} -c:v copy -c:a aac -strict experimental"
-# result = subprocess.run(command, shell=True, capture_output=True, text=True)
-# TODO: Time for local and production settings
-# output_bucket = None
-output_bucket = "katka-email-response"
-
-pp = pprint.PrettyPrinter(indent=4)
 
 test_transcript = None
 test_get_names = None
@@ -79,7 +67,7 @@ def transcribe_audio(audio_filepath):
 # * Many un-attributed gaps (which was painful to map)
 # * Repeat mentions doesn't work
 # My mistake was that I tried to optimize token count, returning only indexes, which made the code very complicated.
-def get_per_person_transcript(raw_transcript: str):
+def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str):
     transcript_words = raw_transcript.split()
     token_count = len(transcript_words)
     print(f"Transcript has {token_count} words")
@@ -93,14 +81,11 @@ def get_per_person_transcript(raw_transcript: str):
     Enumerate all people mentioned in the attached transcript, 
     please output a valid json list of strings in format: 
     * "person identifier (such as name): a 5-10 word description".
-    Note that: 
-    * There might be many un-named people, make sure to include them all.
-    * If two people without name sound similar then they are the same.
-    * If the pronoun he, she, them or it changes, these are likely different people. 
+    Note that there might be some un-named people and that we only interested in humans.
     The transcript: {}
     """.format(raw_transcript)
     if test_get_names is None:
-        raw_response = run_prompt(query_people)
+        raw_response = gpt_client.run_prompt(query_people)
         people = gpt_response_to_json(raw_response)
     else:
         people = gpt_response_to_json(test_get_names)
@@ -139,7 +124,7 @@ def get_per_person_transcript(raw_transcript: str):
             sublist_in_query,
             raw_transcript
         )
-        raw_response = run_prompt(query_mentions_first_try)
+        raw_response = gpt_client.run_prompt(query_mentions_first_try)
         people = gpt_response_to_json(raw_response)
         if people is None:
             print("WARNING: Could not get substring mentions for the provided folks")
@@ -148,7 +133,9 @@ def get_per_person_transcript(raw_transcript: str):
                 sublist_in_query,
                 raw_transcript
             )
-            raw_response = run_prompt(query_mentions_second_try)
+            raw_response = gpt_client.run_prompt(query_mentions_second_try)
+            # TODO(P2, quality): Maybe we should filter out short or one sentence transcripts,
+            #   or names which are clearly not humans like "Other European similar organizations".
             people = gpt_response_to_json(raw_response)
             # TODO: Some error handling and defaulting to retry one-by-one? I can see it a recurring theme
             #   of batch gpt failing and retrying with one-by-one.
@@ -163,7 +150,10 @@ def get_per_person_transcript(raw_transcript: str):
 # TODO: Assess what is a good amount of transcripts to send at the same time
 #  .. well, cause matching the original raw transcript to the output of this, easiest seems to just do it one-by-one
 #  I am paying by tokens so the overhead is the "function definition" (which we can fine-tune later on).
-def summarize_transcripts_to_person_data_entries(person_to_transcript: Dict[str, str]) -> List[PersonDataEntry]:
+def summarize_transcripts_to_person_data_entries(
+        gpt_client: OpenAiClient,
+        person_to_transcript: Dict[str, str]
+) -> List[PersonDataEntry]:
     # TODO(P0): Dynamic summary categories based off:
     #   * Background of the speaker: https://www.reversecontact.com/case-studies
     #   * General question / note categories (chat-gpt)
@@ -177,7 +167,7 @@ def summarize_transcripts_to_person_data_entries(person_to_transcript: Dict[str,
         Input: a transcript of me talking about the person.
         Output: a json dict with the following key value pairs:
     * name: name (or 2-3 word description) 
-    * mnemonic: two word mnemonic to help remember this person, first letters of the mnemonic same as their first name 
+    * mnemonic: two word mnemonic to help me remember this person 
     * mnemonic_explanation: include a short explanation for the above mnemonic
     * industry: which business area they specialize in professionally
     * role: current role or past experience
@@ -195,7 +185,7 @@ def summarize_transcripts_to_person_data_entries(person_to_transcript: Dict[str,
             # Note: when I did "batch 20 structured summaries" it took 120 seconds.
             # Takes 10 second per person.
             print(f"Getting all mentions for {name}")
-            raw_response = run_prompt(query_summarize.format(transcript), print_prompt=True)
+            raw_response = gpt_client.run_prompt(query_summarize.format(transcript), print_prompt=True)
             # One failure shouldn't block the entire thing, log the error, return name, transcript for manual fix.
             # TODO(P1): Handle this error case:
             #   For inputs like The input transcript: ['The Riga, there was one moderator']
@@ -233,7 +223,12 @@ def summarize_transcripts_to_person_data_entries(person_to_transcript: Dict[str,
     return result
 
 
-def generate_first_outreaches(name: str, person_transcript: str, intents: List[str]) -> List[Dict[str, str]]:
+def generate_first_outreaches(
+        gpt_client: OpenAiClient,
+        name: str,
+        person_transcript: str,
+        intents: List[str]
+) -> List[Draft]:
     result = []
     for intent in intents:
         # TODO(P1): Personalize the messages to my general transcript vibes.
@@ -247,31 +242,31 @@ def generate_first_outreaches(name: str, person_transcript: str, intents: List[s
         to say that "{}"  (use up to 250 characters)
         Please make sure that:
         * to mention what I enjoyed OR appreciated in the conversation
-        * include a fact from our conversation
+        * include a fact / a hobby / an interest from our conversation
         Only output the resulting message - do not use double quotes at all.
         My notes of person "{}" are as follows "{}"
         """.format(intent, name, person_transcript)
-        raw_response = run_prompt(query_outreaches)
+        raw_response = gpt_client.run_prompt(query_outreaches)
 
         is_it_json = gpt_response_to_json(raw_response, debug=False)
         if isinstance(is_it_json, (dict, list)):
             print(f"WARNING: generate_first_outreaches returned a dict or list {raw_response}")
             raw_response = str(is_it_json)
 
-        result.append({
-            "message_type": intent,
-            "outreach_draft": raw_response,
-        })
+        result.append(Draft(
+            intent=intent,
+            message=raw_response
+        ))
 
     return result
 
 
 # =============== MAIN FUNCTIONS TO BE CALLED  =================
-def extract_per_person_summaries(raw_transcript: str) -> List[PersonDataEntry]:
+def extract_per_person_summaries(gpt_client: OpenAiClient, raw_transcript: str) -> List[PersonDataEntry]:
     print(f"Running networking_dump on raw_transcript of {len(raw_transcript.split())} token size")
 
     if test_person_to_transcript is None:
-        person_to_transcript = get_per_person_transcript(raw_transcript=raw_transcript)
+        person_to_transcript = get_per_person_transcript(gpt_client, raw_transcript=raw_transcript)
     else:
         person_to_transcript = gpt_response_to_json(test_person_to_transcript)
     # TODO: Somehow get all "gaps" none of the mentions is talking about.
@@ -279,10 +274,10 @@ def extract_per_person_summaries(raw_transcript: str) -> List[PersonDataEntry]:
     print(json.dumps(person_to_transcript))
 
     if test_summaries is not None:
-        # TODO(P2, testing): Fix this, we might just do GPT-request caching through openai_utils.py via DynamoDB
+        # TODO(P2, testing): Fix this, we might just do GPT-request caching through openai_client.py via DynamoDB
         person_data_entries = gpt_response_to_json(test_summaries)
     else:
-        person_data_entries = summarize_transcripts_to_person_data_entries(person_to_transcript)
+        person_data_entries = summarize_transcripts_to_person_data_entries(gpt_client, person_to_transcript)
     print("=== All summaries === ")
     # Sort by priority, these are now P0, P1 so do it ascending.
     person_data_entries = sorted(person_data_entries, key=lambda pde: pde.priority)
@@ -292,8 +287,8 @@ def extract_per_person_summaries(raw_transcript: str) -> List[PersonDataEntry]:
     return person_data_entries
 
 
-def fill_in_draft_outreaches(person_data_entries: List[PersonDataEntry]):
-    print(f"Running generate_draft_outreaches on {len(person_data_entries)} person data entries")
+def fill_in_draft_outreaches(gpt_client: OpenAiClient, person_data_entries: List[PersonDataEntry]):
+    print(f"Running fill_in_draft_outreaches on {len(person_data_entries)} person data entries")
 
     for person in person_data_entries:
         required_follow_ups = person.follow_ups or []
@@ -303,15 +298,16 @@ def fill_in_draft_outreaches(person_data_entries: List[PersonDataEntry]):
         #   * To parsed and static list, also add GPT gather general action items across people
         intents.extend([
             # Given data / intent of the networking person
-            "I want to meet again with one or two topics to discuss",
             "Great to meet you, let me know if I can ever do anything for you!",
+            "I want to meet again with one or two topics to discuss",
             "Appreciate meeting them at the event",
         ])
         top3_intents = intents[:max(3, len(required_follow_ups))]
+        print(f"top3_intents {top3_intents}")
 
         person.drafts = generate_first_outreaches(
-            person.name,
+            gpt_client=gpt_client,
+            name=person.name,
             person_transcript=person.transcript,
             intents=top3_intents
         )
-

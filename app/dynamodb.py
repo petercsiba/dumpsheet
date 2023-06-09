@@ -1,16 +1,18 @@
-import datetime
-from typing import Optional
-
 import boto3
 import json
 import os
 import subprocess
 import time
 
-from datashare import DataEntry, EmailParams, PersonDataEntry, DataEntryKey, dataclass_to_json, json_to_dataclass
+from botocore.exceptions import ClientError
+from dataclasses import dataclass
+from typing import Optional, Type, Any
+
+from datashare import DataEntry, dataclass_to_json, json_to_dataclass, User, dict_to_dataclass
 
 TABLE_NAME_DATA_ENTRY = "KatkaAI_DataEntry"
 TABLE_NAME_PERSON = "KatkaAI_Person"
+TABLE_NAME_PROMPT = "KatkaAI_PromptCacheTest2"
 TABLE_NAME_USER = "KatkaAI_User"
 
 # For local runs
@@ -19,36 +21,65 @@ LIB_PATH = './DynamoDBLocal_lib'
 TEST_TRANSCRIPT_PATH = "test/fixtures/transcripts/"
 
 
+def write_data_class(table, data: dataclass, require_success=True):
+    print(f"write_data_entry {type(data)}")
+    # TODO(p2, quite very hacky)
+    item_json = dataclass_to_json(data)
+    item_dict = json.loads(item_json)
+
+    try:
+        return table.put_item(Item=item_dict)
+    except TypeError as err:
+        print(f"ERROR: Could NOT serialize to {table.table_name} item {item_dict}")
+        if require_success:
+            raise err
+        else:
+            return None
+
+
+def read_data_class(data_class_type: Type[Any], table, key, print_not_found=True):
+    try:
+        response = table.get_item(Key=key)
+    except ClientError as err:
+        table_describe = table.meta.client.describe_table(TableName=table.table_name)
+        print(f"ERROR: read_data_class ClientError for key {key} cause for table {table_describe}: {err}")
+        raise err
+
+    if 'Item' not in response:
+        if print_not_found:
+            print(f"Item with key {key} NOT found in {table}")
+        return None
+
+    item_dict = response['Item']
+    return dict_to_dataclass(dict_=item_dict, data_class_type=data_class_type)
+
+
 class DynamoDBManager:
     def __init__(self, endpoint_url):
         self.dynamodb = boto3.resource('dynamodb', endpoint_url=endpoint_url)
         self.user_table = self.create_user_table_if_not_exists()
         self.data_entry_table = self.create_data_entry_table_if_not_exists()
         self.person_table = self.create_person_table_if_not_exists()
+        self.prompt_table = self.create_prompt_table_if_not_exists()
 
     def write_data_entry(self, data_entry: DataEntry):
-        print(f"write_data_entry {data_entry}")
-        # TODO(p2, yeah very hacky)
-        item_json = dataclass_to_json(data_entry)
-        item_dict = json.loads(item_json)
-        return self.data_entry_table.put_item(Item=item_dict)
+        return write_data_class(self.data_entry_table, data_entry)
 
-    # TODO(P1, devx): Generalize this to any data-class -
-    #  - MAYBE we can include class information on the object when serializing.
-    def read_data_entry(self, key: DataEntryKey) -> Optional[DataEntry]:
-        response = self.data_entry_table.get_item(
-            Key={
-                'user_id': key.user_id,
-                'event_name': key.event_name
+    def read_data_entry(self, user_id, event_name) -> Optional[DataEntry]:
+        return read_data_class(DataEntry, self.data_entry_table, {
+                'user_id': user_id,
+                'event_name': event_name
             }
-        )
-        if 'Item' not in response:
-            print(f"Item with key {key} NOT found")
-            return None
+                               )
 
-        item_dict = response['Item']
-        item_json = json.dumps(item_dict)
-        return json_to_dataclass(item_json, DataEntry)
+    def write_user(self, user: User):
+        return write_data_class(self.user_table, user)
+
+    def read_user(self, user_id) -> Optional[User]:
+        return read_data_class(User, self.user_table, {
+                'user_id': user_id,
+            }
+                               )
 
     def get_table_if_exists(self, table_name):
         existing_tables = [t.name for t in self.dynamodb.tables.all()]
@@ -56,7 +87,7 @@ class DynamoDBManager:
 
         if table_name in existing_tables:
             print(f"Table {table_name} already exists.")
-            return self.dynamodb.Table(TABLE_NAME_DATA_ENTRY)
+            return self.dynamodb.Table(table_name)
 
         return None
 
@@ -79,9 +110,20 @@ class DynamoDBManager:
             return result
 
         return self.create_table_with_option(
-            table_name = TABLE_NAME_PERSON,
+            table_name=TABLE_NAME_PERSON,
             pk_name="user_id",
             sk_name="name",
+        )
+
+    def create_prompt_table_if_not_exists(self):
+        result = self.get_table_if_exists(TABLE_NAME_PROMPT)
+        if result is not None:
+            return result
+
+        return self.create_table_with_option(
+            table_name=TABLE_NAME_PROMPT,
+            pk_name="prompt_hash",
+            sk_name="model",
         )
 
     def create_user_table_if_not_exists(self):
@@ -91,7 +133,7 @@ class DynamoDBManager:
 
         # TODO(clean, P2): Would be nice to somehow derive the schema with compile-time checks.
         return self.create_table_with_option(
-            table_name = TABLE_NAME_USER,
+            table_name=TABLE_NAME_USER,
             pk_name="user_id",
             sk_name="email",
             has_sort_key=False,
@@ -107,13 +149,13 @@ class DynamoDBManager:
             has_sort_key: bool = True,
             has_gsi: bool = False
     ):
-        KeySchema = [
+        key_schema = [
             {
                 'AttributeName': pk_name,
                 'KeyType': 'HASH'  # Partition key
             },
         ]
-        AttributeDefinitions = [
+        attribute_definitions = [
             {
                 'AttributeName': pk_name,
                 'AttributeType': 'S'  # 'S' stands for String
@@ -125,15 +167,15 @@ class DynamoDBManager:
         ]
 
         if has_sort_key:
-            KeySchema.append({
+            key_schema.append({
                 'AttributeName': sk_name,
                 'KeyType': 'RANGE'  # Sort key
             })
 
         table_args = {
             'TableName': table_name,
-            'KeySchema': KeySchema,
-            'AttributeDefinitions': AttributeDefinitions,
+            'KeySchema': key_schema,
+            'AttributeDefinitions': attribute_definitions,
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
                 'WriteCapacityUnits': 5
@@ -172,7 +214,7 @@ def load_files_to_dynamodb(manager: DynamoDBManager, directory: str):
     for filename in os.listdir(directory):
         with open(f"{directory}/{filename}", 'r') as file:
             data_entry = json.load(file)
-            print(f"load_files_to_dynamodb importing fixture {filename} key={data_entry.user_id, data_entry.event_name}")
+            print(f"load_files_to_dynamodb importing {filename} key={data_entry.user_id, data_entry.event_name}")
             manager.write_data_entry(data_entry)
 
 
@@ -189,7 +231,8 @@ def setup_dynamodb_local():
         pass
 
     # Startup the local DynamoDB
-    cmd = 'java -Djava.library.path=' + LIB_PATH + ' -jar ' + JAR_PATH + f" -sharedDb -inMemory -port {port}"
+    # NOTE: add -inMemory if you want to truncate it after each run.
+    cmd = 'java -Djava.library.path=' + LIB_PATH + ' -jar ' + JAR_PATH + f" -sharedDb -port {port}"
     dynamodb_process = subprocess.Popen(cmd, shell=True)
 
     # Sleep for a short while to ensure DynamoDB Local has time to start up

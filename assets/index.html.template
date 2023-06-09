@@ -111,7 +111,7 @@
         <div id="{{ person_body.element_id }}"
             class="gpt-content"
             style="display: {{ person_body.style_display }};">
-            <h2 class="mb-4">{{ person_body.name }}</h2>
+            <h3 class="mb-4">{{ person_body.name }}</h3>
             <ul>
                 <li><strong>Priority</strong>: {{ person_body.priority }}</li>
                 <li><strong>Mnemonic</strong>: {{ person_body.mnemonic }}</li>
@@ -121,7 +121,7 @@
                 <li><strong>Role</strong>: {{ person_body.role }}</li>
                 <!-- <li><strong>Contact Info</strong>: {{ person_body.contact_info }}</li> -->
             </ul>
-            <h2 class="mb-4">Possible actions</h2>
+            <h3 class="mb-4">Possible actions</h3>
 
             {{ follow_ups.begin }}
             <h4>Option {{ follow_ups.option_num }}: {{ follow_ups.message_type }}</h4>
@@ -138,7 +138,7 @@
             </p>
             {{ follow_ups.end }}
 
-            <h2 class="mb-4">Original transcript</h2>
+            <h3 class="mb-4">Original transcript</h3>
             <p id="{{ person_body.element_id}}_transcript">
                 {{ person_body.transcript }}
             </p>

@@ -17,10 +17,12 @@ def check_required_list(name, lst):
         print(f"ERROR: DataEntry invalid list {name}: {lst}")
 
 
-class DateTimeEncoder(JSONEncoder):
+class DynamoEncoder(JSONEncoder):
     def default(self, o):
+        print(f"DynamoEncoder {type(o)} value: {o}")
         if isinstance(o, datetime.datetime):
             return o.isoformat()
+        # TODO(P2, devx): TypeError: Float types are not supported. Use Decimal types instead.
 
         return super().default(o)
 
@@ -34,7 +36,6 @@ def datetime_decoder(dict_):
                 # Try to parse a datetime from the string
                 dict_[k] = datetime.datetime.fromisoformat(v)
             except ValueError:
-                # If parsing failed, leave the value as it is
                 pass
     return dict_
 
@@ -43,16 +44,22 @@ def dataclass_to_json(dataclass_obj: dataclass):
     # Convert the data_entry object to a dictionary, and then json.dumps
     # the complex objects to store them as strings in DynamoDB.
     item_dict = asdict(dataclass_obj)
-    return json.dumps(item_dict, cls=DateTimeEncoder)
+    return json.dumps(item_dict, cls=DynamoEncoder)
 
 
-def dict_to_dataclass(dict_, data_class_type: Type[Any]) -> dataclass:
+def dict_to_dataclass(dict_: dict, data_class_type: Type[Any]) -> dataclass:
+    if dict_ is None:
+        print(f"No data found for {data_class_type}, trying to instantiate an empty one")
+        return data_class_type()
+
     init_values = {}
+    # noinspection PyDataclass
     for f in fields(data_class_type):
+        value = dict_.get(f.name)  # e.g. None might be NOT set
         if is_dataclass(f.type):
-            init_values[f.name] = dict_to_dataclass(dict_[f.name], f.type)
+            init_values[f.name] = dict_to_dataclass(value, f.type)
         else:
-            init_values[f.name] = dict_[f.name]
+            init_values[f.name] = value
     return data_class_type(**init_values)
 
 
@@ -78,11 +85,10 @@ class EmailParams:
         return self.recipient_full_name.split()[0]
 
 
-# TODO(P1): One day we will need to support merging to one canonical key.
-@dataclass
-class PersonKey:
-    user_id: str
-    name: str
+@dataclass()
+class Draft:
+    intent: str
+    message: str
 
 
 @dataclass
@@ -111,8 +117,7 @@ class PersonDataEntry:
     additional_metadata: Dict[str, any] = field(default_factory=dict)
 
     # These are actual copy-paste-able drafts from the mentioned follow-ups, hard coded list and such
-    # intent => draft (ideally would be a sub-dataclass, but it's a bit tough to deal with nested ones.
-    drafts: List[Dict[str, str]] = field(default_factory=list)
+    drafts: List[Draft] = field(default_factory=list)
 
     parsing_error: str = None
 
@@ -157,8 +162,12 @@ class DataEntry:
     input_s3_url: Optional[str] = None  # No S3 for local testing
     input_transcripts: List[str] = field(default_factory=list)
     # Note: these are pre-merged before serializing into the People table
-    output_people_snapshot: List[PersonDataEntry] = field(default_factory=list)
+    output_people_entries: List[PersonDataEntry] = field(default_factory=list)
     output_webpage_url: str = None
+
+    def __post_init__(self):
+        if isinstance(self.event_timestamp, str):
+            self.event_timestamp = datetime.datetime.fromisoformat(self.event_timestamp)
 
     def double_check_inputs(self):
         check_required_str("user_id", self.user_id)
