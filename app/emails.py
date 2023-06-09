@@ -233,7 +233,7 @@ def send_email(params: EmailParams, idempotency_key: Optional[str] = None) -> bo
     raw_email = create_raw_email_with_attachments(params)
 
     if check_if_already_sent(params.recipient, idempotency_key=idempotency_key):
-        print(f"Email '{idempotency_key}' already sent for {params.recipient} - skipping send.")
+        print(f"SKIPPING email '{idempotency_key}' cause already sent for {params.recipient}")
         return True
 
     if not is_running_in_aws():

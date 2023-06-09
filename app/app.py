@@ -214,6 +214,7 @@ def lambda_handler(event, context):
         dynamodb_client.write_data_entry(data_entry)
 
     # Second Lambda
+    # NOTE: When we actually separate them - be careful about re-tries to clear the output.
     gpt_client = OpenAiClient(dynamodb=dynamodb_client)
     process_transcript_from_data_entry(gpt_client, data_entry)
     # Update with the outputs
@@ -248,6 +249,7 @@ if __name__ == "__main__":
 
         # DynamoDB is used for caching between local test runs, spares both time and money!
         open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
-        process_transcript_from_data_entry(gpt_client=open_ai_client, data_entry=loaded_data_entry)
+        # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
+        process_transcript_from_data_entry(gpt_client=open_ai_client, data_entry=orig_data_entry)
 
     teardown_dynamodb_local(process)
