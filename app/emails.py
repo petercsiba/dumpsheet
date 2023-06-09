@@ -15,10 +15,10 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.utils import parseaddr
 
-from app.openai_client import PromptStats
-from dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
 from aws_utils import is_running_in_aws, get_dynamo_endpoint_url
 from datashare import EmailParams, EmailLog
+from dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
+from openai_client import PromptStats
 from storage_utils import pretty_filesize
 
 SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
