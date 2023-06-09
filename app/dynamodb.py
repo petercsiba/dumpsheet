@@ -8,11 +8,13 @@ from botocore.exceptions import ClientError
 from dataclasses import dataclass
 from typing import Optional, Type, Any
 
-from datashare import DataEntry, dataclass_to_json, json_to_dataclass, User, dict_to_dataclass
+from datashare import DataEntry, dataclass_to_json, User, dict_to_dataclass
 
+# TODO(P2, security): Ideally the Lambda should only have permissions to these tables
+# https://us-east-1.console.aws.amazon.com/iam/home#/roles/katka-ai-container-lambda-role-iadxzlko$createPolicy?step=edit
 TABLE_NAME_DATA_ENTRY = "KatkaAI_DataEntry"
 TABLE_NAME_PERSON = "KatkaAI_Person"
-TABLE_NAME_PROMPT = "KatkaAI_PromptCacheTest2"
+TABLE_NAME_PROMPT = "KatkaAI_PromptLog"
 TABLE_NAME_USER = "KatkaAI_User"
 
 # For local runs
@@ -70,7 +72,8 @@ class DynamoDBManager:
                 'user_id': user_id,
                 'event_name': event_name
             }
-                               )
+        )
+    # TODO(P2, devx): dynamodb.update is safer but no-time.
 
     def write_user(self, user: User):
         return write_data_class(self.user_table, user)
@@ -204,9 +207,11 @@ class DynamoDBManager:
 
         table = self.dynamodb.create_table(**table_args)
         # Wait until the table exists.
+        print(f"Waiting for dynamodb table to be created {table_name}")
         table.meta.client.get_waiter('table_exists').wait(TableName=table_name)
 
         print(f"Table {table_name} status:", table.table_status)
+        return table
 
 
 # ========== MOSTLY LOCAL SHIT =========== #

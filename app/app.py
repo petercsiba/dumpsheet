@@ -24,7 +24,7 @@ from email.utils import parseaddr
 from urllib.parse import quote
 
 from openai_client import OpenAiClient
-from dynamodb import setup_dynamodb_local, load_files_to_dynamodb, teardown_dynamodb_local
+from dynamodb import setup_dynamodb_local, load_files_to_dynamodb, teardown_dynamodb_local, DynamoDBManager
 from aws_utils import get_bucket_url
 from datashare import DataEntry, User
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
@@ -32,6 +32,7 @@ from generate_flashcards import generate_page
 from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries, transcribe_audio
 from storage_utils import write_output_to_local_and_bucket
 
+DYNAMO_URL_PROD = "https://dynamodb.us-west-2.amazonaws.com"
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
 STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
 
@@ -191,12 +192,24 @@ def lambda_handler(event, context):
         print(f"No creds for S3 cause {e}")
         return 'Execution failed'
 
+    try:
+        dynamodb_client = DynamoDBManager(endpoint_url=DYNAMO_URL_PROD)
+    except Exception as err:
+        print(f"ERROR: Could NOT create DynamoDB to {DYNAMO_URL_PROD} cause {err}")
+        dynamodb_client = None
+
     # TODO(P1, multi-client): For Web/iOS uploads we would un-zip here, decide by bucket name.
     # First Lambda
     data_entry = process_email_input(raw_email=response['Body'].read(), bucket_url=bucket_url)
+    if bool(dynamodb_client):
+        dynamodb_client.write_data_entry(data_entry)
+
     # Second Lambda
-    gpt_client = OpenAiClient(dynamodb=None)
+    gpt_client = OpenAiClient(dynamodb=dynamodb_client)
     process_transcript_from_data_entry(gpt_client, data_entry)
+    # Update with the outputs
+    if bool(dynamodb_client):
+        dynamodb_client.write_data_entry(data_entry)
 
 
 # For local testing without emails or S3, great for bigger refactors.
