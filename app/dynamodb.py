@@ -15,7 +15,6 @@ from datashare import DataEntry, dataclass_to_json, User, dict_to_dataclass
 # https://us-east-1.console.aws.amazon.com/iam/home#/roles/katka-ai-container-lambda-role-iadxzlko$createPolicy?step=edit
 TABLE_NAME_DATA_ENTRY = "KatkaAI_DataEntry"
 TABLE_NAME_EMAIL_LOG = "KatkaAI_EmailLog"  # To prevent double-sending
-TABLE_NAME_PERSON = "KatkaAI_Person"
 TABLE_NAME_PROMPT = "KatkaAI_PromptLog"
 TABLE_NAME_USER = "KatkaAI_User"
 
@@ -68,7 +67,6 @@ class DynamoDBManager:
         self.user_table = self.create_user_table_if_not_exists()
         self.data_entry_table = self.create_data_entry_table_if_not_exists()
         self.email_log_table = self.create_email_log_table_if_not_exists()
-        self.person_table = self.create_person_table_if_not_exists()
         self.prompt_table = self.create_prompt_table_if_not_exists()
 
     def write_data_entry(self, data_entry: DataEntry):
@@ -94,7 +92,7 @@ class DynamoDBManager:
         items = response['Items']
         if items is None or len(items) == 0:
             new_user = User(
-                user_id=User.generate_user_id(),
+                user_id=User.generate_user_id(email_address=email_address),
                 email_address=email_address,
             )
             print(f"Creating new user {new_user.user_id} for {new_user.email_address}!")
@@ -140,17 +138,6 @@ class DynamoDBManager:
             table_name=TABLE_NAME_EMAIL_LOG,
             pk_name="email_to",
             sk_name="idempotency_key",
-        )
-
-    def create_person_table_if_not_exists(self):
-        result = self.get_table_if_exists(TABLE_NAME_PERSON)
-        if result is not None:
-            return result
-
-        return self.create_table_with_option(
-            table_name=TABLE_NAME_PERSON,
-            pk_name="user_id",
-            sk_name="name",
         )
 
     def create_prompt_table_if_not_exists(self):

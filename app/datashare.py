@@ -154,9 +154,9 @@ class User:
     # TODO(P1, ux): Add more user-related fields
 
     @staticmethod
-    def generate_user_id():
+    def generate_user_id(email_address):
         # TODO(P3, devx): Better user-name
-        return f"user{time.time()}"
+        return f"user.{email_address[:3]}.{int(time.time())}"
 
 
 @dataclass
