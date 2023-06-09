@@ -10,6 +10,7 @@ from typing import Optional, Type, Any
 
 from datashare import DataEntry, dataclass_to_json, User, dict_to_dataclass
 
+
 # TODO(P2, security): Ideally the Lambda should only have permissions to these tables
 # https://us-east-1.console.aws.amazon.com/iam/home#/roles/katka-ai-container-lambda-role-iadxzlko$createPolicy?step=edit
 TABLE_NAME_DATA_ENTRY = "KatkaAI_DataEntry"
@@ -22,6 +23,10 @@ TABLE_NAME_USER = "KatkaAI_User"
 JAR_PATH = 'DynamoDBLocal.jar'
 LIB_PATH = './DynamoDBLocal_lib'
 TEST_TRANSCRIPT_PATH = "test/fixtures/transcripts/"
+
+
+def generate_index_name(table_name, attr_name):
+    return f"{table_name}_{attr_name}_index"
 
 
 def write_data_class(table, data: dataclass, require_success=True):
@@ -77,18 +82,31 @@ class DynamoDBManager:
         )
     # TODO(P2, devx): dynamodb.update is safer but no-time.
 
-    def get_or_create_user(self, email_address: str):
-        user = read_data_class(data_class_type=User, table=self.user_table, key={
-            'email_address': email_address
-        })
-        if user is None:
+    def get_or_create_user(self, email_address: str) -> User:
+        # NOTE: Cannot user read_data_class as that requires user_id
+        response = self.user_table.query(
+            IndexName=generate_index_name(self.user_table.table_name, "email_address"),
+            KeyConditionExpression='email_address = :email',
+            ExpressionAttributeValues={
+                ':email': email_address
+            }
+        )
+        items = response['Items']
+        if items is None or len(items) == 0:
             new_user = User(
                 user_id=User.generate_user_id(),
                 email_address=email_address,
             )
+            print(f"Creating new user {new_user.user_id} for {new_user.email_address}!")
             write_data_class(self.user_table, data=new_user)
             return new_user
-        return user
+
+        if len(items) > 1:
+            print(f"WARNING: Found multiple users for email_address {email_address}, returning first")
+
+        result: User = dict_to_dataclass(items[0], data_class_type=User)
+        print(f"Found existing user {result.user_id} for {result.email_address}")
+        return result
 
     def get_table_if_exists(self, table_name):
         existing_tables = [t.name for t in self.dynamodb.tables.all()]
@@ -155,7 +173,7 @@ class DynamoDBManager:
         return self.create_table_with_option(
             table_name=TABLE_NAME_USER,
             pk_name="user_id",
-            sk_name="email",
+            sk_name="email_address",
             has_sort_key=False,
             has_gsi=True,
         )
@@ -203,9 +221,11 @@ class DynamoDBManager:
         }
 
         if has_gsi:
+            index_name = generate_index_name(table_name=table_name, attr_name=sk_name)
+            print(f"Creating GlobalSecondaryIndexes for {index_name}")
             table_args['GlobalSecondaryIndexes'] = [
                 {
-                    'IndexName': f'{sk_name}_index',
+                    'IndexName': index_name,
                     'KeySchema': [
                         {
                             'AttributeName': sk_name,

@@ -1,6 +1,9 @@
 import os
 
 
+DYNAMO_URL_PROD = "https://dynamodb.us-west-2.amazonaws.com"
+
+
 def get_bucket_url(bucket: str, key: str):
     return f"https://{bucket}.s3.amazonaws.com/{key}"
 
@@ -15,3 +18,10 @@ def is_running_in_aws():
         return True
 
     return False
+
+
+def get_dynamo_endpoint_url(port=8000):
+    if is_running_in_aws():
+        return DYNAMO_URL_PROD
+    else:
+        return f"http://localhost:{port}"

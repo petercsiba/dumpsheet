@@ -24,15 +24,15 @@ from email.utils import parseaddr
 from urllib.parse import quote
 
 from openai_client import OpenAiClient
-from dynamodb import setup_dynamodb_local, load_files_to_dynamodb, teardown_dynamodb_local, DynamoDBManager
-from aws_utils import get_bucket_url
+from dynamodb import setup_dynamodb_local, load_files_to_dynamodb, teardown_dynamodb_local, DynamoDBManager, \
+    TABLE_NAME_USER
+from aws_utils import get_bucket_url, get_dynamo_endpoint_url
 from datashare import DataEntry
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
 from generate_flashcards import generate_page
 from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries, transcribe_audio
 from storage_utils import write_output_to_local_and_bucket
 
-DYNAMO_URL_PROD = "https://dynamodb.us-west-2.amazonaws.com"
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
 STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
 
@@ -197,10 +197,11 @@ def lambda_handler(event, context):
         print(f"No creds for S3 cause {e}")
         return 'Execution failed'
 
+    endpoint_url = get_dynamo_endpoint_url()
     try:
-        dynamodb_client = DynamoDBManager(endpoint_url=DYNAMO_URL_PROD)
+        dynamodb_client = DynamoDBManager(endpoint_url=endpoint_url)
     except Exception as err:
-        print(f"ERROR: Could NOT create DynamoDB to {DYNAMO_URL_PROD} cause {err}")
+        print(f"ERROR: Could NOT create DynamoDB to {endpoint_url} cause {err}")
         dynamodb_client = None
 
     # TODO(P1, multi-client): For Web/iOS uploads we would un-zip here, decide by bucket name.
@@ -224,6 +225,11 @@ if __name__ == "__main__":
     OUTPUT_BUCKET_NAME = None
 
     process, local_dynamodb = setup_dynamodb_local()
+    # For the cases when I mess up development.
+    # print(f"Deleting some tables")
+    # ddb_client = boto3.client('dynamodb', endpoint_url=get_dynamo_endpoint_url())
+    # ddb_client.delete_table(TableName=TABLE_NAME_USER)
+    # local_dynamodb.create_user_table_if_not_exists()
 
     load_files_to_dynamodb(local_dynamodb, "test/fixtures/dynamodb")
 

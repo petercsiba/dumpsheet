@@ -15,9 +15,8 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.utils import parseaddr
 
-from app.app import DYNAMO_URL_PROD
-from app.dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
-from aws_utils import is_running_in_aws
+from dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
+from aws_utils import is_running_in_aws, get_dynamo_endpoint_url
 from datashare import EmailParams, EmailLog
 from storage_utils import pretty_filesize
 
@@ -191,8 +190,8 @@ def create_raw_email_with_attachments(params: EmailParams):
     return msg
 
 
-def get_email_log_table_in_prod():
-    dynamodb = boto3.resource('dynamodb', endpoint_url=DYNAMO_URL_PROD)
+def get_email_log_table():
+    dynamodb = boto3.resource('dynamodb', endpoint_url=get_dynamo_endpoint_url())
     return dynamodb.Table(TABLE_NAME_EMAIL_LOG)
 
 
@@ -200,7 +199,7 @@ def check_if_already_sent(email_to: str, idempotency_key: Optional[str]):
     if idempotency_key is None:
         return False
 
-    email_log_table = get_email_log_table_in_prod()
+    email_log_table = get_email_log_table()
     previous_email: EmailLog = read_data_class(data_class_type=EmailLog, table=email_log_table, key={
         'email_to': email_to,
         'idempotency_key': idempotency_key,
@@ -212,7 +211,7 @@ def log_email(email_params: EmailParams, idempotency_key: Optional[str]):
     if idempotency_key is None:
         return None
 
-    email_log_table = get_email_log_table_in_prod()
+    email_log_table = get_email_log_table()
     item = EmailLog(
         email_to=email_params.recipient,
         idempotency_key=idempotency_key,
@@ -228,24 +227,26 @@ def log_email(email_params: EmailParams, idempotency_key: Optional[str]):
 #     * Add Unsubscribe button
 #     * Opt-in process (verify email)
 #     * Over-time, the higher the engagement with our emails the better.
-def send_email(params: EmailParams, idempotency_key: Optional[str]=None) -> bool:
+def send_email(params: EmailParams, idempotency_key: Optional[str] = None) -> bool:
     params.bcc = DEBUG_RECIPIENTS
     raw_email = create_raw_email_with_attachments(params)
+
+    if check_if_already_sent(params.recipient, idempotency_key=idempotency_key):
+        print(f"Email '{idempotency_key}' already sent for {params.recipient} - skipping send.")
+        return True
 
     if not is_running_in_aws():
         # TODO(P1, testing): Would be nice to pass in the local dynamodb for testing the cache - BUT then mostly
         #   relevant for prod.
         # TODO(P2, testing): Ideally we should also test the translation from params to raw email.
         print(f"Skipping ses.send_raw_email cause NOT in AWS. Dumping the email {idempotency_key} contents {params}")
+        log_email(email_params=params, idempotency_key=idempotency_key)
         return True
     try:
         print(
             f"Attempting to send email {idempotency_key} to {params.recipient}"
             f"with attached files {params.attachment_paths}"
         )
-        if check_if_already_sent(params.recipient, idempotency_key=idempotency_key):
-            print(f"Email {idempotency_key} already sent - skipping send.")
-            return True
 
         ses = boto3.client('ses')
         response = ses.send_raw_email(
