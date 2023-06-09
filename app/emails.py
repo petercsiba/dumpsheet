@@ -15,6 +15,7 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.utils import parseaddr
 
+from app.openai_client import PromptStats
 from dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
 from aws_utils import is_running_in_aws, get_dynamo_endpoint_url
 from datashare import EmailParams, EmailLog
@@ -324,6 +325,7 @@ def send_response(
         webpage_link: str,
         people_count: int,
         drafts_count: int,
+        prompt_stats: PromptStats,
         idempotency_key: Optional[str],
 ):
     # TODO(P1, migration): Get it from DataEntry.event_name
@@ -350,6 +352,20 @@ def send_response(
         "  </ul>"
         "  <h4>Now, let's discuss what's next, shall we? 💪</h4>"
         "  <p><strong>Here's your game plan:</strong></p>"
+        f"<a href=\"webpage_link\"" + """ style="
+                display: inline-block;
+                padding: 10px 20px;
+                background-color: #007BFF; /* Change the color as per your design */
+                color: #ffffff;
+                text-align: center;
+                text-decoration: none;
+                border-radius: 4px; /* Optional */
+                font-size: 16px;
+                line-height: 1.5;
+                transition: background-color 0.3s ease;
+            >
+                View event summary
+            </a>"""
         "  <ul>"
         f"      <li><strong>First</strong>, head over to "
         f"          <a href=\"{webpage_link}\">your event summary from {email_dt_str}</a>. "
@@ -363,6 +379,6 @@ def send_response(
         "      They're here to help. 👍</p>"
         "  <h4>Keep up the great work! 💪</h4>"
         "  <p>Your team at katka.ai</p>"
-        f"This summary took {to_generate_str} to generate"
+        f"This summary took {to_generate_str} to generate and used up {prompt_stats.}"
     )
     send_email(params=email_params, idempotency_key=idempotency_key)
