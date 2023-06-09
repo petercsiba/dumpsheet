@@ -78,10 +78,8 @@ def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str):
         raw_transcript = " ".join(transcript_words[:MAX_TRANSCRIPT_TOKEN_COUNT])
 
     query_people = """ 
-    Enumerate all people mentioned in the attached transcript, 
-    please output a valid json list of strings in format: 
+    The following note mentions one or more people, please output a valid json list of strings in the format: 
     * "person identifier (such as name): a 5-10 word description".
-    Note that there might be some un-named people and that we only interested in humans.
     The transcript: {}
     """.format(raw_transcript)
     if test_get_names is None:
@@ -102,13 +100,10 @@ def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str):
 
     result = {}
     size = 5
-    # TODO: Handle people null case
     sublists = [people[i:i+size] for i in range(0, len(people), size)]
     # Output format: json map of name to list of strings mentioning them
     # lead to non-parsaeble json like : ...cool",    ], (the extra comma)
     for sublist in sublists:
-        # TODO: Try using the Chat API to re-use the same input transcript
-        #   Might be NOT possible cause it takes a list of messages
         query_mentions = """
         For each of the follow people with their description, get all substrings which mention them in the transcript.
         If they are referenced multiple times, make sure to include all full original substrings as a list of strings.
@@ -178,9 +173,9 @@ def summarize_transcripts_to_person_data_entries(
     The input transcript: {}"""
     if test_summaries is not None:
         # TODO(P2, testing): We now return PersonDataEntry instead of JSON so this won't work. Maybe cleanup.
-        result = gpt_response_to_json(test_summaries)
+        people = gpt_response_to_json(test_summaries)
     else:
-        result = []
+        people = []
         for name, transcript in person_to_transcript.items():
             # Note: when I did "batch 20 structured summaries" it took 120 seconds.
             # Takes 10 second per person.
@@ -195,8 +190,9 @@ def summarize_transcripts_to_person_data_entries(
             raw_summary = gpt_response_to_json(raw_response)
 
             person = PersonDataEntry()
-            result.append(person)
+            people.append(person)
 
+            # NOTE: Here we update the name from the original derived one
             person.name = name
             person.transcript = transcript
             if raw_summary is None:
@@ -220,7 +216,20 @@ def summarize_transcripts_to_person_data_entries(
             # TODO(P1, ux): Custom fields like their children names, or responses to recurring questions from me.
             person.additional_metadata = {}
 
-    return result
+    # TODO(P1, quality): There are too many un-named people, either:
+    #  * Filter out too short input transcripts
+    #  * Filter out transcripts which are a strict subset of other transcripts
+    #  * Just filter out un-named person
+    # So if GPT cannot name / identify the person, it's most likely a duplicate.
+    likely_duplicate = ["unknown", "unnamed", "un-named", "unidentified"]
+    filtered_result = []
+    for person in people:
+        if any(pattern.lower() in person.name.lower() for pattern in likely_duplicate):
+            print(f"Filtering out un-identified person {person.name} for transcript {person.transcript}")
+            continue
+        filtered_result.append(person)
+
+    return filtered_result
 
 
 def generate_first_outreaches(

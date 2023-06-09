@@ -6,7 +6,7 @@ import time
 
 from dataclasses import dataclass, field
 from dynamodb import DynamoDBManager, write_data_class, read_data_class
-from typing import Optional
+from typing import Optional, List
 
 openai.api_key = "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"
 
@@ -50,7 +50,7 @@ class OpenAiClient:
     def __init__(self, dynamodb: Optional[DynamoDBManager]):
         self.prompt_cache_table = dynamodb.create_prompt_table_if_not_exists() if bool(dynamodb) else None
         # In-memory representation of the above to mostly sum up stats.
-        self.prompt_stats = field(default_factory=list)
+        self.prompt_stats: List[PromptLog] = field(default_factory=list)
 
     def _run_prompt(self, prompt: str, model="gpt-3.5-turbo", retry_timeout=60):
         # wait is too long so carry on
@@ -120,6 +120,7 @@ class OpenAiClient:
         prompt_log.result = result
         prompt_log.prompt_tokens = token_usage.get("prompt_tokens", 0)
         prompt_log.completion_tokens = token_usage.get("completion_tokens", 0)
+        self.prompt_stats.append(prompt_log)
         print(f"Token usage {json.dumps(token_usage)}")
 
         # Log and cache the result
