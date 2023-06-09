@@ -6,6 +6,11 @@ from dataclasses import dataclass, field, is_dataclass, asdict, fields
 from json import JSONEncoder
 from typing import Any, Dict, List, Optional, Type
 
+# TODO(P1, devx): Figure out created_at, updated_at
+#   Probably need a base dynamo-table dataclass - ah, i might just end up with PynamoDB
+#   Do two dynamodb.put_item, one with ConditionExpression='attribute_not_exists(createdAt)'
+# MAYBE I should actually use update_item (instead of put_item)
+
 
 def check_required_str(name, s):
     if s is None or len(s) == 0:
@@ -83,6 +88,14 @@ class EmailParams:
 
     def get_recipient_first_name(self):
         return self.recipient_full_name.split()[0]
+
+
+@dataclass
+class EmailLog:
+    email_to: str  # same as params.recipient
+    idempotency_key: str
+
+    params: EmailParams
 
 
 @dataclass()

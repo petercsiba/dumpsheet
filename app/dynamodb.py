@@ -13,6 +13,7 @@ from datashare import DataEntry, dataclass_to_json, User, dict_to_dataclass
 # TODO(P2, security): Ideally the Lambda should only have permissions to these tables
 # https://us-east-1.console.aws.amazon.com/iam/home#/roles/katka-ai-container-lambda-role-iadxzlko$createPolicy?step=edit
 TABLE_NAME_DATA_ENTRY = "KatkaAI_DataEntry"
+TABLE_NAME_EMAIL_LOG = "KatkaAI_EmailLog"  # To prevent double-sending
 TABLE_NAME_PERSON = "KatkaAI_Person"
 TABLE_NAME_PROMPT = "KatkaAI_PromptLog"
 TABLE_NAME_USER = "KatkaAI_User"
@@ -61,6 +62,7 @@ class DynamoDBManager:
         self.dynamodb = boto3.resource('dynamodb', endpoint_url=endpoint_url)
         self.user_table = self.create_user_table_if_not_exists()
         self.data_entry_table = self.create_data_entry_table_if_not_exists()
+        self.email_log_table = self.create_email_log_table_if_not_exists()
         self.person_table = self.create_person_table_if_not_exists()
         self.prompt_table = self.create_prompt_table_if_not_exists()
 
@@ -105,6 +107,17 @@ class DynamoDBManager:
             sk_name="event_name",
             has_sort_key=True,
             has_gsi=False
+        )
+
+    def create_email_log_table_if_not_exists(self):
+        result = self.get_table_if_exists(TABLE_NAME_EMAIL_LOG)
+        if result is not None:
+            return result
+
+        return self.create_table_with_option(
+            table_name=TABLE_NAME_EMAIL_LOG,
+            pk_name="email_to",
+            sk_name="idempotency_key",
         )
 
     def create_person_table_if_not_exists(self):

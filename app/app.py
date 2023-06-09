@@ -123,6 +123,8 @@ def process_transcript_from_data_entry(gpt_client, data_entry: DataEntry):
         webpage_link=webpage_url,
         people_count=len(people_entries),
         drafts_count=sum([len(p.drafts) for p in people_entries]),
+        # TODO(P2, reevaluate): Might be better to allow re-generating this.
+        idempotency_key=f"{data_entry.event_name}-response"
     )
 
 
@@ -148,6 +150,7 @@ def process_email_input(raw_email, bucket_url=None) -> DataEntry:
     # TODO(P0, migration): Map email address to user_id through DynamoDB
     result = DataEntry(
         user_id=User.generate_user_id(),
+        # IMPORTANT: This is used as idempotency-key all over the place!
         event_name=email_datetime.strftime('%B %d, %H:%M'),
         event_id=msg['Message-ID'],
         event_timestamp=email_datetime,
@@ -158,7 +161,7 @@ def process_email_input(raw_email, bucket_url=None) -> DataEntry:
     try:
         confirmation_email_params = copy.deepcopy(base_email_params)
         confirmation_email_params.attachment_paths = attachment_file_paths
-        send_confirmation(params=confirmation_email_params, dedup_prefix=result.event_id)
+        send_confirmation(params=confirmation_email_params, dedup_prefix=result.event_name)
     except Exception as err:
         print(f"ERROR: Could not send confirmation to {base_email_params.recipient} cause {err}")
         traceback.print_exc()

@@ -1,4 +1,5 @@
 from email.header import decode_header
+from typing import Optional
 
 import boto3
 import datetime
@@ -14,8 +15,10 @@ from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.utils import parseaddr
 
+from app.app import DYNAMO_URL_PROD
+from app.dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
 from aws_utils import is_running_in_aws
-from datashare import EmailParams
+from datashare import EmailParams, EmailLog
 from storage_utils import pretty_filesize
 
 SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
@@ -188,6 +191,36 @@ def create_raw_email_with_attachments(params: EmailParams):
     return msg
 
 
+def get_email_log_table_in_prod():
+    dynamodb = boto3.resource('dynamodb', endpoint_url=DYNAMO_URL_PROD)
+    return dynamodb.Table(TABLE_NAME_EMAIL_LOG)
+
+
+def check_if_already_sent(email_to: str, idempotency_key: Optional[str]):
+    if idempotency_key is None:
+        return False
+
+    email_log_table = get_email_log_table_in_prod()
+    previous_email: EmailLog = read_data_class(data_class_type=EmailLog, table=email_log_table, key={
+        'email_to': email_to,
+        'idempotency_key': idempotency_key,
+    }, print_not_found=True)
+    return previous_email is not None
+
+
+def log_email(email_params: EmailParams, idempotency_key: Optional[str]):
+    if idempotency_key is None:
+        return None
+
+    email_log_table = get_email_log_table_in_prod()
+    item = EmailLog(
+        email_to=email_params.recipient,
+        idempotency_key=idempotency_key,
+        params=email_params,
+    )
+    return write_data_class(table=email_log_table, data=item)
+    
+
 # TODO(P2): Gmail marks us as spam - no clear way around it. Some easy-ish ways:
 #     * [DONE] Use the same email sender address
 #     * [DONE] Authenticate emails DKIM, DMARC, SPF
@@ -195,16 +228,25 @@ def create_raw_email_with_attachments(params: EmailParams):
 #     * Add Unsubscribe button
 #     * Opt-in process (verify email)
 #     * Over-time, the higher the engagement with our emails the better.
-def send_email(params: EmailParams, dedup_id=None):
+def send_email(params: EmailParams, idempotency_key: Optional[str]=None) -> bool:
     params.bcc = DEBUG_RECIPIENTS
     raw_email = create_raw_email_with_attachments(params)
 
     if not is_running_in_aws():
+        # TODO(P1, testing): Would be nice to pass in the local dynamodb for testing the cache - BUT then mostly
+        #   relevant for prod.
         # TODO(P2, testing): Ideally we should also test the translation from params to raw email.
-        print(f"Skipping ses.send_raw_email cause NOT in AWS. Dumping the email contents {params}")
-        return params.subject
+        print(f"Skipping ses.send_raw_email cause NOT in AWS. Dumping the email {idempotency_key} contents {params}")
+        return True
     try:
-        print(f"Attempting to send email to {params.recipient} with attached files {params.attachment_paths}")
+        print(
+            f"Attempting to send email {idempotency_key} to {params.recipient}"
+            f"with attached files {params.attachment_paths}"
+        )
+        if check_if_already_sent(params.recipient, idempotency_key=idempotency_key):
+            print(f"Email {idempotency_key} already sent - skipping send.")
+            return True
+
         ses = boto3.client('ses')
         response = ses.send_raw_email(
             Source=params.sender,
@@ -217,13 +259,16 @@ def send_email(params: EmailParams, dedup_id=None):
             #   check_message_id_in_database, store_message_id_in_database (anyway would be nice to store all msgs)
             # MessageDeduplicationId=dedup_id,
         )
+
         message_id = response["MessageId"]
         print(f'Email sent! Message ID: {message_id}, Subject: {params.subject}')
-        return message_id
+
+        log_email(email_params=params, idempotency_key=idempotency_key)
+        return True
     except Exception as e:
         print(f'Email with subject {params.subject} failed to send. {e}')
         traceback.print_exc()
-        return None
+        return False
 
 
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
@@ -242,7 +287,7 @@ def send_confirmation(params: EmailParams, dedup_prefix=None):
         <p>Keep rocking it!</p>
         <p>Your amazing team at katka.ai 🚀</p>
         """)
-        send_email(params=params, dedup_id=None if dedup_prefix is None else f"{dedup_prefix}-forgot-attachment")
+        send_email(params=params, idempotency_key=None if dedup_prefix is None else f"{dedup_prefix}-forgot-attachment")
     else:
         file_list = []
         for file_path in params.attachment_paths:
@@ -269,7 +314,7 @@ def send_confirmation(params: EmailParams, dedup_prefix=None):
         <p>Keep rocking it!</p>
         <p>Your amazing team at katka.ai 🚀</p>
         """)
-        send_email(params=params,  dedup_id=None if dedup_prefix is None else f"{dedup_prefix}-confirmation")
+        send_email(params=params, idempotency_key=None if dedup_prefix is None else f"{dedup_prefix}-confirmation")
 
 
 def send_response(
@@ -277,7 +322,8 @@ def send_response(
         email_datetime: datetime.datetime,
         webpage_link: str,
         people_count: int,
-        drafts_count: int
+        drafts_count: int,
+        idempotency_key: Optional[str],
 ):
     # TODO(P1, migration): Get it from DataEntry.event_name
     email_dt_str = email_datetime.strftime('%B %d, %H:%M')
@@ -318,4 +364,4 @@ def send_response(
         "  <p>Your team at katka.ai</p>"
         f"This summary took {to_generate_str} to generate"
     )
-    send_email(params=email_params)
+    send_email(params=email_params, idempotency_key=idempotency_key)
