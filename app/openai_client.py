@@ -4,7 +4,7 @@ import openai
 import re
 import time
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from dynamodb import DynamoDBManager, write_data_class, read_data_class
 from typing import Optional, List
 
@@ -170,6 +170,7 @@ def get_first_occurrence(s: str, list_of_chars: list):
 
     if first_occurrence == len(s):
         return -1
+    return first_occurrence
 
 
 def gpt_response_to_json(raw_response: Optional[str], debug=True):
@@ -211,7 +212,7 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
         # The model might have just crafted a valid json object
         result = json.loads(raw_response)
     except json.decoder.JSONDecodeError as orig_err:
-        # In case there is something before the actual json output
+        # In case there is something before the actual json output like "Output:", "Here you go:", "Sure ..".
         start_index = get_first_occurrence(raw_response, ['{', '['])
         raw_json = raw_response[start_index:]  # -1 works
         # TODO(P2, devx): Handle the case when there is clearly NO json response.
@@ -225,7 +226,7 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
             if debug:
                 print(
                     f"Could NOT decode json cause SUB ERROR: {sub_err} for raw_reponse "
-                    f"(note does a bunch of replaces) {raw_response}. ORIGINAL ERROR: {orig_err}"
+                    f"(note does a bunch of replaces) {raw_json}. ORIGINAL ERROR: {orig_err}"
                 )
             return None
     return result
@@ -254,3 +255,22 @@ def gpt_response_to_plaintext(raw_response) -> str:
         pass
 
     return str(raw_response)
+
+
+if __name__ == "__main__":
+    test_json_with_extra_output = """Output: 
+    {
+        "name": "Marco",
+        "mnemonic": "Fashion Italy",
+        "mnemonic_explanation": "Marco has an Italian name and he works in the fashion industry.",
+        "industry": "Fashion",
+        "role": "Unknown",
+        "vibes": "Neutral",
+        "priority": 2,
+        "follow_ups": null,
+        "needs": [
+            "None mentioned."
+        ]
+    }"""
+    result = gpt_response_to_json(test_json_with_extra_output)
+    assert(result["name"] == "Marco")

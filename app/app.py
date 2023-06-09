@@ -9,6 +9,9 @@
 #   * Share networking hacks, like on learning names "use it or lose it", "by association nick from nw", "take notes"
 #   * Self-tact
 # TODO(P1, devx): Include black, isort, flake (ideally on file save).
+# TODO(P0, research): Explore Algolia or other enterprise search tools before going to implement ours
+#   * https://www.algolia.com/doc/guides/sending-and-managing-data/prepare-your-data/
+#   * https://www.wsj.com/articles/businesses-seek-out-chatgpt-tech-for-searching-and-analyzing-their-own-data-393ef4fb
 
 import boto3
 import copy
@@ -234,7 +237,8 @@ if __name__ == "__main__":
     load_files_to_dynamodb(local_dynamodb, "test/fixtures/dynamodb")
 
     # Maybe all test cases?
-    with open("test/test-katka-emails-kimberley", "rb") as handle:
+    # with open("test/test-katka-emails-kimberley", "rb") as handle:
+    with open("test/emilka-parsing-error", "rb") as handle:
         file_contents = handle.read()
         orig_data_entry = process_email_input(dynamodb=local_dynamodb, raw_email=file_contents)
         local_dynamodb.write_data_entry(orig_data_entry)
