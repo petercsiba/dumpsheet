@@ -24,8 +24,7 @@ from email.utils import parseaddr
 from urllib.parse import quote
 
 from openai_client import OpenAiClient
-from dynamodb import setup_dynamodb_local, load_files_to_dynamodb, teardown_dynamodb_local, DynamoDBManager, \
-    TABLE_NAME_USER
+from dynamodb import setup_dynamodb_local, load_files_to_dynamodb, teardown_dynamodb_local, DynamoDBManager
 from aws_utils import get_bucket_url, get_dynamo_endpoint_url
 from datashare import DataEntry
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
@@ -123,6 +122,7 @@ def process_transcript_from_data_entry(gpt_client, data_entry: DataEntry):
         webpage_link=webpage_url,
         people_count=len(people_entries),
         drafts_count=sum([len(p.drafts) for p in people_entries]),
+        prompt_stats=gpt_client.sum_up_prompt_stats(),
         # TODO(P2, reevaluate): Might be better to allow re-generating this.
         idempotency_key=f"{data_entry.event_name}-response"
     )

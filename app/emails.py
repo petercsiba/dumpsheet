@@ -379,6 +379,6 @@ def send_response(
         "      They're here to help. 👍</p>"
         "  <h4>Keep up the great work! 💪</h4>"
         "  <p>Your team at katka.ai</p>"
-        f"This summary took {to_generate_str} to generate and used up {prompt_stats.}"
+        f"This summary took {to_generate_str} to generate using {prompt_stats.pretty_print()}"
     )
     send_email(params=email_params, idempotency_key=idempotency_key)

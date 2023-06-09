@@ -21,6 +21,24 @@ def truncate_string(input_string):
 
 
 @dataclass
+class PromptStats:
+    request_time_ms: int = 0  # in milliseconds
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+    total_requests: int = 0
+    total_tokens: int = 0
+
+    # TODO(P2, fun): Might be cool to translate it to dollars, I guess one-day usage based billing.
+    def pretty_print(self):
+        return (
+            f"{self.total_requests} queries to ChatGPT using {self.total_tokens} tokens "
+            f"in {self.request_time_ms/1000:.2f} seconds total query time."
+        )
+
+
+# Also DynamoDB table
+@dataclass
 class PromptLog:
     # The maximum size of a primary key (partition key and sort key combined) is 2048 bytes
     prompt_hash: str
@@ -28,7 +46,7 @@ class PromptLog:
 
     prompt: str
     result: str = None
-    # Fcking DynamoDB and floats
+    # OMG DynamoDB and floats
     request_time_ms: int = 0  # in milliseconds
     prompt_tokens: int = 0
     completion_tokens: int = 0
@@ -51,6 +69,17 @@ class OpenAiClient:
         self.prompt_cache_table = dynamodb.create_prompt_table_if_not_exists() if bool(dynamodb) else None
         # In-memory representation of the above to mostly sum up stats.
         self.prompt_stats: List[PromptLog] = field(default_factory=list)
+
+    def sum_up_prompt_stats(self) -> PromptStats:
+        result = PromptStats()
+        for prompt_log in self.prompt_stats:
+            result.prompt_tokens += prompt_log.prompt_tokens
+            result.completion_tokens += prompt_log.completion_tokens
+            result.request_time_ms = prompt_log.request_time_ms
+
+        result.total_requests = len(self.prompt_stats)
+        result.total_tokens = result.prompt_tokens + result.completion_tokens
+        return result
 
     def _run_prompt(self, prompt: str, model="gpt-3.5-turbo", retry_timeout=60):
         # wait is too long so carry on
@@ -103,6 +132,7 @@ class OpenAiClient:
                 if cached_prompt.prompt != prompt:
                     print(f"ERROR: hash collision for {key.prompt_hash} for prompt {prompt}")
                 else:
+                    self.prompt_stats.append(cached_prompt)
                     return cached_prompt.result
 
         start_time = time.time()
