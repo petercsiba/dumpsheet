@@ -6,3 +6,5 @@ DynamoDBLocal*
 input*
 output*
 secrets*
+test/emilka-parsing-error
+

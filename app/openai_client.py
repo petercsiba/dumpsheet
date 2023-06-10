@@ -100,7 +100,7 @@ class OpenAiClient:
         # if the error persists.
         # (Please include the request ID 7ed28a69c5cda5378f57266336539b7d in your message.)
         except openai.error.RateLimitError as err:
-            print(f"Got RATE-LIMITED!!! Sleeping for {retry_timeout}. Raw error: {err}")
+            print(f"Got RATE-LIMITED!!! Sleeping for {retry_timeout} cause {err}")
             time.sleep(retry_timeout)
             return self._run_prompt(prompt, model, 2 * retry_timeout)  # exponential backoff
 

@@ -9,7 +9,8 @@ from openai_client import gpt_response_to_json, gpt_response_to_plaintext, OpenA
 from storage_utils import get_fileinfo
 from utils import Timer
 
-MAX_TRANSCRIPT_TOKEN_COUNT = 2500
+MIN_TRANSCRIPT_LENGTH = 80  # characters, can prevent some "hallucinations"
+MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
 test_transcript = None
 
 
@@ -68,7 +69,7 @@ def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str):
     token_count = len(transcript_words)
     print(f"Transcript has {token_count} words")
     # Make sure to include the whole string without gaps.
-    # TODO: Eventually we would need to implement this case
+    # TODO(P0, quality): Eventually we would need to implement this case
     if token_count > MAX_TRANSCRIPT_TOKEN_COUNT:
         print(f"ERROR: raw_transcript too long ({token_count}), truncating to {MAX_TRANSCRIPT_TOKEN_COUNT}")
         raw_transcript = " ".join(transcript_words[:MAX_TRANSCRIPT_TOKEN_COUNT])
@@ -132,6 +133,7 @@ Try to use up all words from the transcript and include extra context for those 
         # Update the existing map with the new entries
         result.update(people)
 
+    # TODO(P1, devx): Here the transcript can be both a list of strings, or just a string.
     return result
 
 
@@ -167,16 +169,16 @@ The input transcript: {}"""
     for name, transcript in person_to_transcript.items():
         # Note: when I did "batch 20 structured summaries" it took 120 seconds.
         # Takes 10 second per person.
-        print(f"Getting all mentions for {name}")
-        # TODO(P1, quality): I started to include the persons name in the prompt - check if it helps or not.
-        raw_response = gpt_client.run_prompt(query_summarize.format(name, transcript), print_prompt=True)
-        # One failure shouldn't block the entire thing, log the error, return name, transcript for manual fix.
-        # TODO(P1): Handle this error case:
-        #   For inputs like The input transcript: ['The Riga, there was one moderator']
-        #   Sorry, there is no information in the input transcript to structure a note describing a person
-        #   Sorry, the input transcript is too short to extract any meaningful information about a person I met.
-        #       Please provide a longer transcript with more details about the person
-        raw_summary = gpt_response_to_json(raw_response)
+        print(f"Getting a summary for {name}")
+        # NOTE: transcript might be a list of strings.
+        len_transcript = len(str(transcript))
+        if len_transcript < MIN_TRANSCRIPT_LENGTH:
+            print(f"Skipping summary for {name} as transcript too short: {len_transcript} < {MIN_TRANSCRIPT_LENGTH}")
+            raw_summary = None
+            raw_response = f"Thanks for mentioning {name}! Unfortunately there is too little info to summarize from."
+        else:
+            raw_response = gpt_client.run_prompt(query_summarize.format(name, transcript), print_prompt=True)
+            raw_summary = gpt_response_to_json(raw_response)
 
         person = PersonDataEntry()
         people.append(person)
@@ -229,7 +231,6 @@ The input transcript: {}"""
             print(f"WARNING: Could NOT get mnemonic (catch phrase) for {person.name} got raw: {raw_mnemonic}")
 
     # TODO(P1, quality): There are too many un-named people, either:
-    #  * Filter out too short input transcripts
     #  * Filter out transcripts which are a strict subset of other transcripts
     #  * Just filter out un-named person
     # So if GPT cannot name / identify the person, it's most likely a duplicate.
@@ -237,7 +238,7 @@ The input transcript: {}"""
     filtered_result = []
     for person in people:
         if any(pattern.lower() in person.name.lower() for pattern in likely_duplicate):
-            print(f"Filtering out un-identified person {person.name} for transcript {person.transcript}")
+            print(f"WARNING: Filtering out un-identified person {person.name} for transcript {person.transcript}")
             continue
         filtered_result.append(person)
 
@@ -288,7 +289,7 @@ def extract_per_person_summaries(gpt_client: OpenAiClient, raw_transcript: str) 
     print(f"Running networking_dump on raw_transcript of {len(raw_transcript.split())} token size")
 
     person_to_transcript = get_per_person_transcript(gpt_client, raw_transcript=raw_transcript)
-    # TODO: Somehow get all "gaps" none of the mentions is talking about.
+    # TODO(P1, quality): Make sure all of the original transcript is covered OR at least we should log it.
     print("=== All people with all their mentions === ")
     print(json.dumps(person_to_transcript))
 
@@ -318,6 +319,12 @@ def fill_in_draft_outreaches(gpt_client: OpenAiClient, person_data_entries: List
             "Appreciate meeting them at the event",
         ])
         top3_intents = intents[:max(3, len(required_follow_ups))]
+
+        if person.parsing_error is not None and len(person.parsing_error) > 10:
+            print(f"WARNING: Person {person.name} encountered a parsing error, shortening intents")
+            # Likely means the transcript was odd, so don't even try much.
+            top3_intents = ["Great to meet you, let me know if I can ever do anything for you!"]
+
         print(f"top3_intents {top3_intents}")
 
         person.drafts = generate_first_outreaches(
