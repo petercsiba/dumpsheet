@@ -236,7 +236,8 @@ def send_email(params: EmailParams, idempotency_key: Optional[str] = None) -> bo
         print(f"SKIPPING email '{idempotency_key}' cause already sent for {params.recipient}")
         return True
 
-    if not is_running_in_aws():
+    # if not is_running_in_aws():
+    if True:
         # TODO(P1, testing): Would be nice to pass in the local dynamodb for testing the cache - BUT then mostly
         #   relevant for prod.
         # TODO(P2, testing): Ideally we should also test the translation from params to raw email.
