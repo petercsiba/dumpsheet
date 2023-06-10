@@ -324,6 +324,7 @@ def send_response(
         email_params: EmailParams,
         email_datetime: datetime.datetime,
         webpage_link: str,
+        all_webpage_url: str,
         people_count: int,
         drafts_count: int,
         prompt_stats: PromptStats,
@@ -342,6 +343,7 @@ def send_response(
         to_generate_str = "unknown"
 
     # subject = f"The summary from your event sent at {email_dt_str} is ready for your review!"
+    # TODO(P1, ux): The button seems to NOT render - investigate why.
     email_params.body_text = (
         f"  <h3>The summary from your event sent at {email_dt_str} is ready for your review!</h3>"
         "  <p>Looks like you had a great time at your recent event! Excellent job!</p>"
@@ -374,6 +376,7 @@ def send_response(
         "      <li>Choose the one draft that suits your style, personalize it if necessary, "
         "          and hit send to start building your new connections. 📧</li>"
         "      <li>We've also attached a detailed table of all the key summaries for your excel-cirse skills. 📊</li>"
+        f"     <li>Remember, you can access ALL of your profile history on <a href=\"{all_webpage_url}\">your page</a></li>"
         "  </ul>"
         "  <p>Have any questions? No problem! 😊</p>"
         f"  <p>Just hit reply or send an email to my supervisors at {' or '.join(DEBUG_RECIPIENTS)}. "

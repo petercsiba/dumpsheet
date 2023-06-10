@@ -128,6 +128,7 @@ class PersonDataEntry:
 
     # INPUTS
     # All text mentioning them joined into one string
+    # TODO(P1, devx): This seems to actually by List[str]
     transcript: str = None
 
     # OUTPUTS
@@ -161,7 +162,7 @@ class PersonDataEntry:
 
     def sort_key(self):
         # Sort by priority ascending, and transcript length descending.
-        return self.priority, 0 if self.transcript is None else -len(self.transcript)
+        return self.priority, 0 if self.transcript is None else -len(str(self.transcript))
 
 
 @dataclass

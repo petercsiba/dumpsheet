@@ -122,24 +122,6 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     )
     data_entry.output_webpage_url = dump_page(event_page_contents, local_output_prefix, bucket_object_prefix)
 
-    # Update with the new outputs
-    if bool(dynamodb):
-        print(f"Updating data_entry for {data_entry.user_id} after process_transcript_from_data_entry")
-        dynamodb.write_data_entry(data_entry)
-
-    email_params.attachment_paths = [summaries_filepath] if bool(summaries_filepath) else []
-    # TODO(P1, peter): Would be nice to pass total tokens used, queries and GPT time.
-    send_response(
-        email_params=email_params,
-        email_datetime=data_entry.event_timestamp,
-        webpage_link=data_entry.output_webpage_url,
-        people_count=len(people_entries),
-        drafts_count=sum([len(p.drafts) for p in people_entries]),
-        prompt_stats=gpt_client.sum_up_prompt_stats(),
-        # TODO(P2, reevaluate): Might be better to allow re-generating this.
-        idempotency_key=f"{data_entry.event_name}-response"
-    )
-
     # === Generate page for all people of this user
     # TODO(P0, bug): WTF why id does NOT store the data-entries locally?
     user = dynamodb.get_or_create_user(email_address=email_params.recipient)
@@ -163,6 +145,19 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
         print(f"Updating all_webpage_url for {data_entry.user_id} after generate all page")
         dynamodb.write_data_entry(data_entry)
 
+    email_params.attachment_paths = [summaries_filepath] if bool(summaries_filepath) else []
+    # TODO(P1, peter): Would be nice to pass total tokens used, queries and GPT time.
+    send_response(
+        email_params=email_params,
+        email_datetime=data_entry.event_timestamp,
+        webpage_link=data_entry.output_webpage_url,
+        all_webpage_url=data_entry.all_webpage_url,
+        people_count=len(people_entries),
+        drafts_count=sum([len(p.drafts) for p in people_entries]),
+        prompt_stats=gpt_client.sum_up_prompt_stats(),
+        # TODO(P2, reevaluate): Might be better to allow re-generating this.
+        idempotency_key=f"{data_entry.event_name}-response"
+    )
 
 # First lambda
 def process_email_input(dynamodb: DynamoDBManager, raw_email, bucket_url=None) -> DataEntry:
