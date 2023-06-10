@@ -352,7 +352,7 @@ def send_response(
         "  </ul>"
         "  <h4>Now, let's discuss what's next, shall we? 💪</h4>"
         "  <p><strong>Here's your game plan:</strong></p>"
-        f"<a href=\"webpage_link\"" + """ style="
+        f"<p><a href=\"{webpage_link}\"" + """ style="
                 display: inline-block;
                 padding: 10px 20px;
                 background-color: #007BFF; /* Change the color as per your design */
@@ -365,7 +365,7 @@ def send_response(
                 transition: background-color 0.3s ease;
             >
                 View event summary
-            </a>"""
+            </a></p>"""
         "  <ul>"
         f"      <li><strong>First</strong>, head over to "
         f"          <a href=\"{webpage_link}\">your event summary from {email_dt_str}</a>. "
