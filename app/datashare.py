@@ -4,7 +4,8 @@ import time
 
 from dataclasses import dataclass, field, is_dataclass, asdict, fields
 from json import JSONEncoder
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type, get_origin, get_args
+
 
 # TODO(P1, devx): Figure out created_at, updated_at
 #   Probably need a base dynamo-table dataclass - ah, i might just end up with PynamoDB
@@ -61,7 +62,10 @@ def dict_to_dataclass(dict_: dict, data_class_type: Type[Any]) -> dataclass:
     # noinspection PyDataclass
     for f in fields(data_class_type):
         value = dict_.get(f.name)  # e.g. None might be NOT set
-        if is_dataclass(f.type):
+        # GPT generated magic to handle List[DataClass] parsing.
+        if get_origin(f.type) is list and len(get_args(f.type)) == 1 and is_dataclass(get_args(f.type)[0]):
+            init_values[f.name] = dict_to_dataclass(value, get_args(f.type)[0])
+        elif is_dataclass(f.type):
             init_values[f.name] = dict_to_dataclass(value, f.type)
         else:
             init_values[f.name] = value
