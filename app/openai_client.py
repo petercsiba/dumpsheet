@@ -174,6 +174,19 @@ def get_first_occurrence(s: str, list_of_chars: list):
     return first_occurrence
 
 
+def try_decode_non_json(raw_response: str):
+    # Sometimes it returns a list of strings in format of " -"
+    lines = raw_response.split("\n")
+    if len(lines) > 1:
+        bullet_point_lines = sum(s.lstrip().startswith('-') for s in lines)
+        if bullet_point_lines + 1 >= len(lines):
+            print(f"Most of lines {bullet_point_lines} out of {len(lines)} start as a bullet point, assuming list")
+            return [s for s in lines if s.lstrip().startswith('-')]
+
+    print("WARNING: Giving up on decoding")
+    return None
+
+
 def gpt_response_to_json(raw_response: Optional[str], debug=True):
     if raw_response is None:
         if debug:
@@ -216,11 +229,9 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
         # In case there is something before the actual json output like "Output:", "Here you go:", "Sure ..".
         start_index = get_first_occurrence(raw_response, ['{', '['])
         raw_json = raw_response[start_index:]  # -1 works
-        # TODO(P2, devx): Handle the case when there is clearly NO json response.
-        #   Like these can be "-" separated into a list  - Catalina: girl from Romania- Car reselling guy: fro
-        #   NOTE: Figure out if this uses spaces or not.
         if debug and len(raw_json) * 2 < len(raw_response):
             print(f"WARNING: Likely the GPT response is NOT a JSON:\n{raw_json}\nresulted from\n{orig_response}")
+            return try_decode_non_json(raw_response)
         try:
             result = json.loads(raw_json)
         except json.decoder.JSONDecodeError as sub_err:

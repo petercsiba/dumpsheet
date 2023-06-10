@@ -7,4 +7,5 @@ input*
 output*
 secrets*
 test/emilka-parsing-error
+test/test-large
 

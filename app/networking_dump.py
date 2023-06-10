@@ -74,9 +74,10 @@ def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str):
         print(f"ERROR: raw_transcript too long ({token_count}), truncating to {MAX_TRANSCRIPT_TOKEN_COUNT}")
         raw_transcript = " ".join(transcript_words[:MAX_TRANSCRIPT_TOKEN_COUNT])
 
+    # TODO(P2, devx): Historically, this query give me most of the headaches.
     query_people = """ 
-Find all the people mentioned in the follow note, please output a valid json list of strings in the format: 
-* "person identifier or up to a 5 word description".
+Find all the people mentioned in the follow note, please output a valid json list of strings 
+where each string is a person name or identifier".
 The transcript: {}
     """.format(raw_transcript)
     raw_response = gpt_client.run_prompt(query_people)
