@@ -10,11 +10,7 @@ from storage_utils import get_fileinfo
 from utils import Timer
 
 MAX_TRANSCRIPT_TOKEN_COUNT = 2500
-
 test_transcript = None
-test_get_names = None
-test_person_to_transcript = None
-test_summaries = None
 
 
 # TODO(P0): Multi-language support (chinese, slovak), ideally we need to derive the language for transcript
@@ -78,15 +74,12 @@ def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str):
         raw_transcript = " ".join(transcript_words[:MAX_TRANSCRIPT_TOKEN_COUNT])
 
     query_people = """ 
-    The following note mentions one or more people, please output a valid json list of strings in the format: 
-    * "person identifier (such as name): a 5-10 word description".
-    The transcript: {}
+The following note mentions one or more people, please output a valid json list of strings in the format: 
+* "person identifier (such as name): a 5-10 word description".
+The transcript: {}
     """.format(raw_transcript)
-    if test_get_names is None:
-        raw_response = gpt_client.run_prompt(query_people)
-        people = gpt_response_to_json(raw_response)
-    else:
-        people = gpt_response_to_json(test_get_names)
+    raw_response = gpt_client.run_prompt(query_people)
+    people = gpt_response_to_json(raw_response)
     print(f"People: {json.dumps(people)}")
 
     # Solves TypeError: unhashable type: 'slice'
@@ -105,13 +98,13 @@ def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str):
     # lead to non-parsaeble json like : ...cool",    ], (the extra comma)
     for sublist in sublists:
         query_mentions = """
-        For each of the follow people with their description, get all substrings which mention them in the transcript.
-        If they are referenced multiple times, make sure to include all full original substrings as a list of strings.
-        Input format: json list of strings where each strings has format of name: super short characteristic
-        Output format: {}
-        Try to use up all words from the transcript and include extra context for those substrings
-        People: {}
-        Transcript: {}
+For each of the follow people with their description, get all substrings which mention them in the transcript.
+If they are referenced multiple times, make sure to include all full original substrings as a list of strings.
+* Input format: json list of strings where each strings has format of name: super short characteristic
+* Output format: {}
+Try to use up all words from the transcript and include extra context for those substrings
+* People: {}
+* Transcript: {}
         """
         sublist_in_query = "\n*".join(sublist)
         query_mentions_first_try = query_mentions.format(
@@ -157,64 +150,83 @@ def summarize_transcripts_to_person_data_entries(
     #   NOTE: This also needs more templates.
     # Old stuff:
     # * contact_info: what channel we can contact like text, sms, linkedin, instagram and similar or null if none
+    # TODO(P2, quality): Have GPT-4 rewrite prompts for GPT3.5 (did it for the mnemonic and that helped).
     query_summarize = """
-        I want to structure the following note describing me meeting a person.
-        Input: a transcript of me talking about the person.
-        Output: a json dict with the following key value pairs:
+I want to structure the following note describing me meeting {}.
+Input: a transcript of me talking about the person.
+Output: a single json dict with the following key value pairs:
     * name: name (or 2-3 word description) 
-    * mnemonic: two word mnemonic to help me remember this person 
-    * mnemonic_explanation: include a short explanation for the above mnemonic
     * industry: which business area they specialize in professionally
     * role: current role or past experience
     * vibes: my first impression and general vibes of them
     * priority: on scale from 1 to 5 how excited i am to follow up, never null 
     * follow_ups: list of action items or follow ups i mentioned, null if none 
     * needs: list of their pain points, wants or blockers, null for empty
-    The input transcript: {}"""
-    if test_summaries is not None:
-        # TODO(P2, testing): We now return PersonDataEntry instead of JSON so this won't work. Maybe cleanup.
-        people = gpt_response_to_json(test_summaries)
-    else:
-        people = []
-        for name, transcript in person_to_transcript.items():
-            # Note: when I did "batch 20 structured summaries" it took 120 seconds.
-            # Takes 10 second per person.
-            print(f"Getting all mentions for {name}")
-            raw_response = gpt_client.run_prompt(query_summarize.format(transcript), print_prompt=True)
-            # One failure shouldn't block the entire thing, log the error, return name, transcript for manual fix.
-            # TODO(P1): Handle this error case:
-            #   For inputs like The input transcript: ['The Riga, there was one moderator']
-            #   Sorry, there is no information in the input transcript to structure a note describing a person
-            #   Sorry, the input transcript is too short to extract any meaningful information about a person I met.
-            #       Please provide a longer transcript with more details about the person
-            raw_summary = gpt_response_to_json(raw_response)
+The input transcript: {}"""
+    people = []
+    for name, transcript in person_to_transcript.items():
+        # Note: when I did "batch 20 structured summaries" it took 120 seconds.
+        # Takes 10 second per person.
+        print(f"Getting all mentions for {name}")
+        # TODO(P1, quality): I started to include the persons name in the prompt - check if it helps or not.
+        raw_response = gpt_client.run_prompt(query_summarize.format(name, transcript), print_prompt=True)
+        # One failure shouldn't block the entire thing, log the error, return name, transcript for manual fix.
+        # TODO(P1): Handle this error case:
+        #   For inputs like The input transcript: ['The Riga, there was one moderator']
+        #   Sorry, there is no information in the input transcript to structure a note describing a person
+        #   Sorry, the input transcript is too short to extract any meaningful information about a person I met.
+        #       Please provide a longer transcript with more details about the person
+        raw_summary = gpt_response_to_json(raw_response)
 
-            person = PersonDataEntry()
-            people.append(person)
+        person = PersonDataEntry()
+        people.append(person)
 
-            # NOTE: Here we update the name from the original derived one
-            person.name = name
-            person.transcript = transcript
-            if raw_summary is None:
-                print(f"Could NOT parse summary for {name}, defaulting to hand-crafted")
-                person.priority = PersonDataEntry.PRIORITIES_MAPPING.get(1)
-                person.parsing_error = raw_response
-                continue
+        # NOTE: Here we update the name from the original derived one
+        person.name = name
+        person.transcript = transcript
+        if raw_summary is None:
+            print(f"Could NOT parse summary for {name}, defaulting to hand-crafted")
+            person.priority = PersonDataEntry.PRIORITIES_MAPPING.get(1)
+            person.parsing_error = raw_response
+            continue
 
-            summary_name = raw_summary.get("name", name)
-            if summary_name != name:
-                print(f"INFO: name from person chunking {name} ain't equal the one from the summary {summary_name}")
+        summary_name = raw_summary.get("name", name)
+        if summary_name != name:
+            print(f"INFO: name from person chunking {name} ain't equal the one from the summary {summary_name}")
 
-            person.priority = PersonDataEntry.PRIORITIES_MAPPING.get(raw_summary.get("priority", 2))
-            person.mnemonic = raw_summary.get("mnemonic", None)
-            person.mnemonic_explanation = raw_summary.get("mnemonic_explanation", None)
-            person.industry = raw_summary.get("industry", None)
-            person.vibes = raw_summary.get("vibes", "unknown")
-            person.role = raw_summary.get("role", None)
-            person.follow_ups = raw_summary.get("follow_ups", [])
-            person.needs = raw_summary.get("needs", [])
-            # TODO(P1, ux): Custom fields like their children names, or responses to recurring questions from me.
-            person.additional_metadata = {}
+        person.priority = PersonDataEntry.PRIORITIES_MAPPING.get(raw_summary.get("priority", 2))
+        # person.mnemonic = raw_summary.get("mnemonic", None)
+        # person.mnemonic_explanation = raw_summary.get("mnemonic_explanation", None)
+        person.industry = raw_summary.get("industry", None)
+        person.vibes = raw_summary.get("vibes", "unknown")
+        person.role = raw_summary.get("role", None)
+        person.follow_ups = raw_summary.get("follow_ups", [])
+        person.needs = raw_summary.get("needs", [])
+        # TODO(P1, ux): Custom fields like their children names, or responses to recurring questions from me.
+        person.additional_metadata = {}
+
+        # Unfortunately, GPT 3.5 is not as good with creative work resulting into structured output
+        # So making a separate query for the mnemonic
+        query_mnemonic = (
+            "I need your help with a fun little task. "
+            f"Can you come up with a catchy three-word phrase that's easy to remember for {person.name}? " 
+            "Here's the catch: all the words should start with the same letter. "
+            "Please output the result on two lines as:\n"
+            "* phrase\n"
+            "* explanation of it in max 40 words\n"
+            f"My notes: {person.transcript}"
+        )
+        raw_mnemonic = gpt_client.run_prompt(query_mnemonic, print_prompt=True)
+        non_whitespace_lines = []
+        if bool(raw_mnemonic):
+            lines = str(raw_mnemonic).split("\n")
+            non_whitespace_lines = [line for line in lines if line.strip() != '']
+            if len(non_whitespace_lines) > 0:
+                person.mnemonic = non_whitespace_lines[0]
+            if len(non_whitespace_lines) > 1:
+                person.mnemonic_explanation = non_whitespace_lines[1]
+        if len(non_whitespace_lines) < 2:
+            print(f"WARNING: Could NOT get mnemonic (catch phrase) for {person.name} got raw: {raw_mnemonic}")
 
     # TODO(P1, quality): There are too many un-named people, either:
     #  * Filter out too short input transcripts
@@ -245,16 +257,17 @@ def generate_first_outreaches(
         #   i.e. have an embedded chat gpt experience.
         #   Maybe add info from stalking tools like https://www.reversecontact.com
         query_outreaches = """ 
-        From the notes on the following person I met at an event 
-        please generate a short outreach message written in style of 
-        a "smooth casual friendly yet professional person", ideally adjusted to the talking style from the note, 
-        to say that "{}"  (use up to 250 characters)
-        Please make sure that:
-        * to mention what I enjoyed OR appreciated in the conversation
-        * include a fact / a hobby / an interest from our conversation
-        Only output the resulting message - do not use double quotes at all.
-        My notes of person "{}" are as follows "{}"
-        """.format(intent, name, person_transcript)
+From the notes on the following person I just met at an event 
+please generate a short outreach message written in style of 
+a "smooth casual friendly yet professional person", 
+ideally adjusted to the talking style from the note, 
+to say that "{}"  (use up to 250 characters)
+Please make sure that:
+* to mention what I enjoyed OR appreciated in the conversation
+* include a fact / a hobby / an interest from our conversation
+* omit any sensitive information, especially money
+Only output the resulting message - do not use double quotes at all.
+My notes of person "{}" are as follows "{}" """.format(intent, name, person_transcript)
         raw_response = gpt_client.run_prompt(query_outreaches)
 
         is_it_json = gpt_response_to_json(raw_response, debug=False)
@@ -274,19 +287,12 @@ def generate_first_outreaches(
 def extract_per_person_summaries(gpt_client: OpenAiClient, raw_transcript: str) -> List[PersonDataEntry]:
     print(f"Running networking_dump on raw_transcript of {len(raw_transcript.split())} token size")
 
-    if test_person_to_transcript is None:
-        person_to_transcript = get_per_person_transcript(gpt_client, raw_transcript=raw_transcript)
-    else:
-        person_to_transcript = gpt_response_to_json(test_person_to_transcript)
+    person_to_transcript = get_per_person_transcript(gpt_client, raw_transcript=raw_transcript)
     # TODO: Somehow get all "gaps" none of the mentions is talking about.
     print("=== All people with all their mentions === ")
     print(json.dumps(person_to_transcript))
 
-    if test_summaries is not None:
-        # TODO(P2, testing): Fix this, we might just do GPT-request caching through openai_client.py via DynamoDB
-        person_data_entries = gpt_response_to_json(test_summaries)
-    else:
-        person_data_entries = summarize_transcripts_to_person_data_entries(gpt_client, person_to_transcript)
+    person_data_entries = summarize_transcripts_to_person_data_entries(gpt_client, person_to_transcript)
     print("=== All summaries === ")
     # Sort by priority, these are now P0, P1 so do it ascending.
     person_data_entries = sorted(person_data_entries, key=lambda pde: pde.priority)

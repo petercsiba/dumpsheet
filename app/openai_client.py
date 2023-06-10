@@ -144,10 +144,11 @@ class OpenAiClient:
 
         if response is None:
             return None
-        result = response.choices[0].message.content.strip().replace("\n", "")
+        # TODO(P2, test): There used to be new-line replacement, imho more confusing than useful.
+        gpt_result = response.choices[0].message.content.strip()
 
         token_usage = response['usage']
-        prompt_log.result = result
+        prompt_log.result = gpt_result
         prompt_log.prompt_tokens = token_usage.get("prompt_tokens", 0)
         prompt_log.completion_tokens = token_usage.get("completion_tokens", 0)
         self.prompt_stats.append(prompt_log)
@@ -157,7 +158,7 @@ class OpenAiClient:
         if bool(self.prompt_cache_table):
             write_data_class(self.prompt_cache_table, prompt_log)
             print("cached_prompt: written to cache")
-        return result
+        return gpt_result
 
 
 def get_first_occurrence(s: str, list_of_chars: list):
@@ -206,8 +207,8 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
     raw_response = re.sub(r'\],\s*\]', ']]', raw_response)
     raw_response = re.sub(r'\},\s*\}', '}}', raw_response)
     raw_response = re.sub(r'\},\s*\]', '}]', raw_response)
-    if debug:
-        print(f"converted {orig_response}\n\nto\n\n{raw_response}")
+    # if debug:
+    #     print(f"converted {orig_response}\n\nto\n\n{raw_response}")
     try:
         # The model might have just crafted a valid json object
         result = json.loads(raw_response)
