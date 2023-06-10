@@ -144,11 +144,11 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     # TODO(P0, bug): WTF why id does NOT store the data-entries locally?
     user = dynamodb.get_or_create_user(email_address=email_params.recipient)
     all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
-    print(f"all_data_entries: {all_data_entries}")
     list_of_lists = [de.output_people_entries for de in all_data_entries]
-    print(f"list_of_lists: {list_of_lists}")
     all_people_entries = [item for sublist in list_of_lists for item in sublist]  # GPT generated no idea how it works
     print(f"all_people_entries {all_people_entries}")
+    all_people_entries = sorted(all_people_entries, key=lambda pde: pde.sort_key())
+
     all_page_contents = generate_page(
         project_name=f"{project_name} - All",
         event_timestamp=datetime.datetime.now(),
@@ -157,7 +157,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     data_entry.all_webpage_url = dump_page(
         all_page_contents,
         local_output_prefix=f"{local_output_prefix}-all",
-        bucket_object_prefix=project_name
+        bucket_object_prefix=user.main_page_name()
     )
     if bool(dynamodb):
         print(f"Updating all_webpage_url for {data_entry.user_id} after generate all page")

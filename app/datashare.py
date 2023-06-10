@@ -159,6 +159,10 @@ class PersonDataEntry:
         1: "P4 - Low: Just don't bother",
     }
 
+    def sort_key(self):
+        # Sort by priority ascending, and transcript length descending.
+        return self.priority, 0 if self.transcript is None else -len(self.transcript)
+
 
 @dataclass
 class User:
@@ -173,6 +177,9 @@ class User:
     def generate_user_id(email_address):
         # TODO(P3, devx): Better user-name
         return f"user.{email_address[:3]}.{int(time.time())}"
+
+    def main_page_name(self):
+        return self.user_id.replace(".", "-")
 
 
 @dataclass

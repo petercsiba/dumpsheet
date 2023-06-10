@@ -306,7 +306,7 @@ def extract_per_person_summaries(gpt_client: OpenAiClient, raw_transcript: str) 
     person_data_entries = summarize_transcripts_to_person_data_entries(gpt_client, person_to_transcript)
     print("=== All summaries === ")
     # Sort by priority, these are now P0, P1 so do it ascending.
-    person_data_entries = sorted(person_data_entries, key=lambda pde: pde.priority)
+    person_data_entries = sorted(person_data_entries, key=lambda pde: pde.sort_key())
 
     print(json.dumps([asdict(pde) for pde in person_data_entries]))
 
