@@ -24,6 +24,12 @@ test_transcript = None
 #     result['text']
 #     And do it from public youtube videos with pytube
 #       https://towardsdatascience.com/whisper-transcribe-translate-audio-files-with-human-level-performance-df044499877
+# They claim to have WER <50% for these:
+# Afrikaans, Arabic, Armenian, Azerbaijani, Belarusian, Bosnian, Bulgarian, Catalan, Chinese, Croatian, Czech,
+# Danish, Dutch, English, Estonian, Finnish, French, Galician, German, Greek, Hebrew, Hindi, Hungarian, Icelandic,
+# Indonesian, Italian, Japanese, Kannada, Kazakh, Korean, Latvian, Lithuanian, Macedonian, Malay, Marathi, Maori,
+# Nepali, Norwegian, Persian, Polish, Portuguese, Romanian, Russian, Serbian, Slovak, Slovenian, Spanish, Swahili,
+# Swedish, Tagalog, Tamil, Thai, Turkish, Ukrainian, Urdu, Vietnamese, and Welsh.
 # TODO(P1, devx): Maybe better place in openai_utils
 def transcribe_audio(audio_filepath):
     if test_transcript is not None:
