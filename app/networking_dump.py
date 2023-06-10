@@ -178,6 +178,7 @@ The input transcript: {}"""
             raw_summary = None
             raw_response = f"Thanks for mentioning {name}! Unfortunately there is too little info to summarize from."
         else:
+            # TODO(P1, bug): ParsingError: { "name": "Michmucho", "industry": "", "role": "", "vibes": "Unknown", "priority": 3, "follow_ups": null, "needs": null }
             raw_response = gpt_client.run_prompt(query_summarize.format(name, transcript), print_prompt=True)
             raw_summary = gpt_response_to_json(raw_response)
 

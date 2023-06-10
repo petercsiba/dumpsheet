@@ -1,4 +1,5 @@
-# TODO(P0): Prioritize all TODOs lol
+# TODO(P0): Prioritize all TODOs lol:
+#   git grep '# TODO' | awk -F: '{print $2 " " $1 " " $3}' | sed -e 's/^[[:space:]]*//' | sort
 # TODO(_): General product extension ideas:
 #   * Get GPT-4 access
 #   * Vertical SaaS (same infra, customizable format), two ways:

@@ -29,8 +29,7 @@ def generate_index_name(table_name, attr_name):
 
 
 def write_data_class(table, data: dataclass, require_success=True):
-    print(f"write_data_entry {type(data)}")
-    # TODO(p2, quite very hacky)
+    # TODO(P2, devx): This is quite hacky way to translate datetime and other field to what DynamoDB likes
     item_json = dataclass_to_json(data)
     item_dict = json.loads(item_json)
 

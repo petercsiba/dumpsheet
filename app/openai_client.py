@@ -157,7 +157,7 @@ class OpenAiClient:
         # Log and cache the result
         if bool(self.prompt_cache_table):
             write_data_class(self.prompt_cache_table, prompt_log)
-            print("cached_prompt: written to cache")
+            print(f"cached_prompt: written to cache {key.prompt_hash}")
         return gpt_result
 
 
