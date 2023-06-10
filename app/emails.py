@@ -1,5 +1,5 @@
 from email.header import decode_header
-from typing import Optional
+from typing import Optional, List
 
 import boto3
 import datetime
@@ -275,8 +275,9 @@ def send_email(params: EmailParams, idempotency_key: Optional[str] = None) -> bo
 
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
 #   * OR maybe even to SES.
-def send_confirmation(params: EmailParams, dedup_prefix=None):
-    if len(params.attachment_paths) == 0:
+# We have attachment_paths separate, so the response email doesn't re-attach them.
+def send_confirmation(params: EmailParams, attachment_paths: List, dedup_prefix=None):
+    if len(attachment_paths) == 0:
         params.body_text = ("""
             <h3>Yo """ + params.get_recipient_first_name() + """, did you forgot the attachment?</h3>
         <p>Thanks for trying out katka.ai - your personal networking assistant - 
@@ -292,7 +293,7 @@ def send_confirmation(params: EmailParams, dedup_prefix=None):
         send_email(params=params, idempotency_key=None if dedup_prefix is None else f"{dedup_prefix}-forgot-attachment")
     else:
         file_list = []
-        for file_path in params.attachment_paths:
+        for file_path in attachment_paths:
             file_size = pretty_filesize(file_path)
             file_list.append(f"<li>{os.path.basename(file_path)} ({file_size})</li>")
         file_list_str = "\n".join(file_list)

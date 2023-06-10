@@ -75,8 +75,8 @@ def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str):
         raw_transcript = " ".join(transcript_words[:MAX_TRANSCRIPT_TOKEN_COUNT])
 
     query_people = """ 
-The following note mentions one or more people, please output a valid json list of strings in the format: 
-* "person identifier (such as name): a 5-10 word description".
+Find all the people mentioned in the follow note, please output a valid json list of strings in the format: 
+* "person identifier or up to a 5 word description".
 The transcript: {}
     """.format(raw_transcript)
     raw_response = gpt_client.run_prompt(query_people)
@@ -211,11 +211,11 @@ The input transcript: {}"""
         # So making a separate query for the mnemonic
         query_mnemonic = (
             "I need your help with a fun little task. "
-            f"Can you come up with a catchy three-word phrase that's easy to remember for {person.name}? " 
-            "Here's the catch: all the words should start with the same letter. "
+            f"Can you come up with a catchy three-word phrase that's easy to remember and includes {person.name}? " 
+            "Here's the catch: all the words should start with the same letter and describe the person."
             "Please output the result on two lines as:\n"
             "* phrase\n"
-            "* explanation of it in max 40 words\n"
+            "* explanation of it in max 25 words\n"
             f"My notes: {person.transcript}"
         )
         raw_mnemonic = gpt_client.run_prompt(query_mnemonic, print_prompt=True)

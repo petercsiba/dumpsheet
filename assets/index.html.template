@@ -114,11 +114,11 @@
             <h3 class="mb-4">{{ person_body.name }}</h3>
             <ul>
                 <li><strong>Priority</strong>: {{ person_body.priority }}</li>
-                <li><strong>Mnemonic</strong>: {{ person_body.mnemonic }}</li>
-                <li><strong>Mnemonic explanation</strong>: {{ person_body.mnemonic_explanation }}</li>
+                <!-- <li><strong>Mnemonic explanation</strong>: {{ person_body.mnemonic_explanation }}</li> -->
                 <li><strong>Vibes</strong>: {{ person_body.vibes }}</li>
                 <li><strong>Industry</strong>: {{ person_body.industry }}</li>
                 <li><strong>Role</strong>: {{ person_body.role }}</li>
+                <li><strong>Mnemonic</strong>: {{ person_body.mnemonic }}</li>
                 <!-- <li><strong>Contact Info</strong>: {{ person_body.contact_info }}</li> -->
             </ul>
             <h3 class="mb-4">Possible actions</h3>

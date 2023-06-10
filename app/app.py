@@ -169,7 +169,11 @@ def process_email_input(dynamodb: DynamoDBManager, raw_email, bucket_url=None) -
         # botocore.exceptions.ClientError: An error occurred (InvalidParameterValue)
         # when calling the SendRawEmail operation: Message length is more than 10485760 bytes long: '24081986'.
         # confirmation_email_params.attachment_paths = attachment_file_paths
-        send_confirmation(params=confirmation_email_params, dedup_prefix=result.event_name)
+        send_confirmation(
+            params=confirmation_email_params,
+            attachment_paths=attachment_file_paths,
+            dedup_prefix=result.event_name
+        )
     except Exception as err:
         print(f"ERROR: Could not send confirmation to {base_email_params.recipient} cause {err}")
         traceback.print_exc()
