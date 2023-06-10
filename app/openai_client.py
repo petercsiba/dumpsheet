@@ -121,12 +121,12 @@ class OpenAiClient:
             loggable_prompt = prompt.replace('\n', ' ')
             print(f"Asking {model} for: {loggable_prompt}")
 
+        key = PromptLog.create(prompt, model)
         if bool(self.prompt_cache_table):
-            key = PromptLog.create(prompt, model)
             cached_prompt: PromptLog = read_data_class(data_class_type=PromptLog, table=self.prompt_cache_table, key={
                 'prompt_hash': key.prompt_hash,
                 'model': key.model,
-            }, print_not_found=True)
+            }, print_not_found=False)
             if bool(cached_prompt):
                 print("cached_prompt: serving out of cache")
                 if cached_prompt.prompt != prompt:
@@ -211,6 +211,14 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
     raw_response = raw_response.replace("{'", '{"').replace("':", '":').replace(", '", ', "')
     raw_response = raw_response.replace("',", '",').replace(": '", ': "').replace("'}", '"}')
     raw_response = raw_response.replace(': ""', ': "').replace('""}', '"}')
+    # Sometimes, it includes the input in the response. So only consider what is after "Output"
+    match = re.search("(?i)output:", raw_response)
+    if match:
+        raw_response = raw_response[match.start():]
+    # Yeah, sometimes it does that lol
+    #   **Output:**<br> ["Shervin: security startup guy from Maryland who wears a 1337/1338 shirt"]<br>
+    raw_response = raw_response.replace('<br>\n', '\n')
+    raw_response = raw_response.replace('<br />\n', '\n')
     # Sometimes GPT adds the extra comma, well, everyone is guilty of that leading to a production outage so :shrug:
     # Examples: """her so it was cool",    ],"""
     # TODO(P2, devx): Redundant character escape
@@ -237,7 +245,7 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
         except json.decoder.JSONDecodeError as sub_err:
             if debug:
                 print(
-                    f"Could NOT decode json cause SUB ERROR: {sub_err} for raw_reponse "
+                    f"Could NOT decode json cause SUB ERROR: {sub_err} for raw_response "
                     f"(note does a bunch of replaces) {raw_json}. ORIGINAL ERROR: {orig_err}"
                 )
             return None

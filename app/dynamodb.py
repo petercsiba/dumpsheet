@@ -4,9 +4,10 @@ import os
 import subprocess
 import time
 
+from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 from dataclasses import dataclass
-from typing import Optional, Type, Any
+from typing import Optional, Type, Any, List
 
 from datashare import DataEntry, dataclass_to_json, User, dict_to_dataclass
 
@@ -60,6 +61,21 @@ def read_data_class(data_class_type: Type[Any], table, key, print_not_found=True
     return dict_to_dataclass(dict_=item_dict, data_class_type=data_class_type)
 
 
+def read_all_data_class(data_class_type: Type[Any], table, partition_key_name: str, partition_key_value: str):
+    response = table.query(
+        KeyConditionExpression=Key(partition_key_name).eq(partition_key_value)
+    )
+
+    if 'Items' not in response or not response['Items']:
+        print(f"ERROR: Items with partition key {partition_key_value} NOT found in {table}")
+        return None
+
+    items = response['Items']
+    data_class_list = [dict_to_dataclass(dict_=item_dict, data_class_type=data_class_type) for item_dict in items]
+    print(f"Found {len(data_class_list)} items in {table.table_name} for {partition_key_name}={partition_key_value}")
+    return data_class_list
+
+
 class DynamoDBManager:
     def __init__(self, endpoint_url):
         self.dynamodb = boto3.resource('dynamodb', endpoint_url=endpoint_url)
@@ -77,6 +93,15 @@ class DynamoDBManager:
                 'event_name': event_name
             }
         )
+
+    def get_all_data_entries_for_user(self, user_id) -> List[DataEntry]:
+        return read_all_data_class(
+            DataEntry,
+            self.data_entry_table,
+            partition_key_name='user_id',
+            partition_key_value=user_id
+        )
+
     # TODO(P2, devx): dynamodb.update is safer but no-time.
 
     def get_or_create_user(self, email_address: str) -> User:

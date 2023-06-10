@@ -57,8 +57,22 @@ def convert_audio_to_mp4(file_path):
     return audio_file
 
 
+def dump_page(page_contents, local_output_prefix, bucket_object_prefix):
+    _, bucket_key = write_output_to_local_and_bucket(
+        data=page_contents,
+        suffix=".html",
+        content_type="text/html",
+        local_output_prefix=local_output_prefix,
+        bucket_name=STATIC_HOSTING_BUCKET_NAME,
+        bucket_object_prefix=bucket_object_prefix
+    )
+    # TODO(P2, infra): Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
+    page_key = quote((bucket_key or "local").encode('utf-8'))
+    return f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{page_key}"
+
+
 # Second lambda
-def process_transcript_from_data_entry(gpt_client, data_entry: DataEntry):
+def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, data_entry: DataEntry):
     # ===== Actually perform black magic
     full_name = data_entry.email_reply_params.recipient_full_name
     bucket_object_prefix = f"{full_name}-{data_entry.event_timestamp}"
@@ -99,31 +113,49 @@ def process_transcript_from_data_entry(gpt_client, data_entry: DataEntry):
     # This mutates the underlying data_entry.
     fill_in_draft_outreaches(gpt_client, people_entries)
 
-    # TODO(P1, ux): Would be nice to include the full-transcript as a button in the LHS menu
-    page_contents = generate_page(
-        project_name=project_name,
+    # TODO(P1, ux): Would be nice to include the original full-transcript as a button in the LHS menu
+    # === Generate page with only the new events
+    event_page_contents = generate_page(
+        project_name=f"{project_name} - Event",
         event_timestamp=data_entry.event_timestamp,
         person_data_entries=people_entries,
     )
-    _, bucket_key = write_output_to_local_and_bucket(
-        data=page_contents,
-        suffix=".html",
-        content_type="text/html",
-        local_output_prefix=local_output_prefix,
-        bucket_name=STATIC_HOSTING_BUCKET_NAME,
-        bucket_object_prefix=bucket_object_prefix
+    data_entry.output_webpage_url = dump_page(event_page_contents, local_output_prefix, bucket_object_prefix)
+
+    # Update with the new outputs
+    if bool(dynamodb):
+        print(f"Updating data_entry for {data_entry.user_id} after process_transcript_from_data_entry")
+        dynamodb.write_data_entry(data_entry)
+
+    # === Generate page for all people of this user
+    # TODO(P0, bug): WTF why id does NOT store the data-entries locally? Th
+    user = dynamodb.get_or_create_user(email_address=email_params.recipient)
+    all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
+    print(f"all_data_entries: {all_data_entries}")
+    list_of_lists = [de.output_people_entries for de in all_data_entries]
+    print(f"list_of_lists: {list_of_lists}")
+    all_people_entries = [item for sublist in list_of_lists for item in sublist]  # GPT generated no idea how it works
+    print(f"all_people_entries {all_people_entries}")
+    all_page_contents = generate_page(
+        project_name=f"{project_name} - All",
+        event_timestamp=datetime.datetime.now(),
+        person_data_entries=all_people_entries,
     )
-    # TODO(P2, infra): Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
-    page_key = quote((bucket_key or "local").encode('utf-8'))
-    webpage_url = f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{page_key}"
-    data_entry.output_webpage_url = webpage_url
+    data_entry.all_webpage_url = dump_page(
+        all_page_contents,
+        local_output_prefix=f"{local_output_prefix}-all",
+        bucket_object_prefix=project_name
+    )
+    if bool(dynamodb):
+        print(f"Updating all_webpage_url for {data_entry.user_id} after generate all page")
+        dynamodb.write_data_entry(data_entry)
 
     email_params.attachment_paths = [summaries_filepath] if bool(summaries_filepath) else []
     # TODO(P1, peter): Would be nice to pass total tokens used, queries and GPT time.
     send_response(
         email_params=email_params,
         email_datetime=data_entry.event_timestamp,
-        webpage_link=webpage_url,
+        webpage_link=data_entry.output_webpage_url,
         people_count=len(people_entries),
         drafts_count=sum([len(p.drafts) for p in people_entries]),
         prompt_stats=gpt_client.sum_up_prompt_stats(),
@@ -224,10 +256,7 @@ def lambda_handler(event, context):
     # Second Lambda
     # NOTE: When we actually separate them - be careful about re-tries to clear the output.
     gpt_client = OpenAiClient(dynamodb=dynamodb_client)
-    process_transcript_from_data_entry(gpt_client, data_entry)
-    # Update with the outputs
-    if bool(dynamodb_client):
-        dynamodb_client.write_data_entry(data_entry)
+    process_transcript_from_data_entry(dynamodb=dynamodb_client, gpt_client=gpt_client, data_entry=data_entry)
 
 
 # For local testing without emails or S3, great for bigger refactors.
@@ -246,9 +275,9 @@ if __name__ == "__main__":
     load_files_to_dynamodb(local_dynamodb, "test/fixtures/dynamodb")
 
     # Maybe all test cases?
-    # with open("test/test-katka-emails-kimberley", "rb") as handle:
+    with open("test/test-katka-emails-kimberley", "rb") as handle:
     # with open("test/emilka-parsing-error", "rb") as handle:
-    with open("test/test-large", "rb") as handle:
+    # with open("test/test-large", "rb") as handle:
         file_contents = handle.read()
         orig_data_entry = process_email_input(dynamodb=local_dynamodb, raw_email=file_contents)
         local_dynamodb.write_data_entry(orig_data_entry)
@@ -259,6 +288,10 @@ if __name__ == "__main__":
         # DynamoDB is used for caching between local test runs, spares both time and money!
         open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
         # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
-        process_transcript_from_data_entry(gpt_client=open_ai_client, data_entry=orig_data_entry)
+        process_transcript_from_data_entry(
+            dynamodb=local_dynamodb,
+            gpt_client=open_ai_client,
+            data_entry=orig_data_entry
+        )
 
     teardown_dynamodb_local(process)

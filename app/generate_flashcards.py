@@ -57,7 +57,12 @@ def fill_template(template, template_vars, depth=1):
 
 # Whole function is about translating the input JSON objects into my custom
 # fill_template templating framework (really just a function).
-def generate_page(project_name, event_timestamp, person_data_entries: List[PersonDataEntry], page_template=None):
+def generate_page(
+        project_name: str,
+        event_timestamp: datetime.datetime,
+        person_data_entries: List[PersonDataEntry],
+        page_template=None
+):
     print(f"Running generate webpage")
     if page_template is None:
         page_template = get_flashcard_template()

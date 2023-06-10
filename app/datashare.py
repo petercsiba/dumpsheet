@@ -179,6 +179,7 @@ class DataEntry:
     # Note: these are pre-merged before serializing into the People table
     output_people_entries: List[PersonDataEntry] = field(default_factory=list)
     output_webpage_url: str = None
+    all_webpage_url: str = None
 
     def __post_init__(self):
         if isinstance(self.event_timestamp, str):

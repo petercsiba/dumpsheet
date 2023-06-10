@@ -74,7 +74,8 @@ def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str):
         print(f"ERROR: raw_transcript too long ({token_count}), truncating to {MAX_TRANSCRIPT_TOKEN_COUNT}")
         raw_transcript = " ".join(transcript_words[:MAX_TRANSCRIPT_TOKEN_COUNT])
 
-    # TODO(P2, devx): Historically, this query give me most of the headaches.
+    # TODO(P1, devx): Historically, this query give me most of the headaches.
+    # Maybe just do it one-by-one, screw token cost.
     query_people = """ 
 Find all the people mentioned in the follow note, please output a valid json list of strings 
 where each string is a person name or identifier".
@@ -100,9 +101,9 @@ The transcript: {}
     # lead to non-parsaeble json like : ...cool",    ], (the extra comma)
     for sublist in sublists:
         query_mentions = """
-For each of the follow people with their description, get all substrings which mention them in the transcript.
+For each of the following people with their description, get all substrings which mention them in the transcript.
 If they are referenced multiple times, make sure to include all full original substrings as a list of strings.
-* Input format: json list of strings where each strings has format of name: super short characteristic
+* Input format: json list of strings where each strings has format of "name with super short characteristic"
 * Output format: {}
 Try to use up all words from the transcript and include extra context for those substrings
 * People: {}
@@ -110,7 +111,7 @@ Try to use up all words from the transcript and include extra context for those 
         """
         sublist_in_query = "\n*".join(sublist)
         query_mentions_first_try = query_mentions.format(
-            "json map of name to list of substrings",
+            "only output a valid json map of name to list of substrings",
             sublist_in_query,
             raw_transcript
         )
@@ -119,7 +120,8 @@ Try to use up all words from the transcript and include extra context for those 
         if people is None:
             print("WARNING: Could not get substring mentions for the provided folks")
             query_mentions_second_try = query_mentions.format(
-                "json map with key equal to persons name and value as a string joined of all found mentions",
+                "only output a valid json map with key equal to persons name and where value"
+                "is a string joined of all found mentions",
                 sublist_in_query,
                 raw_transcript
             )
