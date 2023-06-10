@@ -53,23 +53,35 @@ def dataclass_to_json(dataclass_obj: dataclass):
     return json.dumps(item_dict, cls=DynamoEncoder)
 
 
-def dict_to_dataclass(dict_: dict, data_class_type: Type[Any]) -> dataclass:
+def dict_to_dataclass(dict_: dict, dataclass_type: Type[Any]) -> dataclass:
     if dict_ is None:
-        print(f"No data found for {data_class_type}, trying to instantiate an empty one")
-        return data_class_type()
+        print(f"No data found for {dataclass_type}, trying to instantiate an empty one")
+        return dataclass_type()
+
+    if not isinstance(dict_, dict):
+        print(f"WARNING: dict_to_dataclass expected a dict, given {type(dict_)} for {dict_}")
+        return dataclass_type()
 
     init_values = {}
     # noinspection PyDataclass
-    for f in fields(data_class_type):
+    for f in fields(dataclass_type):
         value = dict_.get(f.name)  # e.g. None might be NOT set
         # GPT generated magic to handle List[DataClass] parsing.
-        if get_origin(f.type) is list and len(get_args(f.type)) == 1 and is_dataclass(get_args(f.type)[0]):
-            init_values[f.name] = dict_to_dataclass(value, get_args(f.type)[0])
+        field_args = get_args(f.type)
+        if get_origin(f.type) is list and len(field_args) == 1 and is_dataclass(field_args[0]):
+            sub_dataclass_type = field_args[0]
+            list_of_dataclass = []
+            # Now for each element of the list, which is expected to be a dataclass, parse it from the expected dict
+            for val in value:
+                # This also handles None
+                list_of_dataclass.append(dict_to_dataclass(val, sub_dataclass_type))
+            init_values[f.name] = list_of_dataclass
+        # Handle single sub-dataclass case
         elif is_dataclass(f.type):
             init_values[f.name] = dict_to_dataclass(value, f.type)
         else:
             init_values[f.name] = value
-    return data_class_type(**init_values)
+    return dataclass_type(**init_values)
 
 
 def json_to_dataclass(json_data, data_class_type: Type[Any]) -> dataclass:

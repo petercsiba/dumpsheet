@@ -6,6 +6,7 @@ DynamoDBLocal*
 input*
 output*
 secrets*
+test/anku-history
 test/emilka-parsing-error
 test/test-large
 

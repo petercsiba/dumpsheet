@@ -275,9 +275,10 @@ if __name__ == "__main__":
     load_files_to_dynamodb(local_dynamodb, "test/fixtures/dynamodb")
 
     # Maybe all test cases?
-    with open("test/test-katka-emails-kimberley", "rb") as handle:
+    # with open("test/test-katka-emails-kimberley", "rb") as handle:
     # with open("test/emilka-parsing-error", "rb") as handle:
     # with open("test/test-large", "rb") as handle:
+    with open("test/anku-history", "rb") as handle:
         file_contents = handle.read()
         orig_data_entry = process_email_input(dynamodb=local_dynamodb, raw_email=file_contents)
         local_dynamodb.write_data_entry(orig_data_entry)

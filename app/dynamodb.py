@@ -58,7 +58,7 @@ def read_data_class(data_class_type: Type[Any], table, key, print_not_found=True
         return None
 
     item_dict = response['Item']
-    return dict_to_dataclass(dict_=item_dict, data_class_type=data_class_type)
+    return dict_to_dataclass(dict_=item_dict, dataclass_type=data_class_type)
 
 
 def read_all_data_class(data_class_type: Type[Any], table, partition_key_name: str, partition_key_value: str):
@@ -71,7 +71,7 @@ def read_all_data_class(data_class_type: Type[Any], table, partition_key_name: s
         return None
 
     items = response['Items']
-    data_class_list = [dict_to_dataclass(dict_=item_dict, data_class_type=data_class_type) for item_dict in items]
+    data_class_list = [dict_to_dataclass(dict_=item_dict, dataclass_type=data_class_type) for item_dict in items]
     print(f"Found {len(data_class_list)} items in {table.table_name} for {partition_key_name}={partition_key_value}")
     return data_class_list
 
@@ -126,7 +126,7 @@ class DynamoDBManager:
         if len(items) > 1:
             print(f"WARNING: Found multiple users for email_address {email_address}, returning first")
 
-        result: User = dict_to_dataclass(items[0], data_class_type=User)
+        result: User = dict_to_dataclass(items[0], dataclass_type=User)
         print(f"Found existing user {result.user_id} for {result.email_address}")
         return result
 

@@ -195,7 +195,7 @@ if __name__ == "__main__":
         local_test_template = handle.read()
 
     list_of_dicts = json.loads(test_data_entries_raw)
-    data_entries = [dict_to_dataclass(dict_, data_class_type=DataEntry) for dict_ in list_of_dicts]
+    data_entries = [dict_to_dataclass(dict_, dataclass_type=DataEntry) for dict_ in list_of_dicts]
     pdes = [pde for pde in [de.output_people_entries for de in data_entries]]
     page1 = generate_page(
         project_name="Katka Sabo",
