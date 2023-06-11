@@ -2,64 +2,11 @@ import json
 from dataclasses import asdict
 from typing import Dict, List
 
-import openai
-
 from datashare import PersonDataEntry, Draft
 from openai_client import gpt_response_to_json, gpt_response_to_plaintext, OpenAiClient
-from storage_utils import get_fileinfo
-from utils import Timer
 
 MIN_TRANSCRIPT_LENGTH = 80  # characters, can prevent some "hallucinations"
 MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
-test_transcript = None
-
-
-# TODO(P0): Multi-language support (chinese, slovak), ideally we need to derive the language for transcript
-#   * Use https://api.openai.com/v1/audio/translations
-#   They support a shitload of languages.
-#   NICE: Seems we can even run it locally
-#     import whisper
-#     model = whisper.load_model("large")
-#     result = model.transcribe("recording.mp4", task='translate')
-#     result['text']
-#     And do it from public youtube videos with pytube
-#       https://towardsdatascience.com/whisper-transcribe-translate-audio-files-with-human-level-performance-df044499877
-# They claim to have WER <50% for these:
-# Afrikaans, Arabic, Armenian, Azerbaijani, Belarusian, Bosnian, Bulgarian, Catalan, Chinese, Croatian, Czech,
-# Danish, Dutch, English, Estonian, Finnish, French, Galician, German, Greek, Hebrew, Hindi, Hungarian, Icelandic,
-# Indonesian, Italian, Japanese, Kannada, Kazakh, Korean, Latvian, Lithuanian, Macedonian, Malay, Marathi, Maori,
-# Nepali, Norwegian, Persian, Polish, Portuguese, Romanian, Russian, Serbian, Slovak, Slovenian, Spanish, Swahili,
-# Swedish, Tagalog, Tamil, Thai, Turkish, Ukrainian, Urdu, Vietnamese, and Welsh.
-# TODO(P1, devx): Maybe better place in openai_utils
-def transcribe_audio(audio_filepath):
-    if test_transcript is not None:
-        return test_transcript
-
-    prompt_hint = "these are notes from an event I attended describing the people I met, my impressions and actions"
-
-    # (2023, May): File uploads are currently limited to 25 MB and the following input file types are supported:
-    #   mp3, mp4, mpeg, mpga, m4a, wav, and webm (MAYBE fake news)
-    # TODO(P2, feature); For longer inputs, we can use pydub to chunk it up
-    #   https://platform.openai.com/docs/guides/speech-to-text/longer-inputs
-    with open(audio_filepath, "rb") as audio_file:
-        print(f"Transcribing (and translating) {get_fileinfo(file_handle=audio_file)}")
-        # Data submitted through the API is no longer used for service improvements (including model training)
-        #   unless the organization opts in
-        # https://openai.com/blog/introducing-chatgpt-and-whisper-apis
-        with Timer("Audio transcribe (and maybe translate)"):
-            transcript = openai.Audio.translate(
-                model="whisper-1",
-                file=audio_file,
-                response_format="json",
-                # language="en",  # only for openai.Audio.transcribe
-                prompt=prompt_hint,
-                # If set to 0, the model will use log probability to automatically increase the temperature
-                #   until certain thresholds are hit.
-                temperatue=0,
-            )
-            result = transcript["text"]
-            print(f"Transcript: {result}")
-            return result
 
 
 # Current approach:

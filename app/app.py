@@ -33,7 +33,7 @@ from aws_utils import get_bucket_url, get_dynamo_endpoint_url
 from datashare import DataEntry
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
 from generate_flashcards import generate_page
-from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries, transcribe_audio
+from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries
 from storage_utils import write_output_to_local_and_bucket
 
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
@@ -164,7 +164,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
 
 
 # First lambda
-def process_email_input(dynamodb: DynamoDBManager, raw_email, bucket_url=None) -> DataEntry:
+def process_email_input(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw_email, bucket_url=None) -> DataEntry:
     # TODO(P1, migration): Refactor the email processing to another function which returns some custom object maybe
     print(f"Read raw_email body with {len(raw_email)} bytes")
 
@@ -212,7 +212,7 @@ def process_email_input(dynamodb: DynamoDBManager, raw_email, bucket_url=None) -
         print(f"Processing attachment {attachment_num} out of {len(attachment_file_paths)}")
         audio_filepath = convert_audio_to_mp4(attachment_file_path)
         if bool(audio_filepath):
-            result.input_transcripts.append(transcribe_audio(audio_filepath=audio_filepath))
+            result.input_transcripts.append(gpt_client.transcribe_audio(audio_filepath=audio_filepath))
 
     return result
 
@@ -246,13 +246,19 @@ def lambda_handler(event, context):
 
     # TODO(P1, multi-client): For Web/iOS uploads we would un-zip here, decide by bucket name.
     # First Lambda
-    data_entry = process_email_input(dynamodb=dynamodb_client, raw_email=response['Body'].read(), bucket_url=bucket_url)
+    gpt_client = OpenAiClient(dynamodb=dynamodb_client)
+    raw_email = response['Body'].read()
+    data_entry = process_email_input(
+        dynamodb=dynamodb_client,
+        gpt_client=gpt_client,
+        raw_email=raw_email,
+        bucket_url=bucket_url
+    )
     if bool(dynamodb_client):
         dynamodb_client.write_data_entry(data_entry)
 
     # Second Lambda
     # NOTE: When we actually separate them - be careful about re-tries to clear the output.
-    gpt_client = OpenAiClient(dynamodb=dynamodb_client)
     process_transcript_from_data_entry(dynamodb=dynamodb_client, gpt_client=gpt_client, data_entry=data_entry)
 
 
@@ -275,14 +281,14 @@ if __name__ == "__main__":
     # with open("test/test-large", "rb") as handle:
     with open("test/anku-history", "rb") as handle:
         file_contents = handle.read()
-        orig_data_entry = process_email_input(dynamodb=local_dynamodb, raw_email=file_contents)
+        # DynamoDB is used for caching between local test runs, spares both time and money!
+        open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
+        orig_data_entry = process_email_input(dynamodb=local_dynamodb, gpt_client=open_ai_client, raw_email=file_contents)
         local_dynamodb.write_data_entry(orig_data_entry)
 
         loaded_data_entry = local_dynamodb.read_data_entry(orig_data_entry.user_id, orig_data_entry.event_name)
         print(f"loaded_data_entry: {loaded_data_entry}")
 
-        # DynamoDB is used for caching between local test runs, spares both time and money!
-        open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
         # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
         process_transcript_from_data_entry(
             dynamodb=local_dynamodb,
