@@ -275,7 +275,8 @@ if __name__ == "__main__":
     # ddb_client.delete_table(TableName=TABLE_NAME_USER)
     # local_dynamodb.create_user_table_if_not_exists()
 
-    with open("test/test-slovak-ingi-vecera", "rb") as handle:
+    # with open("test/test-slovak-ingi-vecera", "rb") as handle:
+    with open("test/test-katka-emails-kimberley", "rb") as handle:
         file_contents = handle.read()
         # DynamoDB is used for caching between local test runs, spares both time and money!
         open_ai_client = OpenAiClient(dynamodb=local_dynamodb)

@@ -162,6 +162,7 @@ class PersonDataEntry:
 
     def sort_key(self):
         # Sort by priority ascending, and transcript length descending.
+        # TODO(P1, ux): Seems to NOT work?
         return self.priority, 0 if self.transcript is None else -len(str(self.transcript))
 
 

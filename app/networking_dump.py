@@ -3,7 +3,7 @@ from dataclasses import asdict
 from typing import Dict, List
 
 from datashare import PersonDataEntry, Draft
-from openai_client import gpt_response_to_json, gpt_response_to_plaintext, OpenAiClient
+from openai_client import gpt_response_to_json, gpt_response_to_plaintext, OpenAiClient, num_tokens_from_string
 
 MIN_TRANSCRIPT_LENGTH = 80  # characters, can prevent some "hallucinations"
 MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
@@ -19,16 +19,18 @@ MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
 # My mistake was that I tried to optimize token count, returning only indexes, which made the code very complicated.
 def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str):
     transcript_words = raw_transcript.split()
-    token_count = len(transcript_words)
+    # NOTE: We shorten the string by words cause easier, but we better estimate the token count by OpenAI counter.
+    token_count = num_tokens_from_string(raw_transcript)
     print(f"Transcript has {token_count} words")
     # Make sure to include the whole string without gaps.
-    # TODO(P0, quality): Eventually we would need to implement this case
+    # TODO(P1, quality): Eventually we would need to implement processing a larger input.
     if token_count > MAX_TRANSCRIPT_TOKEN_COUNT:
         print(f"ERROR: raw_transcript too long ({token_count}), truncating to {MAX_TRANSCRIPT_TOKEN_COUNT}")
         raw_transcript = " ".join(transcript_words[:MAX_TRANSCRIPT_TOKEN_COUNT])
 
     # TODO(P1, devx): Historically, this query give me most of the headaches.
-    # Maybe just do it one-by-one, screw token cost.
+    #   * GPT-4 suggests using Named Entity Recognition (NER)
+    #   * If it remains a problem - maybe just do it one-by-one, screw token cost.
     query_people = """ 
 Find all the people mentioned in the follow note, please output a valid json list of strings 
 where each string is a person name or identifier".
@@ -243,6 +245,7 @@ My notes of person "{}" are as follows "{}" """.format(intent, name, person_tran
 
 # =============== MAIN FUNCTIONS TO BE CALLED  =================
 def extract_per_person_summaries(gpt_client: OpenAiClient, raw_transcript: str) -> List[PersonDataEntry]:
+    # TODO(P2, devx): Use tiktoken
     print(f"Running networking_dump on raw_transcript of {len(raw_transcript.split())} token size")
 
     person_to_transcript = get_per_person_transcript(gpt_client, raw_transcript=raw_transcript)

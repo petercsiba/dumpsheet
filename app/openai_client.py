@@ -2,6 +2,7 @@ import json
 import hashlib
 import openai
 import re
+import tiktoken
 import time
 
 from dataclasses import dataclass
@@ -21,6 +22,17 @@ def truncate_string(input_string):
     if len(input_string) > 500:
         truncated_string += " ... (truncated for logging readability)"
     return truncated_string
+
+
+def num_tokens_from_string(string: str, encoding_name: str = "cl100k_base") -> int:
+    # https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
+    # Encoding name	OpenAI models
+    # cl100k_base	gpt-4, gpt-3.5-turbo, text-embedding-ada-002
+    # p50k_base	Codex models, text-davinci-002, text-davinci-003
+    # r50k_base (or gpt2)	GPT-3 models like davinci
+    encoding = tiktoken.get_encoding(encoding_name)
+    num_tokens = len(encoding.encode(string))
+    return num_tokens
 
 
 @dataclass
@@ -163,16 +175,11 @@ class OpenAiClient:
             print(f"cached_prompt: written to cache {key.prompt_hash}")
         return gpt_result
 
-    # TODO(P0): Multi-language support (chinese, slovak), ideally we need to derive the language for transcript
-    #   * Use https://api.openai.com/v1/audio/translations
-    #   They support a shitload of languages.
-    #   NICE: Seems we can even run it locally
-    #     import whisper
-    #     model = whisper.load_model("large")
-    #     result = model.transcribe("recording.mp4", task='translate')
-    #     result['text']
-    #     And do it from public youtube videos with pytube
-    #       https://towardsdatascience.com/whisper-transcribe-translate-audio-files-with-human-level-performance-df044499877
+    # TODO(P1, Facebook MMS): Better multi-language support, Slovak was OK, but it got some things quite wrong.
+    #   * https://about.fb.com/news/2023/05/ai-massively-multilingual-speech-technology/
+    #   We might need to run the above ourselves for now (BaseTen hosting?)
+    #   For inspiration on how to run Whisper locally:
+    #   * https://towardsdatascience.com/whisper-transcribe-translate-audio-files-with-human-level-performance-df044499877
     # They claim to have WER <50% for these:
     # Afrikaans, Arabic, Armenian, Azerbaijani, Belarusian, Bosnian, Bulgarian, Catalan, Chinese, Croatian, Czech,
     # Danish, Dutch, English, Estonian, Finnish, French, Galician, German, Greek, Hebrew, Hindi, Hungarian, Icelandic,
@@ -196,6 +203,8 @@ class OpenAiClient:
             #   unless the organization opts in
             # https://openai.com/blog/introducing-chatgpt-and-whisper-apis
             with Timer("Audio transcribe (and maybe translate)"):
+                # NOTE: Verified that for English there is no difference between "transcribe" and "translate",
+                # by changing it locally and seeing the translate is "cached_prompt: serving out of cache".
                 transcript = openai.Audio.translate(
                     model="whisper-1",
                     file=audio_file,
@@ -211,7 +220,7 @@ class OpenAiClient:
                 return result
 
 
-def get_first_occurrence(s: str, list_of_chars: list):
+def _get_first_occurrence(s: str, list_of_chars: list):
     first_occurrence = len(s)  # initialize to length of the string
 
     for char in list_of_chars:
@@ -224,7 +233,7 @@ def get_first_occurrence(s: str, list_of_chars: list):
     return first_occurrence
 
 
-def try_decode_non_json(raw_response: str):
+def _try_decode_non_json(raw_response: str):
     # Sometimes it returns a list of strings in format of " -"
     lines = raw_response.split("\n")
     if len(lines) > 1:
@@ -285,11 +294,11 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
         result = json.loads(raw_response)
     except json.decoder.JSONDecodeError as orig_err:
         # In case there is something before the actual json output like "Output:", "Here you go:", "Sure ..".
-        start_index = get_first_occurrence(raw_response, ['{', '['])
+        start_index = _get_first_occurrence(raw_response, ['{', '['])
         raw_json = raw_response[start_index:]  # -1 works
         if debug and len(raw_json) * 2 < len(raw_response):
             print(f"WARNING: Likely the GPT response is NOT a JSON:\n{raw_json}\nresulted from\n{orig_response}")
-            return try_decode_non_json(raw_response)
+            return _try_decode_non_json(raw_response)
         try:
             result = json.loads(raw_json)
         except json.decoder.JSONDecodeError as sub_err:

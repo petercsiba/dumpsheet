@@ -2,4 +2,5 @@ beautifulsoup4
 boto3
 openai
 pytz
+tiktoken
 toml
