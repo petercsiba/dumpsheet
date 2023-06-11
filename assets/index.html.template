@@ -10,12 +10,13 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="css/style.css">
     <style>
+    /* this leads to the hamburger bar to NOT work
         #content {
           position: sticky;
           top: 0;
           z-index: 1;
         }
-
+    */
         .gpt-nav {
           display: flex;
           justify-content: space-around;
