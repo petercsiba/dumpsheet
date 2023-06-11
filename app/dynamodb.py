@@ -37,11 +37,24 @@ def write_data_class(table, data: dataclass, require_success=True):
     try:
         return table.put_item(Item=item_dict)
     except TypeError as err:
-        print(f"ERROR: Could NOT serialize to {table.table_name} item {item_dict}")
+        print(f"ERROR: DynamoDB could NOT serialize to {table.table_name} item {item_dict}")
         if require_success:
             raise err
         else:
             return None
+
+# TODO(P1, devx): Support updates, sth like, unsure how with dataclass
+# response = table.update_item(
+#     Key={
+#         'your-partition-key-name': 'partition-key-value',
+#         'your-sort-key-name': 'sort-key-value'
+#     },
+#     UpdateExpression='SET your-attribute-name = :val1',
+#     ExpressionAttributeValues={
+#         ':val1': 'new-value'
+#     },
+#     ReturnValues="UPDATED_NEW"
+# )
 
 
 def read_data_class(data_class_type: Type[Any], table, key, print_not_found=True):
@@ -49,12 +62,12 @@ def read_data_class(data_class_type: Type[Any], table, key, print_not_found=True
         response = table.get_item(Key=key)
     except ClientError as err:
         table_describe = table.meta.client.describe_table(TableName=table.table_name)
-        print(f"ERROR: read_data_class ClientError for key {key} cause for table {table_describe}: {err}")
+        print(f"ERROR: DynamoDB read_data_class ClientError for key {key} cause for table {table_describe}: {err}")
         raise err
 
     if 'Item' not in response:
         if print_not_found:
-            print(f"Item with key {key} NOT found in {table}")
+            print(f"DynamoDB: Item with key {key} NOT found in {table}")
         return None
 
     item_dict = response['Item']
@@ -67,12 +80,15 @@ def read_all_data_class(data_class_type: Type[Any], table, partition_key_name: s
     )
 
     if 'Items' not in response or not response['Items']:
-        print(f"ERROR: Items with partition key {partition_key_value} NOT found in {table}")
+        print(f"ERROR: DynamoDB items NOT found in {table} for partition key {partition_key_value}")
         return None
 
     items = response['Items']
     data_class_list = [dict_to_dataclass(dict_=item_dict, dataclass_type=data_class_type) for item_dict in items]
-    print(f"Found {len(data_class_list)} items in {table.table_name} for {partition_key_name}={partition_key_value}")
+    print(
+        f"DynamoDB: Found {len(data_class_list)} items in {table.table_name} "
+        f"for {partition_key_name}={partition_key_value}"
+    )
     return data_class_list
 
 
@@ -119,23 +135,22 @@ class DynamoDBManager:
                 user_id=User.generate_user_id(email_address=email_address),
                 email_address=email_address,
             )
-            print(f"Creating new user {new_user.user_id} for {new_user.email_address}!")
+            print(f"DynamoDB: creating new user {new_user.user_id} for {new_user.email_address}!")
             write_data_class(self.user_table, data=new_user)
             return new_user
 
         if len(items) > 1:
-            print(f"WARNING: Found multiple users for email_address {email_address}, returning first")
+            print(f"WARNING: DynamoDB found multiple users for email_address {email_address}, returning first")
 
         result: User = dict_to_dataclass(items[0], dataclass_type=User)
-        print(f"Found existing user {result.user_id} for {result.email_address}")
+        print(f"DynamoDB: found existing user {result.user_id} for {result.email_address}")
         return result
 
     def get_table_if_exists(self, table_name):
         existing_tables = [t.name for t in self.dynamodb.tables.all()]
-        print(f"existing_tables: {existing_tables}")
+        print(f"DynamoDB: existing_tables: {existing_tables}")
 
         if table_name in existing_tables:
-            print(f"Table {table_name} already exists.")
             return self.dynamodb.Table(table_name)
 
         return None
@@ -233,7 +248,7 @@ class DynamoDBManager:
 
         if has_gsi:
             index_name = generate_index_name(table_name=table_name, attr_name=sk_name)
-            print(f"Creating GlobalSecondaryIndexes for {index_name}")
+            print(f"DynamoDB: creating GlobalSecondaryIndexes for {index_name}")
             table_args['GlobalSecondaryIndexes'] = [
                 {
                     'IndexName': index_name,
@@ -255,26 +270,18 @@ class DynamoDBManager:
 
         table = self.dynamodb.create_table(**table_args)
         # Wait until the table exists.
-        print(f"Waiting for dynamodb table to be created {table_name}")
+        print(f"DynamoDB: waiting for table to be created {table_name}")
         table.meta.client.get_waiter('table_exists').wait(TableName=table_name)
 
-        print(f"Table {table_name} status:", table.table_status)
+        print(f"DynamoDB: table {table_name} status:", table.table_status)
         return table
 
 
 # ========== MOSTLY LOCAL SHIT =========== #
-def load_files_to_dynamodb(manager: DynamoDBManager, directory: str):
-    for filename in os.listdir(directory):
-        with open(f"{directory}/{filename}", 'r') as file:
-            data_entry = json.load(file)
-            print(f"load_files_to_dynamodb importing {filename} key={data_entry.user_id, data_entry.event_name}")
-            manager.write_data_entry(data_entry)
-
-
 def setup_dynamodb_local():
     port = 8000
     try:
-        print(f"gonna kill lagging local dynamodb if running on port {port}")
+        print(f"DynamoDB: gonna kill lagging local if running on port {port}")
         pid = subprocess.check_output(['lsof', '-i', f':{port}', '|', 'awk', '{print $2}', '|', 'tail', '-1'])
         pid = pid.decode('utf-8').strip()  # Convert bytes to string and remove extra whitespace
 
@@ -289,7 +296,7 @@ def setup_dynamodb_local():
     dynamodb_process = subprocess.Popen(cmd, shell=True)
 
     # Sleep for a short while to ensure DynamoDB Local has time to start up
-    print("Sleeping until DynamoDB becomes available")
+    print("DynamoDB: Sleeping until DynamoDB becomes available")
     time.sleep(1)
 
     manager = DynamoDBManager(endpoint_url='http://localhost:8000')
@@ -304,7 +311,5 @@ def teardown_dynamodb_local(dynamodb_process):
 
 if __name__ == "__main__":
     process, mngr = setup_dynamodb_local()
-
-    load_files_to_dynamodb(mngr, "test/fixtures/dynamodb")
 
     teardown_dynamodb_local(process)

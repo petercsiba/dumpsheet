@@ -32,8 +32,8 @@ class PromptStats:
     # TODO(P2, fun): Might be cool to translate it to dollars, I guess one-day usage based billing.
     def pretty_print(self):
         return (
-            f"{self.total_requests} queries to ChatGPT using {self.total_tokens} tokens "
-            f"in {self.request_time_ms/1000:.2f} seconds total query time."
+            f"{self.total_requests} queries to LLMs ({self.total_tokens} tokens "
+            f"in {self.request_time_ms/1000:.2f} seconds total query time)."
         )
 
 
@@ -71,15 +71,15 @@ class OpenAiClient:
         self.prompt_stats: List[PromptLog] = []
 
     def sum_up_prompt_stats(self) -> PromptStats:
-        result = PromptStats()
+        stats = PromptStats()
         for prompt_log in self.prompt_stats:
-            result.prompt_tokens += prompt_log.prompt_tokens
-            result.completion_tokens += prompt_log.completion_tokens
-            result.request_time_ms = prompt_log.request_time_ms
+            stats.prompt_tokens += prompt_log.prompt_tokens
+            stats.completion_tokens += prompt_log.completion_tokens
+            stats.request_time_ms += prompt_log.request_time_ms
 
-        result.total_requests = len(self.prompt_stats)
-        result.total_tokens = result.prompt_tokens + result.completion_tokens
-        return result
+        stats.total_requests = len(self.prompt_stats)
+        stats.total_tokens = stats.prompt_tokens + stats.completion_tokens
+        return stats
 
     def _run_prompt(self, prompt: str, model="gpt-3.5-turbo", retry_timeout=60):
         # wait is too long so carry on

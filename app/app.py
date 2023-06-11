@@ -28,7 +28,7 @@ from email.utils import parseaddr
 from urllib.parse import quote
 
 from openai_client import OpenAiClient
-from dynamodb import setup_dynamodb_local, load_files_to_dynamodb, teardown_dynamodb_local, DynamoDBManager
+from dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager
 from aws_utils import get_bucket_url, get_dynamo_endpoint_url
 from datashare import DataEntry
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
@@ -95,6 +95,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     # TODO(P0, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
     people_entries = extract_per_person_summaries(gpt_client, raw_transcript=raw_transcript)
     data_entry.output_people_entries = people_entries
+    dynamodb.write_data_entry(data_entry)  # Only update would be nice
 
     try:
         summaries_filepath, _ = write_output_to_local_and_bucket(
@@ -112,8 +113,9 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
 
     # This mutates the underlying data_entry.
     fill_in_draft_outreaches(gpt_client, people_entries)
+    dynamodb.write_data_entry(data_entry)  # Only update would be nice
 
-    # TODO(P1, ux): Would be nice to include the original full-transcript as a button in the LHS menu
+    # TODO(P1, ux): Would be nice to include the original full-transcript on the event page.
     # === Generate page with only the new events
     event_page_contents = generate_page(
         project_name=f"{project_name} - Event",
@@ -124,6 +126,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
 
     # === Generate page for all people of this user
     # TODO(P0, bug): WTF why id does NOT store the data-entries locally?
+    # Yeah, same for first time user, everything is empty
     user = dynamodb.get_or_create_user(email_address=email_params.recipient)
     all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
     list_of_lists = [de.output_people_entries for de in all_data_entries]
@@ -159,13 +162,13 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
         idempotency_key=f"{data_entry.event_name}-response"
     )
 
+
 # First lambda
 def process_email_input(dynamodb: DynamoDBManager, raw_email, bucket_url=None) -> DataEntry:
     # TODO(P1, migration): Refactor the email processing to another function which returns some custom object maybe
     print(f"Read raw_email body with {len(raw_email)} bytes")
 
     # ======== Parse the email
-    # TODO(P1): Move this to emails, essentially generate reply-to EmailParams
     msg = email.message_from_bytes(raw_email)
     base_email_params = get_email_params_for_reply(msg)
 
@@ -178,7 +181,6 @@ def process_email_input(dynamodb: DynamoDBManager, raw_email, bucket_url=None) -
 
     attachment_file_paths = store_and_get_attachments_from_email(msg)
 
-    # TODO(P0, migration): Map email address to user_id through DynamoDB
     user = dynamodb.get_or_create_user(email_address=base_email_params.recipient)
 
     result = DataEntry(
@@ -266,8 +268,6 @@ if __name__ == "__main__":
     # ddb_client = boto3.client('dynamodb', endpoint_url=get_dynamo_endpoint_url())
     # ddb_client.delete_table(TableName=TABLE_NAME_USER)
     # local_dynamodb.create_user_table_if_not_exists()
-
-    load_files_to_dynamodb(local_dynamodb, "test/fixtures/dynamodb")
 
     # Maybe all test cases?
     # with open("test/test-katka-emails-kimberley", "rb") as handle:
