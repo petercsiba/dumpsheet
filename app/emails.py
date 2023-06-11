@@ -353,30 +353,15 @@ def send_response(
         f"      <li>And you've got {drafts_count} potential actions to choose from, "
         f"          complete with drafted messages to start building those new relationships.</li>"
         "  </ul>"
-        "  <h4>Now, let's discuss what's next, shall we? 💪</h4>"
-        "  <p><strong>Here's your game plan:</strong></p>"
-        f"<p><a href=\"{webpage_link}\"" + """ style="
-                display: inline-block;
-                padding: 10px 20px;
-                background-color: #007BFF; /* Change the color as per your design */
-                color: #ffffff;
-                text-align: center;
-                text-decoration: none;
-                border-radius: 4px; /* Optional */
-                font-size: 16px;
-                line-height: 1.5;
-                transition: background-color 0.3s ease;
-            >
-                View event summary
-            </a></p>"""
+        "  <h4>Now, let's discuss what's next, shall we? 💪 Here's your game plan:</h4>"
         "  <ul>"
-        f"      <li><strong>First</strong>, head over to "
-        f"          <a href=\"{webpage_link}\">your event summary from {email_dt_str}</a>. "
+        f"      <li><strong>First</strong>, "
+        f"<a href=\"{webpage_link}\">head over to your event summary from {email_dt_str}</a>. "
         f"          It's your directory of people with proposed draft messages. ✉️</li>"
         "      <li>Choose the one draft that suits your style, personalize it if necessary, "
         "          and hit send to start building your new connections. 📧</li>"
         "      <li>We've also attached a detailed table of all the key summaries for your excel-cirse skills. 📊</li>"
-        f"     <li>Remember, you can access ALL of your profile history on <a href=\"{all_webpage_url}\">your page</a></li>"
+        f"     <li>Remember, you can access <a href=\"{all_webpage_url}\">ALL of your profile history on your page</a></li>"
         "  </ul>"
         "  <p>Have any questions? No problem! 😊</p>"
         f"  <p>Just hit reply or send an email to my supervisors at {' or '.join(DEBUG_RECIPIENTS)}. "
