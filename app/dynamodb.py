@@ -1,6 +1,6 @@
 import boto3
 import json
-import os
+import pandas as pd
 import subprocess
 import time
 
@@ -90,6 +90,65 @@ def read_all_data_class(data_class_type: Type[Any], table, partition_key_name: s
         f"for {partition_key_name}={partition_key_value}"
     )
     return data_class_list
+
+
+def parse_dynamodb_json(dynamodb_json):
+    print(f"parse_dynamodb_json {dynamodb_json}")
+    # For dictionaries, recurse on each value
+    if isinstance(dynamodb_json, dict):
+        if len(dynamodb_json) == 1:
+            # If there's only one item, check for DynamoDB type descriptors and handle them
+            type_descriptor, value = next(iter(dynamodb_json.items()))
+            if type_descriptor == 'S':
+                return value
+            elif type_descriptor == 'NULL':
+                return None
+            elif type_descriptor == 'L':
+                return [parse_dynamodb_json(item) for item in value]
+            elif type_descriptor == 'N':
+                return float(value)
+            elif type_descriptor == 'M':
+                return {key: parse_dynamodb_json(val) for key, val in value.items()}
+        else:
+            # If there are multiple items, just recurse on each one
+            return {key: parse_dynamodb_json(value) for key, value in dynamodb_json.items()}
+    elif isinstance(dynamodb_json, list):
+        # For list, just recurse on each item
+        return [parse_dynamodb_json(item) for item in dynamodb_json]
+    else:
+        # For anything else (e.g., a string, int, float), just return the value
+        return dynamodb_json
+
+
+def load_csv_to_dataclass(data_class_type: Type[Any], csv_filepath: str) -> List[Any]:
+    # Load the CSV file to a DataFrame
+    loaded_df = pd.read_csv(csv_filepath)
+    print(f"Loading {csv_filepath} found columns {loaded_df.columns}")
+
+    # Initialize an empty list to store the dataclass instances
+    data_entries = []
+
+    # Iterate over each row in the DataFrame
+    for _, row in loaded_df.iterrows():
+        row_dict = row.to_dict()
+        print(f"row_dict {row_dict}")
+        # Convert any JSON strings in the row to Python objects
+        for key, value in row_dict.items():
+            if isinstance(value, str):
+                try:
+                    # Try to load JSON
+                    loaded_json = json.loads(value)
+                    # If loading succeeds, then parse the DynamoDB JSON format
+                    row_dict[key] = parse_dynamodb_json(loaded_json)
+                except json.JSONDecodeError:
+                    pass  # Not a JSON string, leave as is
+
+        data_entry = dict_to_dataclass(row_dict, data_class_type)
+        data_entries.append(data_entry)
+
+    # Return the list of dataclass instances
+    print(f"Parsed {len(data_entries)} items of {data_class_type} from {csv_filepath}")
+    return data_entries
 
 
 class DynamoDBManager:
