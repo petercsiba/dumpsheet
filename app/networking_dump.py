@@ -38,20 +38,20 @@ def transcribe_audio(audio_filepath):
     prompt_hint = "these are notes from an event I attended describing the people I met, my impressions and actions"
 
     # (2023, May): File uploads are currently limited to 25 MB and the following input file types are supported:
-    #   mp3, mp4, mpeg, mpga, m4a, wav, and webm
-    # For longer inputs, we can use pydub to chunk it up
+    #   mp3, mp4, mpeg, mpga, m4a, wav, and webm (MAYBE fake news)
+    # TODO(P2, feature); For longer inputs, we can use pydub to chunk it up
     #   https://platform.openai.com/docs/guides/speech-to-text/longer-inputs
     with open(audio_filepath, "rb") as audio_file:
-        print(f"Transcribing {get_fileinfo(file_handle=audio_file)}")
+        print(f"Transcribing (and translating) {get_fileinfo(file_handle=audio_file)}")
         # Data submitted through the API is no longer used for service improvements (including model training)
         #   unless the organization opts in
         # https://openai.com/blog/introducing-chatgpt-and-whisper-apis
-        with Timer("Audio transcribe"):
-            transcript = openai.Audio.transcribe(
+        with Timer("Audio transcribe (and maybe translate)"):
+            transcript = openai.Audio.translate(
                 model="whisper-1",
                 file=audio_file,
                 response_format="json",
-                language="en",
+                # language="en",  # only for openai.Audio.transcribe
                 prompt=prompt_hint,
                 # If set to 0, the model will use log probability to automatically increase the temperature
                 #   until certain thresholds are hit.
