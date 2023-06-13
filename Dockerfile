@@ -3,6 +3,8 @@
 # docker run -p 9000:8080 hello-world
 # curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
 
+# Docker 23 has default DOCKER_BUILDKIT=1, which should be faster.
+
 # Pushing
 # https://us-west-2.console.aws.amazon.com/ecr/repositories?region=us-west-2
 # aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 680516425449.dkr.ecr.us-west-2.amazonaws.com
@@ -48,7 +50,11 @@ RUN mkdir -p ${FUNCTION_DIR}
 COPY app/* ${FUNCTION_DIR}
 # Copy assets to the same dir
 COPY assets/* ${FUNCTION_DIR}
-# Optional – Install the function's dependencies
+# NOTE: To leverage Docker's layer caching,
+#   make sure to put instructions that change frequently towards the end of your Dockerfile
+# NOTE: Pip doesn't install packages in parallel by default.
+#   However, you can use a tool like pip-accel to speed up installation by parallelizing the process.
+# NOTE: Try to speed up Python requirements build time by using pre-compiled stuff
 RUN python${RUNTIME_VERSION} -m pip install -r ${FUNCTION_DIR}/requirements.txt --target ${FUNCTION_DIR}
 # Install Lambda Runtime Interface Client for Python
 # TODO(P1, devx): Figure out how to cache this OR we can split into two lambdas where the other is Python-only.

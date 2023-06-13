@@ -1,13 +1,16 @@
+# TODO(P1, devx): Make it work
 import ast
+import json
 import os.path
 import pandas as pd
 import numpy as np
 
-from openai_client import OpenAiClient
 from openai.embeddings_utils import cosine_similarity
-from datashare import DataEntry, PersonDataEntry
-from dynamodb import load_csv_to_dataclass
-from typing import List
+from typing import List, Type, Any
+
+from app.openai_client import OpenAiClient
+from app.datashare import DataEntry, PersonDataEntry, dict_to_dataclass
+from app.dynamodb import parse_dynamodb_json
 
 MIN_TEXT_CHAR_LENGTH = 100
 
@@ -31,6 +34,37 @@ MIN_TEXT_CHAR_LENGTH = 100
 # * Typesense, fast open source vector search
 # * Zilliz, data infrastructure, powered by Milvus
 # * https://github.com/pgvector/pgvector: SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
+
+
+def load_csv_to_dataclass(data_class_type: Type[Any], csv_filepath: str) -> List[Any]:
+    # Load the CSV file to a DataFrame
+    loaded_df = pd.read_csv(csv_filepath)
+    print(f"Loading {csv_filepath} found columns {loaded_df.columns}")
+
+    # Initialize an empty list to store the dataclass instances
+    data_entries = []
+
+    # Iterate over each row in the DataFrame
+    for _, row in loaded_df.iterrows():
+        row_dict = row.to_dict()
+        print(f"row_dict {row_dict}")
+        # Convert any JSON strings in the row to Python objects
+        for key, value in row_dict.items():
+            if isinstance(value, str):
+                try:
+                    # Try to load JSON
+                    loaded_json = json.loads(value)
+                    # If loading succeeds, then parse the DynamoDB JSON format
+                    row_dict[key] = parse_dynamodb_json(loaded_json)
+                except json.JSONDecodeError:
+                    pass  # Not a JSON string, leave as is
+
+        data_entry = dict_to_dataclass(row_dict, data_class_type)
+        data_entries.append(data_entry)
+
+    # Return the list of dataclass instances
+    print(f"Parsed {len(data_entries)} items of {data_class_type} from {csv_filepath}")
+    return data_entries
 
 
 # Define a function to get the N most similar people
