@@ -94,9 +94,7 @@ def generate_page(
             }
             follow_ups.append(follow_up)
 
-        transcript = person.transcript
-        if isinstance(transcript, list):
-            transcript = "<br />".join(transcript)
+        transcript = person.get_transcript_text(separator="<br />")
         style_display = "block" if i == 0 else "none"
         body = {
             SUB_TEMPLATE_KEY: {

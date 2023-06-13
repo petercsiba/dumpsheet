@@ -58,9 +58,7 @@ def create_embeddings(csv_filepath, output_filepath):
 
     people = []
     for person in all_people_entries:
-        text = person.transcript
-        if isinstance(person.transcript, list):
-            text = "\n".join(person.transcript)
+        text = person.get_transcript_text()
         if person.parsing_error or len(text) < MIN_TEXT_CHAR_LENGTH:
             print(f"Skipping {person.name} cause too little data on them OR input parse error occurred")
             continue

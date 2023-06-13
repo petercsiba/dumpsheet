@@ -160,10 +160,27 @@ class PersonDataEntry:
         1: "P4 - Low: Just don't bother",
     }
 
+    def get_transcript_text(self, separator="\n") -> str:
+        if isinstance(self.transcript, list):
+            return separator.join(self.transcript)
+        return  str(self.transcript)
+
     def sort_key(self):
         # Sort by priority ascending, and transcript length descending.
         # TODO(P1, ux): Seems to NOT work?
         return self.priority, 0 if self.transcript is None else -len(str(self.transcript))
+
+    def to_csv_map(self) -> Dict[str, str]:
+        return {
+            "name": self.name,
+            "role": self.role,
+            "industry": self.industry,
+            "vibes": self.vibes,
+            "priority": self.priority,
+            "needs": "" if self.needs is None else "\n".join(self.needs),
+            "follow_ups": "" if self.follow_ups is None else "\n".join(self.follow_ups),
+            "transcript": self.get_transcript_text(),
+        }
 
 
 @dataclass

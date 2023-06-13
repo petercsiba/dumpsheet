@@ -99,7 +99,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
 
     try:
         summaries_filepath, _ = write_output_to_local_and_bucket(
-            data=[asdict(pde) for pde in people_entries],
+            data=[pde.to_csv_map() for pde in people_entries],
             suffix="-summaries.csv",
             content_type="text/csv",
             local_output_prefix=local_output_prefix,
@@ -125,8 +125,6 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     data_entry.output_webpage_url = dump_page(event_page_contents, local_output_prefix, bucket_object_prefix)
 
     # === Generate page for all people of this user
-    # TODO(P0, bug): WTF why id does NOT store the data-entries locally?
-    # Yeah, same for first time user, everything is empty
     user = dynamodb.get_or_create_user(email_address=email_params.recipient)
     all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
     list_of_lists = [de.output_people_entries for de in all_data_entries]
@@ -134,6 +132,20 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     print(f"all_people_entries {all_people_entries}")
     all_people_entries = sorted(all_people_entries, key=lambda pde: pde.sort_key())
 
+    # TODO(P1, devx): This is logically the same as the above just with all_people_entries so abstract to sth.
+    try:
+        all_summaries_filepath, _ = write_output_to_local_and_bucket(
+            data=[pde.to_csv_map() for pde in all_people_entries],
+            suffix="-summaries-all.csv",
+            content_type="text/csv",
+            local_output_prefix=local_output_prefix,
+            bucket_name=OUTPUT_BUCKET_NAME,
+            bucket_object_prefix=bucket_object_prefix
+        )
+    except Exception as err:
+        print(f"WARNING: could NOT write summaries ALL to local cause {err}")
+        traceback.print_exc()
+        all_summaries_filepath = None
     all_page_contents = generate_page(
         project_name=f"{project_name} - All",
         event_timestamp=datetime.datetime.now(),
@@ -148,8 +160,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
         print(f"Updating all_webpage_url for {data_entry.user_id} after generate all page")
         dynamodb.write_data_entry(data_entry)
 
-    email_params.attachment_paths = [summaries_filepath] if bool(summaries_filepath) else []
-    # TODO(P1, peter): Would be nice to pass total tokens used, queries and GPT time.
+    email_params.attachment_paths = [x for x in [summaries_filepath, all_summaries_filepath] if x is not None]
     send_response(
         email_params=email_params,
         email_datetime=data_entry.event_timestamp,
