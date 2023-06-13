@@ -1,3 +1,4 @@
+# TODO(P0, devx): This Haystack library looks quite good https://github.com/deepset-ai/haystack
 import json
 import hashlib
 import openai
@@ -155,7 +156,8 @@ class OpenAiClient:
         response = self._run_prompt(prompt, model)
 
         prompt_log.request_time_ms = int(1000 * (time.time() - start_time))
-        print(f"ChatCompletion: { prompt_log.request_time_ms / 1000} seconds")  # Note, includes retry time.
+        if print_prompt:
+            print(f"ChatCompletion: { prompt_log.request_time_ms / 1000} seconds")  # Note, includes retry time.
 
         if response is None:
             return None
@@ -167,13 +169,27 @@ class OpenAiClient:
         prompt_log.prompt_tokens = token_usage.get("prompt_tokens", 0)
         prompt_log.completion_tokens = token_usage.get("completion_tokens", 0)
         self.prompt_stats.append(prompt_log)
-        print(f"Token usage {json.dumps(token_usage)}")
+        if print_prompt:
+            print(f"Token usage {json.dumps(token_usage)}")
 
         # Log and cache the result
         if bool(self.prompt_cache_table):
             write_data_class(self.prompt_cache_table, prompt_log)
             print(f"cached_prompt: written to cache {key.prompt_hash}")
         return gpt_result
+
+    # They claim to return 1536 dimension of normalized to 1 (cosine or euclid returns same)
+    # TODO(P0, quality): There are a LOT of unknowns here for me:
+    #   * How it works with larger texts?
+    #   * What is LangChan good for? It feels just like a layer on top of (OpenAI) models.
+    #   * How the to event store this in DynamoDB? Probably gonna go with Pinecode or similar from the beginning.
+    def get_embedding(self, text, model="text-embedding-ada-002"):
+        text = text.replace("\n", " ")
+        print(f"Running embedding for {num_tokens_from_string(text)} token of text {text[:100]}")
+        with Timer("Embedding"):
+            embedding = openai.Embedding.create(input=[text], model=model)['data'][0]['embedding']
+            # print(f"Embedding: {embedding}")
+            return embedding
 
     # TODO(P1, Facebook MMS): Better multi-language support, Slovak was OK, but it got some things quite wrong.
     #   * https://about.fb.com/news/2023/05/ai-massively-multilingual-speech-technology/

@@ -9,5 +9,6 @@ secrets*
 test/anku-history
 test/emilka-parsing-error
 test/katka-data-entries.csv
+test/katka-data-entries.csv.embedded
 test/test-large
 

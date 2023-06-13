@@ -1,7 +1,9 @@
 beautifulsoup4
 boto3
+numpy
 openai
 pandas
+plotly
 pytz
 tiktoken
 toml
