@@ -126,7 +126,7 @@ def dump_to_lines(sth_like_a_string, sep="\n"):
     elif isinstance(sth_like_a_string, str):
         return sth_like_a_string
     elif isinstance(sth_like_a_string, list):  # Check if follow_ups is a list
-        return sep.join(sth_like_a_string)
+        return sep.join(dump_to_lines(sth_like_a_string, sep))
     elif isinstance(sth_like_a_string, dict):  # Check if follow_ups is a dictionary
         return sep.join(f"{str(key)}: {str(value)}" for key, value in sth_like_a_string.items())
     else:
