@@ -120,7 +120,7 @@ class Draft:
     message: str
 
 
-def dump_to_lines(sth_like_a_string, sep="\n"):
+def dump_to_lines(sth_like_a_string, sep="\n") -> str:
     if sth_like_a_string is None:
         return ""
     elif isinstance(sth_like_a_string, str):
@@ -174,7 +174,7 @@ class PersonDataEntry:
     }
 
     def get_transcript_text(self, separator="\n") -> str:
-        dump_to_lines(self.transcript, separator)
+        return dump_to_lines(self.transcript, separator)
 
     def sort_key(self):
         # Sort by priority ascending, and transcript length descending.
