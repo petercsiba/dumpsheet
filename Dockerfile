@@ -1,18 +1,4 @@
 # Hacked https://aws.amazon.com/blogs/aws/new-for-aws-lambda-container-image-support/
-# docker build -t hello-world .
-# docker run -p 9000:8080 hello-world
-# curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
-
-# Docker 23 has default DOCKER_BUILDKIT=1, which should be faster.
-
-# Pushing
-# https://us-west-2.console.aws.amazon.com/ecr/repositories?region=us-west-2
-# aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 680516425449.dkr.ecr.us-west-2.amazonaws.com
-# docker build -t 680516425449.dkr.ecr.us-west-2.amazonaws.com/networking-summary-lambda:latest .
-# docker push 680516425449.dkr.ecr.us-west-2.amazonaws.com/networking-summary-lambda:latest
-
-# Oncall
-# * Usage https://platform.openai.com/account/usage
 
 # Define global args
 ARG FUNCTION_DIR="/home/app/"
