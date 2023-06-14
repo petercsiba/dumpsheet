@@ -121,7 +121,7 @@ Output: a single json dict with the following key value pairs:
     * vibes: my first impression and general vibes of them
     * priority: on scale from 1 to 5 how excited i am to follow up, never null 
     * follow_ups: list of action items or follow ups i mentioned, null if none 
-    * needs: list of their pain points, wants or blockers, null for empty
+    * needs: list of what {} is looking for, null for empty
 The input transcript: {}"""
     people = []
     for name, transcript in person_to_transcript.items():
@@ -136,7 +136,7 @@ The input transcript: {}"""
             raw_response = f"Thanks for mentioning {name}! Unfortunately there is too little info to summarize from."
         else:
             # TODO(P1, bug): ParsingError: { "name": "Michmucho", "industry": "", "role": "", "vibes": "Unknown", "priority": 3, "follow_ups": null, "needs": null }
-            raw_response = gpt_client.run_prompt(query_summarize.format(name, transcript), print_prompt=True)
+            raw_response = gpt_client.run_prompt(query_summarize.format(name, name, transcript), print_prompt=True)
             raw_summary = gpt_response_to_json(raw_response)
 
         person = PersonDataEntry()
