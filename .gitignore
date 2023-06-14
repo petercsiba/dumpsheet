@@ -6,8 +6,10 @@ DynamoDBLocal*
 input*
 output*
 secrets*
+shared-local-instance.db
 test/anku-history
 test/emilka-parsing-error
+test/katka-broken-csv
 test/katka-data-entries.csv
 test/katka-data-entries.csv.embedded
 test/test-large

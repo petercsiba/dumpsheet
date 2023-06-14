@@ -120,6 +120,19 @@ class Draft:
     message: str
 
 
+def dump_to_lines(sth_like_a_string, sep="\n"):
+    if sth_like_a_string is None:
+        return ""
+    elif isinstance(sth_like_a_string, str):
+        return sth_like_a_string
+    elif isinstance(sth_like_a_string, list):  # Check if follow_ups is a list
+        return sep.join(sth_like_a_string)
+    elif isinstance(sth_like_a_string, dict):  # Check if follow_ups is a dictionary
+        return sep.join(f"{str(key)}: {str(value)}" for key, value in sth_like_a_string.items())
+    else:
+        return str(sth_like_a_string)
+
+
 @dataclass
 # These are pre-merged snapshots of a person
 class PersonDataEntry:
@@ -161,9 +174,7 @@ class PersonDataEntry:
     }
 
     def get_transcript_text(self, separator="\n") -> str:
-        if isinstance(self.transcript, list):
-            return separator.join(self.transcript)
-        return  str(self.transcript)
+        dump_to_lines(self.transcript, separator)
 
     def sort_key(self):
         # Sort by priority ascending, and transcript length descending.
@@ -177,8 +188,8 @@ class PersonDataEntry:
             "industry": self.industry,
             "vibes": self.vibes,
             "priority": self.priority,
-            "needs": "" if self.needs is None else "\n".join(self.needs),
-            "follow_ups": "" if self.follow_ups is None else "\n".join(self.follow_ups),
+            "needs": dump_to_lines(self.needs),
+            "follow_ups": dump_to_lines(self.follow_ups),
             "transcript": self.get_transcript_text(),
         }
 

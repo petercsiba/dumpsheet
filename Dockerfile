@@ -39,7 +39,11 @@ RUN apk add --no-cache \
     make \
     cmake \
     libcurl \
-    ffmpeg
+    ffmpeg \
+    rust \
+    cargo
+
+ENV PYTHONUNBUFFERED=1
 
 # Include global args in this stage of the build
 ARG FUNCTION_DIR
@@ -50,6 +54,8 @@ RUN mkdir -p ${FUNCTION_DIR}
 COPY app/* ${FUNCTION_DIR}
 # Copy assets to the same dir
 COPY assets/* ${FUNCTION_DIR}
+
+RUN python${RUNTIME_VERSION} -m pip install --upgrade pip
 # NOTE: To leverage Docker's layer caching,
 #   make sure to put instructions that change frequently towards the end of your Dockerfile
 # NOTE: Pip doesn't install packages in parallel by default.
