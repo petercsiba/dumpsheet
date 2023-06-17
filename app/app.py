@@ -13,6 +13,9 @@
 # TODO(P0, research): Explore Algolia or other enterprise search tools before going to implement ours
 #   * https://www.algolia.com/doc/guides/sending-and-managing-data/prepare-your-data/
 #   * https://www.wsj.com/articles/businesses-seek-out-chatgpt-tech-for-searching-and-analyzing-their-own-data-393ef4fb
+#   * Plugins seem to specialize into search, either PDFs or web: https://chat.openai.com/?model=gpt-4-plugins
+# TODO(P0, research): Try using Meta's VoiceBox to be more like a voice-first assistant:
+#   * http://ai.facebook.com/blog/voicebox-generative-ai-model-speech?trk=public_post_comment-text
 
 import boto3
 import copy
@@ -98,6 +101,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
 
     try:
         summaries_filepath, _ = write_output_to_local_and_bucket(
+            # TODO(P0, ux): Generate .XLS
             data=[pde.to_csv_map() for pde in people_entries],
             suffix="-summaries.csv",
             content_type="text/csv",

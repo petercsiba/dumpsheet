@@ -1,4 +1,6 @@
-# TODO(P0, devx): This Haystack library looks quite good https://github.com/deepset-ai/haystack
+# TODO(P0, devx, quality): Update chat-gpt model usage, ideally use those functions too!
+#  * https://openai.com/blog/function-calling-and-other-api-updates
+# TODO(P1, devx): This Haystack library looks quite good https://github.com/deepset-ai/haystack
 import json
 import hashlib
 import openai
@@ -12,6 +14,7 @@ from storage_utils import get_fileinfo
 from typing import Optional, List
 from utils import Timer
 
+# TODO(P1, specify organization id): Header OpenAI-Organization
 openai.api_key = "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"
 test_transcript = None
 
