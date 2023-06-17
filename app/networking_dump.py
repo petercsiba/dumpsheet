@@ -175,7 +175,7 @@ The input transcript: {}"""
             "Please output the result on two lines as:\n"
             "* phrase\n"
             "* explanation of it in max 25 words\n"
-            f"My notes: {person.transcript}"
+            f"My notes: {person.get_transcript_text()}"
         )
         raw_mnemonic = gpt_client.run_prompt(query_mnemonic, print_prompt=True)
         non_whitespace_lines = []
@@ -197,7 +197,7 @@ The input transcript: {}"""
     filtered_result = []
     for person in people:
         if any(pattern.lower() in person.name.lower() for pattern in likely_duplicate):
-            print(f"WARNING: Filtering out un-identified person {person.name} for transcript {person.transcript}")
+            print(f"WARNING: Filtering out un-identified person {person.name} for transcript {person.get_transcript_text()}")
             continue
         filtered_result.append(person)
 
@@ -280,6 +280,7 @@ def fill_in_draft_outreaches(gpt_client: OpenAiClient, person_data_entries: List
         ])
         top3_intents = intents[:max(3, len(required_follow_ups))]
 
+        # TODO(p0, ux): With gpt-4 just do it in one query.
         if person.parsing_error is not None and len(person.parsing_error) > 10:
             print(f"WARNING: Person {person.name} encountered a parsing error, shortening intents")
             # Likely means the transcript was odd, so don't even try much.
@@ -290,6 +291,6 @@ def fill_in_draft_outreaches(gpt_client: OpenAiClient, person_data_entries: List
         person.drafts = generate_first_outreaches(
             gpt_client=gpt_client,
             name=person.name,
-            person_transcript=person.transcript,
+            person_transcript=person.get_transcript_text(),
             intents=top3_intents
         )
