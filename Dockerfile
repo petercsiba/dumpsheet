@@ -1,4 +1,5 @@
 # Hacked https://aws.amazon.com/blogs/aws/new-for-aws-lambda-container-image-support/
+# TODO(p0, devx): Move this to the app/ folder, restructure this project per lambda function / server.
 
 # Define global args
 ARG FUNCTION_DIR="/home/app/"
@@ -63,7 +64,7 @@ WORKDIR ${FUNCTION_DIR}
 COPY --from=build-image ${FUNCTION_DIR} ${FUNCTION_DIR}
 # (Optional) Add Lambda Runtime Interface Emulator and use a script in the ENTRYPOINT for simpler local runs
 ADD https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie /usr/bin/aws-lambda-rie
-COPY entry.sh /
+COPY app/entry.sh /
 RUN chmod 755 /usr/bin/aws-lambda-rie /entry.sh
 RUN ffmpeg -version
 ENTRYPOINT [ "/entry.sh" ]

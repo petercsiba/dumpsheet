@@ -6,8 +6,9 @@ import random
 import time
 import toml
 
-from openai_utils import gpt_response_to_json, run_prompt
-from storage_utils import write_to_csv
+# TODO(P1, devx): Refactor this into common and python modules - that requires some docker and install stuff.
+from app.openai_client import gpt_response_to_json, OpenAiClient
+from app.storage_utils import write_to_csv
 
 config = toml.load('secrets.toml')
 openai.api_key = config["OPEN_API_KEY"]
@@ -28,17 +29,7 @@ def filter_out_none(original_dict):
     return {key: value for key, value in original_dict.items() if value is not None}
 
 
-with open(SCRAPED_OUTPUT, "r") as handle:
-    people_raw = json.load(handle)
-    people_not_none = filter_out_none(people_raw)
-    # For testing runtime errors, we really only need a few
-    # people = slice_dictionary(people_not_none)
-    people = people_not_none
-
-    print(f"Loaded {len(people)} people, not-none are {len(people_not_none)} and running with {len(people)}")
-
-
-def transform_fields(orig_person):
+def transform_fields(openai_client: OpenAiClient, orig_person):
     # The model has a limited size - so we should truncate all garbage beforehand
     person = dict(orig_person)
     if "linkedin_url" in person:
@@ -74,26 +65,10 @@ def transform_fields(orig_person):
             """
             f"Input json: {json.dumps(person)}"
     )
-    raw_response = run_prompt(prompt)
+    raw_response = openai_client.run_prompt(prompt)
     result = gpt_response_to_json(raw_response)
     result["full_name"] = person["name"]
     return result
-
-
-transformed_data = []
-# load previously scraped data (which we cached last time)
-if os.path.exists(TRANSFORMED_OUTPUT):
-    print(f"Loading {TRANSFORMED_OUTPUT}")
-    with open(TRANSFORMED_OUTPUT, "r") as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            transformed_data.append(row)
-else:
-    # People is a dictionary
-    for person in people.values():
-        print(f"Summarizing {person.get('name', None)}")
-        transformed_data.append(transform_fields(person))
-    write_to_csv(transformed_data, TRANSFORMED_OUTPUT)
 
 
 def strip_pii(orig_person):
@@ -103,7 +78,7 @@ def strip_pii(orig_person):
     return person
 
 
-def evaluate_match(orig_person1, orig_person2):
+def evaluate_match(openai_client: OpenAiClient, orig_person1: dict, orig_person2: dict):
     # TODO(peter): Try embeddings, that should be a better way to search for alikes
     #   https://platform.openai.com/docs/guides/embeddings
     print("==========================================================")
@@ -151,12 +126,40 @@ def evaluate_match(orig_person1, orig_person2):
         # "innovator: innovator or problem solver and client or user relationship\n"
         f"and these are the two persons to evaluate match likelihood as json objects:\n{person1}\nand\n{person2}"
     )
-    raw_response = run_prompt(prompt)
+    raw_response = openai_client.run_prompt(prompt)
     return gpt_response_to_json(raw_response)
 
 
 # Matching part
 # TODO(peter): There is a lot to train / experiment with here.
+openai_client = OpenAiClient(dynamodb=None)
+
+
+with open(SCRAPED_OUTPUT, "r") as handle:
+    people_raw = json.load(handle)
+    people_not_none = filter_out_none(people_raw)
+    # For testing runtime errors, we really only need a few
+    # people = slice_dictionary(people_not_none)
+    people = people_not_none
+
+    print(f"Loaded {len(people)} people, not-none are {len(people_not_none)} and running with {len(people)}")
+
+
+transformed_data = []
+# load previously scraped data (which we cached last time)
+if os.path.exists(TRANSFORMED_OUTPUT):
+    print(f"Loading {TRANSFORMED_OUTPUT}")
+    with open(TRANSFORMED_OUTPUT, "r") as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            transformed_data.append(row)
+else:
+    # People is a dictionary
+    for person in people.values():
+        print(f"Summarizing {person.get('name', None)}")
+        transformed_data.append(openai_client, transform_fields(person))
+    write_to_csv(transformed_data, TRANSFORMED_OUTPUT)
+
 num_pairs = 10
 n = len(transformed_data)
 random_pairs = [(random.randint(0, n - 1), random.randint(0, n - 1)) for _ in range(num_pairs)]
@@ -166,7 +169,7 @@ for pair in random_pairs:
         continue
     person1 = transformed_data[pair[0]]
     person2 = transformed_data[pair[1]]
-    match_result = evaluate_match(orig_person1=person1, orig_person2=person2)
+    match_result = evaluate_match(openai_client, orig_person1=person1, orig_person2=person2)
     match_results.append({
         "person1": person1,
         "person2": person2,

@@ -1,0 +1,5 @@
+linkedin_scraper
+numby
+pandas
+selenium
+toml

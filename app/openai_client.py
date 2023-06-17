@@ -9,10 +9,11 @@ import tiktoken
 import time
 
 from dataclasses import dataclass
-from dynamodb import DynamoDBManager, write_data_class, read_data_class
-from storage_utils import get_fileinfo
 from typing import Optional, List
-from utils import Timer
+
+from .dynamodb import DynamoDBManager, write_data_class, read_data_class
+from .storage_utils import get_fileinfo
+from .utils import Timer
 
 # TODO(P1, specify organization id): Header OpenAI-Organization
 openai.api_key = "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"
