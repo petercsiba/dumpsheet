@@ -1,6 +1,8 @@
 # TODO(P0, devx, quality): Update chat-gpt model usage, ideally use those functions too!
 #  * https://openai.com/blog/function-calling-and-other-api-updates
 # TODO(P1, devx): This Haystack library looks quite good https://github.com/deepset-ai/haystack
+# TODO(P3, research, fine-tune): TLDR; NOT worth it. Feels like for repeated tasks it would be great to
+#  speed up and/or cost save https://platform.openai.com/docs/guides/fine-tuning/advanced-usage
 import json
 import hashlib
 import openai
@@ -11,12 +13,14 @@ import time
 from dataclasses import dataclass
 from typing import Optional, List
 
-from .dynamodb import DynamoDBManager, write_data_class, read_data_class
-from .storage_utils import get_fileinfo
-from .utils import Timer
+from dynamodb import DynamoDBManager, write_data_class, read_data_class
+from storage_utils import get_fileinfo
+from utils import Timer
 
 # TODO(P1, specify organization id): Header OpenAI-Organization
 openai.api_key = "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"
+# https://platform.openai.com/docs/models/gpt-4
+DEFAULT_MODEL = "gpt-4-0613"
 test_transcript = None
 
 
@@ -101,7 +105,7 @@ class OpenAiClient:
         stats.total_tokens = stats.prompt_tokens + stats.completion_tokens
         return stats
 
-    def _run_prompt(self, prompt: str, model="gpt-3.5-turbo", retry_timeout=60):
+    def _run_prompt(self, prompt: str, model=DEFAULT_MODEL, retry_timeout=60):
         # wait is too long so carry on
         if retry_timeout > 600:
             print("ERROR: waiting for prompt too long")
@@ -126,15 +130,11 @@ class OpenAiClient:
 
         return response
 
-    # model = gpt-4, gpt-4-0314, gpt-4-32k, gpt-4-32k-0314, gpt-3.5-turbo, gpt-3.5-turbo-0301
-    # For gpt-4 you need to be whitelisted.
     # About 0.4 cents per request (about 2000 tokens). Using gpt-4 would be 15x more expensive :/
     # TODO(peter): Do sth about max prompt length (4096 tokens INCLUDING the generated response)
-    # TODO(peter, fine-tune): Feels like for repeated tasks it would be great to speed up and/or cost save
-    #   https://platform.openai.com/docs/guides/fine-tuning/advanced-usage
-    # TODO(peter): We should templatize the prompt into "function body" and "parameters";
+    # TODO(P1, devx): We should templatize the prompt into "function body" and "parameters";
     #   then we can re-use the "body" to "fine-tune" a model and have faster responses.
-    def run_prompt(self, prompt: str, model="gpt-3.5-turbo", print_prompt=True):
+    def run_prompt(self, prompt: str, model=DEFAULT_MODEL, print_prompt=True):
         prompt_log = PromptLog.create(prompt=prompt, model=model)
 
         if print_prompt:
