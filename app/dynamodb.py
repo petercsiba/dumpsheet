@@ -172,11 +172,16 @@ class DynamoDBManager:
         items = response['Items']
         if items is None or len(items) == 0:
             signup_method = "email" if bool(email_address) else phone_number
+            user_email_address = email_address or "TODO"
+            user_phone_number = phone_number or "TODO"
             new_user = User(
                 user_id=User.generate_user_id(email_address=email_address, phone_number=phone_number),
                 signup_method=signup_method,
-                email_address=email_address,
-                phone_number=phone_number,
+                # TODO(P1, db): AWS DynamoDB does not allow NULL or empty string values for any key attribute,
+                #  whether it's a primary key for the table or a key for a Global Secondary Index (GSI).
+                #  Keys in DynamoDB must have values; they cannot be null or empty strings.
+                email_address=user_email_address,
+                phone_number=user_phone_number,
                 full_name=full_name,
             )
             print(f"DynamoDB: creating new user {new_user}!")
