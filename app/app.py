@@ -247,8 +247,9 @@ def process_voice_recording_input(
     # +16502100123-Undefined Peter Csiba-CA7e063a0e33540dc2496d09f5b81e42aa.wav
     # undefined--CA0f5399aafc07cf9991eb0be0d1ab7c52.wav
     # So parse those data now
-    pattern = r"(?P<phone>\+\d+|undefined)?-?(?P<name>[^-\n]*|undefined)?-?(?P<callSID>[^-\n]*)"
-    match = re.search(pattern, bucket_key)
+    pattern = r"(?P<phone>\+?\d+|undefined)?-?(?P<name>[^-\n]*|undefined)?-?(?P<callSID>[^-\n]*)"
+    # unquote-ing here to get rid of any % (if no % then no change)
+    match = re.search(pattern, unquote(bucket_key))
     phone_number = None
     if match:
         result = match.groupdict()
