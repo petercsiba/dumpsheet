@@ -16,11 +16,12 @@
 #   * Plugins seem to specialize into search, either PDFs or web: https://chat.openai.com/?model=gpt-4-plugins
 # TODO(P0, research): Try using Meta's VoiceBox to be more like a voice-first assistant:
 #   * http://ai.facebook.com/blog/voicebox-generative-ai-model-speech?trk=public_post_comment-text
-
 import boto3
 import copy
 import datetime
 import email
+import os
+import phonenumbers
 import re
 import subprocess
 import traceback
@@ -28,6 +29,7 @@ import traceback
 from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
 from urllib.parse import quote
+from typing import Optional
 
 from openai_client import OpenAiClient
 from dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager
@@ -204,6 +206,7 @@ def process_email_input(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw
         event_id=msg['Message-ID'],
         event_timestamp=email_datetime,
         email_reply_params=base_email_params,
+        input_type="email",
         input_s3_url=bucket_url,
     )
 
@@ -231,11 +234,74 @@ def process_email_input(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw
     return result
 
 
+def process_voice_recording_input(
+        dynamodb: DynamoDBManager,
+        gpt_client: OpenAiClient,
+        bucket_url: str,
+        bucket_key: str,
+        voice_file_data: bytes,
+        event_timestamp: datetime.datetime,
+) -> Optional[DataEntry]:
+    print(f"Read {bucket_key} voice_file_data with {len(voice_file_data)} bytes")
+
+    # Example bucket_keys:
+    # +16502100123-Undefined Peter Csiba-CA7e063a0e33540dc2496d09f5b81e42aa.wav
+    # undefined--CA0f5399aafc07cf9991eb0be0d1ab7c52.wav
+    # So parse those data now
+    pattern = r"(?P<phone>\+\d+|undefined)?-?(?P<name>[^-\n]*|undefined)?-?(?P<callSID>[^-\n]*)"
+    match = re.search(pattern, bucket_key)
+    phone_number = None
+    if match:
+        result = match.groupdict()
+        call_sid = result['callSID']
+        name = result['name'].replace('Undefined', '').strip()
+        phone_number = result['phone']
+
+        # Check if phone number is valid
+        if phone_number != 'undefined':
+            try:
+                phonenumbers.parse(phone_number, None)
+            except phonenumbers.phonenumberutil.NumberParseException:
+                print(f"ERROR: Invalid phone number {phone_number} for {bucket_key}")
+                phone_number = None
+        else:
+            phone_number = None
+    if phone_number is None:
+        print(f"ERROR: Cannot match the phone_number-name-callSID format for {bucket_key}")
+        return None
+
+    user = dynamodb.get_or_create_user(email_address=None, phone_number=phone_number)
+    result = DataEntry(
+        user_id=user.user_id,
+        # IMPORTANT: This is used as idempotency-key all over the place!
+        event_name=event_timestamp.strftime('%B %d, %H:%M'),
+        event_id=call_sid,
+        event_timestamp=event_timestamp,
+        email_reply_params=None,
+        input_type="phone",
+        input_s3_url=bucket_url,
+    )
+
+    # TODO(P0, ux): Send confirmation SMS
+    file_path = os.path.join('/tmp/', bucket_key)
+    with open(file_path, 'wb') as f:
+        f.write(voice_file_data)
+    audio_filepath = convert_audio_to_mp4(file_path)
+    if bool(audio_filepath):
+        result.input_transcripts.append(gpt_client.transcribe_audio(audio_filepath=audio_filepath))
+
+    return result
+
+
 # TODO(P1, devx): Send email on failure via CloudWatch monitoring (ask GPT how to do it)
 #   * ALTERNATIVELY: Can catch exception(s) and send email from here.
 #   * BUT we catch some errors.
 #   * So maybe we need to migrate to logger?
 # TODO(P1, ux, infra): AWS auto-retries lambdas so it is our responsibility to make them idempotent.
+EMAIL_BUCKET = "katka-emails"
+PHONE_RECORDINGS_BUCKET = "katka-twillio-recordings"
+
+
 def lambda_handler(event, context):
     print(f"Received Event: {event}")
     # Get the bucket name and file key from the event
@@ -251,6 +317,7 @@ def lambda_handler(event, context):
         print(f"No creds for S3 cause {e}")
         return 'Execution failed'
 
+    # Setup global deps
     endpoint_url = get_dynamo_endpoint_url()
     try:
         dynamodb_client = DynamoDBManager(endpoint_url=endpoint_url)
@@ -258,16 +325,31 @@ def lambda_handler(event, context):
         print(f"ERROR: Could NOT create DynamoDB to {endpoint_url} cause {err}")
         dynamodb_client = None
 
-    # TODO(P1, multi-client): For Web/iOS uploads we would un-zip here, decide by bucket name.
-    # First Lambda
     gpt_client = OpenAiClient(dynamodb=dynamodb_client)
-    raw_email = response['Body'].read()
-    data_entry = process_email_input(
-        dynamodb=dynamodb_client,
-        gpt_client=gpt_client,
-        raw_email=raw_email,
-        bucket_url=bucket_url
-    )
+
+    # First Lambda
+    if bucket == EMAIL_BUCKET:
+        raw_email = response['Body'].read()
+        data_entry = process_email_input(
+            dynamodb=dynamodb_client,
+            gpt_client=gpt_client,
+            raw_email=raw_email,
+            bucket_url=bucket_url
+        )
+    elif bucket == PHONE_RECORDINGS_BUCKET:
+        voice_file_data = response['Body'].read()
+        head_object = s3.head_object(Bucket=bucket, Key=key)
+        data_entry = process_voice_recording_input(
+            dynamodb=dynamodb_client,
+            gpt_client=gpt_client,
+            bucket_url=bucket_url,
+            bucket_key=key,
+            voice_file_data=voice_file_data,
+            event_timestamp=head_object['LastModified']
+        )
+    else:
+        data_entry = None
+        print(f"ERROR: Un-recognized bucket name {bucket_url} please add the mapping in your lambda")
     if bool(dynamodb_client):
         dynamodb_client.write_data_entry(data_entry)
 

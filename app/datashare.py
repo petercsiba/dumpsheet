@@ -233,7 +233,9 @@ class DataEntry:
     # Additional items
     event_id: str  # used as computer idempotency key, e.g. received email Message-id
     event_timestamp: datetime.datetime
-    email_reply_params: EmailParams
+    email_reply_params: Optional[EmailParams]
+    # TODO(P1, devx): Think of how to support emails so no raw strings
+    input_type: str  # either email or phone
     input_s3_url: Optional[str] = None  # No S3 for local testing
     input_transcripts: List[str] = field(default_factory=list)
     # Note: these are pre-merged before serializing into the People table
