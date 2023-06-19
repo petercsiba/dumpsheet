@@ -16,6 +16,7 @@
 #   * Plugins seem to specialize into search, either PDFs or web: https://chat.openai.com/?model=gpt-4-plugins
 # TODO(P0, research): Try using Meta's VoiceBox to be more like a voice-first assistant:
 #   * http://ai.facebook.com/blog/voicebox-generative-ai-model-speech?trk=public_post_comment-text
+import boto3
 import copy
 import datetime
 import email
@@ -31,7 +32,7 @@ from urllib.parse import quote, unquote
 from typing import Optional
 
 from openai_client import OpenAiClient
-from dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager
+from dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager, TABLE_NAME_USER
 from aws_utils import get_bucket_url, get_dynamo_endpoint_url, get_boto_s3_client
 from datashare import DataEntry
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
@@ -240,7 +241,7 @@ def process_email_input(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw
 def process_voice_recording_input(
         dynamodb: DynamoDBManager,
         gpt_client: OpenAiClient,
-        bucket_url: str,
+        bucket_url: Optional[str],  # for tracking purposes
         bucket_key: str,
         voice_file_data: bytes,
         event_timestamp: datetime.datetime,
@@ -377,29 +378,52 @@ if __name__ == "__main__":
     OUTPUT_BUCKET_NAME = None
 
     process, local_dynamodb = setup_dynamodb_local()
+    # DynamoDB is used for caching between local test runs, spares both time and money!
+    open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
     # For the cases when I mess up development.
     # print(f"Deleting some tables")
-    # ddb_client = boto3.client('dynamodb', endpoint_url=get_dynamo_endpoint_url())
-    # ddb_client.delete_table(TableName=TABLE_NAME_USER)
-    # local_dynamodb.create_user_table_if_not_exists()
+    ddb_client = boto3.client('dynamodb', endpoint_url=get_dynamo_endpoint_url())
+    ddb_client.delete_table(TableName=TABLE_NAME_USER)
+    local_dynamodb.create_user_table_if_not_exists()
 
-    # with open("test/test-katka-emails-kimberley", "rb") as handle:
-    # TODO(P0, testing): Need to test voice recordings
-    with open("test/katka-og-long-recording", "rb") as handle:
-        file_contents = handle.read()
-        # DynamoDB is used for caching between local test runs, spares both time and money!
-        open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
-        orig_data_entry = process_email_input(dynamodb=local_dynamodb, gpt_client=open_ai_client, raw_email=file_contents)
-        local_dynamodb.write_data_entry(orig_data_entry)
+    test_case = "voice"
+    orig_data_entry = None
+    if test_case == "email":
+        # with open("test/katka-og-long-recording", "rb") as handle:
+        with open("test/test-katka-emails-kimberley", "rb") as handle:
+            file_contents = handle.read()
+            # DynamoDB is used for caching between local test runs, spares both time and money!
+            open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
+            orig_data_entry = process_email_input(
+                dynamodb=local_dynamodb,
+                gpt_client=open_ai_client,
+                raw_email=file_contents
+            )
+            local_dynamodb.write_data_entry(orig_data_entry)
+    if test_case == "voice":
+        filename = "6502106516-Peter.Csiba-CA7e063a0e33540dc2496d09f5b81e42aa.wav"
+        filepath = f"test/{filename}"
+        creation_time = datetime.datetime.fromtimestamp(os.path.getctime(filepath))
+        with open(filepath, "rb") as handle:
+            file_contents = handle.read()
+            orig_data_entry = process_voice_recording_input(
+                dynamodb=local_dynamodb,
+                gpt_client=open_ai_client,
+                bucket_url=None,
+                bucket_key=filename,
+                voice_file_data=file_contents,
+                event_timestamp=creation_time,  # reasonably idempotent
+            )
+            local_dynamodb.write_data_entry(orig_data_entry)
 
-        loaded_data_entry = local_dynamodb.read_data_entry(orig_data_entry.user_id, orig_data_entry.event_name)
-        print(f"loaded_data_entry: {loaded_data_entry}")
+    loaded_data_entry = local_dynamodb.read_data_entry(orig_data_entry.user_id, orig_data_entry.event_name)
+    print(f"loaded_data_entry: {loaded_data_entry}")
 
-        # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
-        process_transcript_from_data_entry(
-            dynamodb=local_dynamodb,
-            gpt_client=open_ai_client,
-            data_entry=orig_data_entry
-        )
+    # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
+    process_transcript_from_data_entry(
+        dynamodb=local_dynamodb,
+        gpt_client=open_ai_client,
+        data_entry=orig_data_entry
+    )
 
     teardown_dynamodb_local(process)

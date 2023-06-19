@@ -247,10 +247,10 @@ class DynamoDBManager:
             table_name=TABLE_NAME_USER,
             pk_name="user_id",
             sk_name=None,
-            gsi_attributes=["email_address"],
+            gsi_attributes=["email_address", "phone_number"],
         )
 
-    # TODO(P1, utils): Currently we require primary_key (pk) and sort_key (sk) to be strings.
+    # TODO(P1, utils): Currently we require primary_key (pk), sort_key (sk) and GSI attributes to be strings.
     def create_table_with_option(
             self,
             table_name: str,
@@ -270,10 +270,6 @@ class DynamoDBManager:
                 'AttributeName': pk_name,
                 'AttributeType': 'S'  # 'S' stands for String
             },
-            {
-                'AttributeName': sk_name,
-                'AttributeType': 'S'
-            },
         ]
 
         if bool(sk_name) and isinstance(sk_name, str):
@@ -281,6 +277,10 @@ class DynamoDBManager:
             key_schema.append({
                 'AttributeName': sk_name,
                 'KeyType': 'RANGE'  # Sort key
+            })
+            attribute_definitions.append({
+                'AttributeName': sk_name,
+                'AttributeType': 'S'
             })
 
         table_args = {
@@ -298,8 +298,11 @@ class DynamoDBManager:
             for attr_name in gsi_attributes:
                 index_name = generate_index_name(table_name=table_name, attr_name=attr_name)
                 print(f"DynamoDB: adding GlobalSecondaryIndexes for {index_name}")
-                gsi_definitions.append([
-                {
+                attribute_definitions.append({
+                    'AttributeName': attr_name,
+                    'AttributeType': 'S'
+                })
+                gsi_definitions.append({
                     'IndexName': index_name,
                     'KeySchema': [
                         {
@@ -314,8 +317,7 @@ class DynamoDBManager:
                         'ReadCapacityUnits': 5,
                         'WriteCapacityUnits': 5
                     }
-                }
-            ])
+                })
             table_args['GlobalSecondaryIndexes'] = gsi_definitions
 
         table = self.dynamodb.create_table(**table_args)
