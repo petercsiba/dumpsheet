@@ -147,30 +147,46 @@ class DynamoDBManager:
 
     # TODO(P2, devx): dynamodb.update is safer but no-time.
 
-    def get_or_create_user(self, email_address: str) -> User:
+    def get_or_create_user(self, email_address: Optional[str], phone_number: Optional[str]) -> User:
         # NOTE: Cannot user read_data_class as that requires user_id
-        response = self.user_table.query(
-            IndexName=generate_index_name(self.user_table.table_name, "email_address"),
-            KeyConditionExpression='email_address = :email',
-            ExpressionAttributeValues={
-                ':email': email_address
-            }
-        )
+        response = {}
+        if bool(email_address):
+            response = self.user_table.query(
+                IndexName=generate_index_name(self.user_table.table_name, "email_address"),
+                KeyConditionExpression='email_address = :email',
+                ExpressionAttributeValues={
+                    ':email': email_address
+                }
+            )
+        elif bool(phone_number):
+            response = self.user_table.query(
+                IndexName=generate_index_name(self.user_table.table_name, "phone_number"),
+                KeyConditionExpression='phone_number = :phone',
+                ExpressionAttributeValues={
+                    ':phone': phone_number
+                }
+            )
+        else:
+            print(f"ERROR: email or phone required for get_or_create_user")
+
         items = response['Items']
         if items is None or len(items) == 0:
+            signup_method = "email" if bool(email_address) else phone_number
             new_user = User(
-                user_id=User.generate_user_id(email_address=email_address),
+                user_id=User.generate_user_id(email_address=email_address, phone_number=phone_number),
+                signup_method=signup_method,
                 email_address=email_address,
+                phone_number=phone_number,
             )
-            print(f"DynamoDB: creating new user {new_user.user_id} for {new_user.email_address}!")
+            print(f"DynamoDB: creating new user {new_user}!")
             write_data_class(self.user_table, data=new_user)
             return new_user
 
         if len(items) > 1:
-            print(f"WARNING: DynamoDB found multiple users for email_address {email_address}, returning first")
+            print(f"WARNING: DynamoDB found multiple users for {email_address} and {phone_number}, returning first")
 
         result: User = dict_to_dataclass(items[0], dataclass_type=User)
-        print(f"DynamoDB: found existing user {result.user_id} for {result.email_address}")
+        print(f"DynamoDB: found existing user {result.user_id} for {result.email_address} and {result.phone_number}")
         return result
 
     def get_table_if_exists(self, table_name):
@@ -191,8 +207,6 @@ class DynamoDBManager:
             table_name=TABLE_NAME_DATA_ENTRY,
             pk_name="user_id",
             sk_name="event_name",
-            has_sort_key=True,
-            has_gsi=False
         )
 
     def create_email_log_table_if_not_exists(self):
@@ -226,9 +240,8 @@ class DynamoDBManager:
         return self.create_table_with_option(
             table_name=TABLE_NAME_USER,
             pk_name="user_id",
-            sk_name="email_address",
-            has_sort_key=False,
-            has_gsi=True,
+            sk_name=None,
+            gsi_attributes=["email_address"],
         )
 
     # TODO(P1, utils): Currently we require primary_key (pk) and sort_key (sk) to be strings.
@@ -236,10 +249,10 @@ class DynamoDBManager:
             self,
             table_name: str,
             pk_name: str,
-            sk_name: str,
-            has_sort_key: bool = True,
-            has_gsi: bool = False
+            sk_name: Optional[str] = None,
+            gsi_attributes: List = None,
     ):
+        print(f"DynamoDB: create_table_with_option {table_name}")
         key_schema = [
             {
                 'AttributeName': pk_name,
@@ -257,7 +270,8 @@ class DynamoDBManager:
             },
         ]
 
-        if has_sort_key:
+        if bool(sk_name) and isinstance(sk_name, str):
+            print(f"DynamoDB: creating sort key {sk_name}")
             key_schema.append({
                 'AttributeName': sk_name,
                 'KeyType': 'RANGE'  # Sort key
@@ -273,15 +287,17 @@ class DynamoDBManager:
             },
         }
 
-        if has_gsi:
-            index_name = generate_index_name(table_name=table_name, attr_name=sk_name)
-            print(f"DynamoDB: creating GlobalSecondaryIndexes for {index_name}")
-            table_args['GlobalSecondaryIndexes'] = [
+        if bool(gsi_attributes) and isinstance(gsi_attributes, list):
+            gsi_definitions = []
+            for attr_name in gsi_attributes:
+                index_name = generate_index_name(table_name=table_name, attr_name=attr_name)
+                print(f"DynamoDB: adding GlobalSecondaryIndexes for {index_name}")
+                gsi_definitions.append([
                 {
                     'IndexName': index_name,
                     'KeySchema': [
                         {
-                            'AttributeName': sk_name,
+                            'AttributeName': attr_name,
                             'KeyType': 'HASH'  # Partition key
                         }
                     ],
@@ -293,7 +309,8 @@ class DynamoDBManager:
                         'WriteCapacityUnits': 5
                     }
                 }
-            ]
+            ])
+            table_args['GlobalSecondaryIndexes'] = gsi_definitions
 
         table = self.dynamodb.create_table(**table_args)
         # Wait until the table exists.

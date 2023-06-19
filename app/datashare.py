@@ -178,8 +178,8 @@ class PersonDataEntry:
 
     def sort_key(self):
         # Sort by priority ascending, and transcript length descending.
-        # TODO(P1, ux): Seems to NOT work?
-        return self.priority, 0 if self.transcript is None else -len(str(self.transcript))
+        # TODO(P1, debug): Why priority can still be None?
+        return self.priority or "", 0 if self.transcript is None else -len(str(self.transcript))
 
     def to_csv_map(self) -> Dict[str, str]:
         return {
@@ -198,15 +198,22 @@ class PersonDataEntry:
 class User:
     # Partition Key
     user_id: str
-    # user_id maps one-to-one to email_address
-    email_address: str
+    # NOTE: No sort-key here, just GSIs.
+
+    email_address: Optional[str]
+    phone_number: Optional[str]
+
+    signup_method: str  # either email or phone
+
+    full_name: Optional[str]
 
     # TODO(P1, ux): Add more user-related fields
 
     @staticmethod
-    def generate_user_id(email_address):
+    def generate_user_id(email_address: Optional[str], phone_number: Optional[str]):
         # TODO(P3, devx): Better user-name
-        return f"user.{email_address[:3]}.{int(time.time())}"
+        s = email_address if email_address else phone_number
+        return f"user.{s[:3]}.{int(time.time())}"
 
     def main_page_name(self):
         return self.user_id.replace(".", "-")

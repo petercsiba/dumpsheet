@@ -128,7 +128,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     data_entry.output_webpage_url = dump_page(event_page_contents, local_output_prefix, bucket_object_prefix)
 
     # === Generate page for all people of this user
-    user = dynamodb.get_or_create_user(email_address=email_params.recipient)
+    user = dynamodb.get_or_create_user(email_address=email_params.recipient, phone_number=None)
     all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
     list_of_lists = [de.output_people_entries for de in all_data_entries]
     all_people_entries = [item for sublist in list_of_lists for item in sublist]  # GPT generated no idea how it works
@@ -195,7 +195,7 @@ def process_email_input(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw
 
     attachment_file_paths = store_and_get_attachments_from_email(msg)
 
-    user = dynamodb.get_or_create_user(email_address=base_email_params.recipient)
+    user = dynamodb.get_or_create_user(email_address=base_email_params.recipient, phone_number=None)
 
     result = DataEntry(
         user_id=user.user_id,

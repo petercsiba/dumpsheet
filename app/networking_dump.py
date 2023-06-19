@@ -3,7 +3,8 @@ from dataclasses import asdict
 from typing import Dict, List
 
 from datashare import PersonDataEntry, Draft
-from openai_client import gpt_response_to_json, gpt_response_to_plaintext, OpenAiClient, num_tokens_from_string
+from openai_client import gpt_response_to_json, gpt_response_to_plaintext, OpenAiClient, num_tokens_from_string, \
+    DEFAULT_MODEL
 
 MIN_TRANSCRIPT_LENGTH = 80  # characters, can prevent some "hallucinations"
 MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
@@ -50,10 +51,10 @@ The transcript: {}
         print(f"ERROR people response got un-expected type {type(people)}: {people}")
 
     result = {}
-    size = 5
+    size = 100 if DEFAULT_MODEL.startswith("gpt-4") else 5
     sublists = [people[i:i+size] for i in range(0, len(people), size)]
     # Output format: json map of name to list of strings mentioning them
-    # lead to non-parsaeble json like : ...cool",    ], (the extra comma)
+    # lead to non-parse-able json like : ...cool",    ], (the extra comma)
     for sublist in sublists:
         query_mentions = """
 For each of the following people with their description, get all substrings which mention them in the transcript.
@@ -155,7 +156,10 @@ The input transcript: {}"""
         if summary_name != name:
             print(f"INFO: name from person chunking {name} ain't equal the one from the summary {summary_name}")
 
-        person.priority = PersonDataEntry.PRIORITIES_MAPPING.get(raw_summary.get("priority", 2))
+        person.priority = PersonDataEntry.PRIORITIES_MAPPING.get(
+            raw_summary.get("priority", 2),
+            "P3 - Unsure: Check if you have time"
+        )
         # person.mnemonic = raw_summary.get("mnemonic", None)
         # person.mnemonic_explanation = raw_summary.get("mnemonic_explanation", None)
         person.industry = raw_summary.get("industry", None)
@@ -267,30 +271,23 @@ def fill_in_draft_outreaches(gpt_client: OpenAiClient, person_data_entries: List
     print(f"Running fill_in_draft_outreaches on {len(person_data_entries)} person data entries")
 
     for person in person_data_entries:
-        required_follow_ups = person.follow_ups or []
-        intents = required_follow_ups.copy()
-
-        # TODO(P1, cx): Here we should again use the 3-way approach for sub-prompts:
-        #   * To parsed and static list, also add GPT gather general action items across people
-        intents.extend([
+        # If any mentioned in the transcript then use those, otherwise fill
+        # TODO(P2, ux): Derive the most suitable follow-up from the transcript.
+        follow_ups = person.follow_ups or [
             # Given data / intent of the networking person
             "Great to meet you, let me know if I can ever do anything for you!",
             "I want to meet again with one or two topics to discuss",
-            "Appreciate meeting them at the event",
-        ])
-        top3_intents = intents[:max(3, len(required_follow_ups))]
+            # "Appreciate meeting them at the event",
+        ]
 
-        # TODO(p0, ux): With gpt-4 just do it in one query.
         if person.parsing_error is not None and len(person.parsing_error) > 10:
             print(f"WARNING: Person {person.name} encountered a parsing error, shortening intents")
             # Likely means the transcript was odd, so don't even try much.
-            top3_intents = ["Great to meet you, let me know if I can ever do anything for you!"]
-
-        print(f"top3_intents {top3_intents}")
+            follow_ups = ["Great to meet you, let me know if I can ever do anything for you!"]
 
         person.drafts = generate_first_outreaches(
             gpt_client=gpt_client,
             name=person.name,
             person_transcript=person.get_transcript_text(),
-            intents=top3_intents
+            intents=follow_ups
         )
