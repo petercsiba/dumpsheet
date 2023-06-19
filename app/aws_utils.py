@@ -1,11 +1,17 @@
+import boto3
 import os
 
 
-DYNAMO_URL_PROD = "https://dynamodb.us-west-2.amazonaws.com"
+DEFAULT_REGION = "us-west-2"
+DYNAMO_URL_PROD = f"https://dynamodb.{DEFAULT_REGION}.amazonaws.com"
+
+
+def get_boto_s3_client():
+    return boto3.client('s3', region_name='us-west-2')
 
 
 def get_bucket_url(bucket: str, key: str):
-    return f"https://{bucket}.s3.amazonaws.com/{key}"
+    return f"https://{bucket}.s3.{DEFAULT_REGION}.amazonaws.com/{key}"
 
 
 def is_running_in_aws():

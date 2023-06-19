@@ -16,7 +16,6 @@
 #   * Plugins seem to specialize into search, either PDFs or web: https://chat.openai.com/?model=gpt-4-plugins
 # TODO(P0, research): Try using Meta's VoiceBox to be more like a voice-first assistant:
 #   * http://ai.facebook.com/blog/voicebox-generative-ai-model-speech?trk=public_post_comment-text
-import boto3
 import copy
 import datetime
 import email
@@ -28,12 +27,12 @@ import traceback
 
 from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 from typing import Optional
 
 from openai_client import OpenAiClient
 from dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager
-from aws_utils import get_bucket_url, get_dynamo_endpoint_url
+from aws_utils import get_bucket_url, get_dynamo_endpoint_url, get_boto_s3_client
 from datashare import DataEntry
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
 from generate_flashcards import generate_page
@@ -43,7 +42,7 @@ from storage_utils import write_output_to_local_and_bucket
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
 STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
 
-s3 = boto3.client('s3')
+s3 = get_boto_s3_client()
 
 
 # Here object_prefix is used for both local, response attachments and buckets.
@@ -306,7 +305,8 @@ def lambda_handler(event, context):
     print(f"Received Event: {event}")
     # Get the bucket name and file key from the event
     bucket = event['Records'][0]['s3']['bucket']['name']
-    key = event['Records'][0]['s3']['object']['key']
+    # For more complex key names have to use un-quote.
+    key = unquote(event['Records'][0]['s3']['object']['key'])
     bucket_url = get_bucket_url(bucket, key)
     print(f"Bucket URL: {bucket_url}")
 

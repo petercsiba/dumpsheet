@@ -1,10 +1,9 @@
-import boto3
 import csv
 import os
 
-from aws_utils import is_running_in_aws
+from aws_utils import is_running_in_aws, get_boto_s3_client
 
-s3 = boto3.client('s3')
+s3 = get_boto_s3_client()
 
 
 def pretty_filesize(file_path):
