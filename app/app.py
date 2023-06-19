@@ -305,8 +305,8 @@ def lambda_handler(event, context):
     print(f"Received Event: {event}")
     # Get the bucket name and file key from the event
     bucket = event['Records'][0]['s3']['bucket']['name']
-    # For more complex key names have to use un-quote.
-    key = unquote(event['Records'][0]['s3']['object']['key'])
+    # TODO(P2, robustness): Should we use un-quote here?
+    key = event['Records'][0]['s3']['object']['key']
     bucket_url = get_bucket_url(bucket, key)
     print(f"Bucket URL: {bucket_url}")
 

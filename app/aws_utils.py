@@ -11,6 +11,7 @@ def get_boto_s3_client():
 
 
 def get_bucket_url(bucket: str, key: str):
+    # TODO(P2, robustness): Should we use quote here?
     return f"https://{bucket}.s3.{DEFAULT_REGION}.amazonaws.com/{key}"
 
 
