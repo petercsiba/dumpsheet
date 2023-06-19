@@ -147,7 +147,7 @@ class DynamoDBManager:
 
     # TODO(P2, devx): dynamodb.update is safer but no-time.
 
-    def get_or_create_user(self, email_address: Optional[str], phone_number: Optional[str]) -> User:
+    def get_or_create_user(self, email_address: Optional[str], phone_number: Optional[str], full_name: Optional[str]) -> User:
         # NOTE: Cannot user read_data_class as that requires user_id
         response = {}
         if bool(email_address):
@@ -177,6 +177,7 @@ class DynamoDBManager:
                 signup_method=signup_method,
                 email_address=email_address,
                 phone_number=phone_number,
+                full_name=full_name,
             )
             print(f"DynamoDB: creating new user {new_user}!")
             write_data_class(self.user_table, data=new_user)

@@ -205,7 +205,7 @@ class User:
 
     signup_method: str  # either email or phone
 
-    full_name: Optional[str]
+    full_name: Optional[str] = None
 
     # TODO(P1, ux): Add more user-related fields
 

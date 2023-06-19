@@ -129,7 +129,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     data_entry.output_webpage_url = dump_page(event_page_contents, local_output_prefix, bucket_object_prefix)
 
     # === Generate page for all people of this user
-    user = dynamodb.get_or_create_user(email_address=email_params.recipient, phone_number=None)
+    user = dynamodb.get_or_create_user(email_address=email_params.recipient, phone_number=None, full_name=None)
     all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
     list_of_lists = [de.output_people_entries for de in all_data_entries]
     all_people_entries = [item for sublist in list_of_lists for item in sublist]  # GPT generated no idea how it works
@@ -196,7 +196,11 @@ def process_email_input(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw
 
     attachment_file_paths = store_and_get_attachments_from_email(msg)
 
-    user = dynamodb.get_or_create_user(email_address=base_email_params.recipient, phone_number=None)
+    user = dynamodb.get_or_create_user(
+        email_address=base_email_params.recipient,
+        phone_number=None,
+        full_name=base_email_params.recipient_full_name
+    )
 
     result = DataEntry(
         user_id=user.user_id,
@@ -251,10 +255,12 @@ def process_voice_recording_input(
     # unquote-ing here to get rid of any % (if no % then no change)
     match = re.search(pattern, unquote(bucket_key))
     phone_number = None
+    full_name = None
+    call_sid = str(datetime.datetime.now())
     if match:
         result = match.groupdict()
         call_sid = result['callSID']
-        name = result['name'].replace('Undefined', '').strip()
+        full_name = result['name'].replace('Undefined', '').strip()
         phone_number = result['phone']
 
         # Check if phone number is valid
@@ -267,14 +273,15 @@ def process_voice_recording_input(
                 print(formatted_number)
             except phonenumbers.phonenumberutil.NumberParseException:
                 print(f"ERROR: Invalid phone number {phone_number} for {bucket_key}")
-                phone_number = None
+                # TODO(P1, correctness): If wrong format still let is pass for now to increase chances of results
+                # phone_number = None
         else:
             phone_number = None
     if phone_number is None:
         print(f"ERROR: Cannot match the phone_number-name-callSID format for {bucket_key}")
         return None
 
-    user = dynamodb.get_or_create_user(email_address=None, phone_number=phone_number)
+    user = dynamodb.get_or_create_user(email_address=None, phone_number=phone_number, full_name=full_name)
     result = DataEntry(
         user_id=user.user_id,
         # IMPORTANT: This is used as idempotency-key all over the place!
