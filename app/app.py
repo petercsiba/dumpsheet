@@ -260,7 +260,11 @@ def process_voice_recording_input(
         # Check if phone number is valid
         if phone_number != 'undefined':
             try:
-                phonenumbers.parse(phone_number, None)
+                parsed_number = phonenumbers.parse(phone_number, 'US')
+                formatted_number = phonenumbers.format_number(
+                    parsed_number, phonenumbers.PhoneNumberFormat.INTERNATIONAL
+                )
+                print(formatted_number)
             except phonenumbers.phonenumberutil.NumberParseException:
                 print(f"ERROR: Invalid phone number {phone_number} for {bucket_key}")
                 phone_number = None
