@@ -1,5 +1,9 @@
 # TODO(P0, devx, quality): Update chat-gpt model usage, ideally use those functions too!
-#  * https://openai.com/blog/function-calling-and-other-api-updates
+#  * https://platform.openai.com/docs/guides/gpt/function-calling
+#   Define a function called
+#       extract_people_data(people: [
+#           {name: string, birthday: string, location: string}
+#       ]), to extract all people mentioned in a Wikipedia article.
 # TODO(P1, devx): This Haystack library looks quite good https://github.com/deepset-ai/haystack
 # TODO(P3, research, fine-tune): TLDR; NOT worth it. Feels like for repeated tasks it would be great to
 #  speed up and/or cost save https://platform.openai.com/docs/guides/fine-tuning/advanced-usage
@@ -20,7 +24,8 @@ from utils import Timer
 # TODO(P1, specify organization id): Header OpenAI-Organization
 openai.api_key = "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"
 # https://platform.openai.com/docs/models/gpt-4
-DEFAULT_MODEL = "gpt-4-0613"
+# DEFAULT_MODEL = "gpt-4-0613"
+DEFAULT_MODEL = "gpt-3.5-turbo-0613"
 test_transcript = None
 
 
@@ -118,6 +123,7 @@ class OpenAiClient:
             response = openai.ChatCompletion.create(
                 model=model,
                 messages=[{"role": "system", "content": prompt}]
+                # functions = functions
             )
         # openai.error.RateLimitError: That model is currently overloaded with other requests.
         # You can retry your request, or contact us through our help center at help.openai.com
@@ -148,7 +154,7 @@ class OpenAiClient:
                 'model': key.model,
             }, print_not_found=False)
             if bool(cached_prompt):
-                print("cached_prompt: serving out of cache")
+                print("cached_prompt: servifsdfng out of cache")
                 if cached_prompt.prompt != prompt:
                     print(f"ERROR: hash collision for {key.prompt_hash} for prompt {prompt}")
                 else:

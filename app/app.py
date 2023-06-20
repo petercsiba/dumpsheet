@@ -386,7 +386,7 @@ if __name__ == "__main__":
     ddb_client.delete_table(TableName=TABLE_NAME_USER)
     local_dynamodb.create_user_table_if_not_exists()
 
-    test_case = "voice"
+    test_case = "email"
     orig_data_entry = None
     if test_case == "email":
         # with open("test/katka-og-long-recording", "rb") as handle:
