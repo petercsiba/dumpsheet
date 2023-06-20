@@ -212,8 +212,24 @@ class User:
     @staticmethod
     def generate_user_id(email_address: Optional[str], phone_number: Optional[str]):
         # TODO(P3, devx): Better user-name
-        s = email_address if email_address else phone_number
-        return f"user.{s[:3]}.{int(time.time())}"
+        if bool(email_address):
+            return f"user.{email_address[:3]}.{int(time.time())}"
+        return f"user.{phone_number[-4:]}.{int(time.time())}"
+
+    def contact_method(self) -> str:
+        if self.email_address is not None:
+            return "email"
+        return "sms"
+
+    def get_main_identifier(self) -> str:
+        if self.email_address is not None:
+            return self.email_address
+        return self.phone_number
+
+    def project_name(self):
+        if bool(self.full_name):
+            return str(self.full_name)
+        return self.get_main_identifier()
 
     def main_page_name(self):
         return self.user_id.replace(".", "-")

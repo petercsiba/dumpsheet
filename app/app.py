@@ -78,8 +78,7 @@ def dump_page(page_contents, local_output_prefix, bucket_object_prefix):
 # Second lambda
 def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, data_entry: DataEntry):
     # ===== Actually perform black magic
-    full_name = data_entry.email_reply_params.recipient_full_name
-    bucket_object_prefix = f"{full_name}-{data_entry.event_timestamp}"
+    bucket_object_prefix = f"{data_entry.user_id}-{data_entry.event_timestamp}"
     bucket_object_prefix = re.sub(r'\s', '-', bucket_object_prefix)
     # Here we merge all successfully processed
     # * audio attachments
@@ -87,11 +86,6 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     # into one giant transcript.
     raw_transcript = "\n\n".join(data_entry.input_transcripts)
     print(f"raw_transcript: {raw_transcript}")
-
-    email_params = copy.deepcopy(data_entry.email_reply_params)
-    email_params.attachment_paths = None
-    # TODO(P2, devx): Rename project name
-    project_name = email_params.recipient_full_name
 
     # TODO(P3, infra): Use more proper temp fs
     local_output_prefix = f"/tmp/{bucket_object_prefix}"
@@ -120,17 +114,17 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     fill_in_draft_outreaches(gpt_client, people_entries)
     dynamodb.write_data_entry(data_entry)  # Only update would be nice
 
+    user = dynamodb.get_user(user_id=data_entry.user_id)
     # TODO(P1, ux): Would be nice to include the original full-transcript on the event page.
     # === Generate page with only the new events
     event_page_contents = generate_page(
-        project_name=f"{project_name} - Event",
+        project_name=user.project_name(),
         event_timestamp=data_entry.event_timestamp,
         person_data_entries=people_entries,
     )
     data_entry.output_webpage_url = dump_page(event_page_contents, local_output_prefix, bucket_object_prefix)
 
     # === Generate page for all people of this user
-    user = dynamodb.get_or_create_user(email_address=email_params.recipient, phone_number=None, full_name=None)
     all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
     list_of_lists = [de.output_people_entries for de in all_data_entries]
     all_people_entries = [item for sublist in list_of_lists for item in sublist]  # GPT generated no idea how it works
@@ -152,7 +146,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
         traceback.print_exc()
         all_summaries_filepath = None
     all_page_contents = generate_page(
-        project_name=f"{project_name} - All",
+        project_name=f"{user.project_name()} - All",
         event_timestamp=datetime.datetime.now(),
         person_data_entries=all_people_entries,
     )
@@ -165,18 +159,26 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
         print(f"Updating all_webpage_url for {data_entry.user_id} after generate all page")
         dynamodb.write_data_entry(data_entry)
 
-    email_params.attachment_paths = [x for x in [summaries_filepath, all_summaries_filepath] if x is not None]
-    send_response(
-        email_params=email_params,
-        email_datetime=data_entry.event_timestamp,
-        webpage_link=data_entry.output_webpage_url,
-        all_webpage_url=data_entry.all_webpage_url,
-        people_count=len(people_entries),
-        drafts_count=sum([len(p.drafts) for p in people_entries]),
-        prompt_stats=gpt_client.sum_up_prompt_stats(),
-        # TODO(P2, reevaluate): Might be better to allow re-generating this.
-        idempotency_key=f"{data_entry.event_name}-response"
-    )
+    if user.contact_method() == "email":
+        if data_entry.email_reply_params is None:
+            print(f"WARNING: contact_method is email but data_entry.email_reply_params is None for {user.user_id}")
+            return
+
+        email_params = copy.deepcopy(data_entry.email_reply_params)
+        email_params.attachment_paths = [x for x in [summaries_filepath, all_summaries_filepath] if x is not None]
+        send_response(
+            email_params=email_params,
+            email_datetime=data_entry.event_timestamp,
+            webpage_link=data_entry.output_webpage_url,
+            all_webpage_url=data_entry.all_webpage_url,
+            people_count=len(people_entries),
+            drafts_count=sum([len(p.drafts) for p in people_entries]),
+            prompt_stats=gpt_client.sum_up_prompt_stats(),
+            # TODO(P2, reevaluate): Might be better to allow re-generating this.
+            idempotency_key=f"{data_entry.event_name}-response"
+        )
+    if user.contact_method() == "sms":
+        print("TODO(P0, ux): Send result sms")
 
 
 # First lambda
@@ -386,7 +388,7 @@ if __name__ == "__main__":
     ddb_client.delete_table(TableName=TABLE_NAME_USER)
     local_dynamodb.create_user_table_if_not_exists()
 
-    test_case = "email"
+    test_case = "voice"  # for easy test case switching
     orig_data_entry = None
     if test_case == "email":
         # with open("test/katka-og-long-recording", "rb") as handle:

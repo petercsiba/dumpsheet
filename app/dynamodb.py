@@ -147,6 +147,12 @@ class DynamoDBManager:
 
     # TODO(P2, devx): dynamodb.update is safer but no-time.
 
+    def get_user(self, user_id) -> Optional[User]:
+        return read_data_class(User, self.user_table, {
+                'user_id': user_id,
+            }
+        )
+
     def get_or_create_user(self, email_address: Optional[str], phone_number: Optional[str], full_name: Optional[str]) -> User:
         # NOTE: Cannot user read_data_class as that requires user_id
         response = {}
