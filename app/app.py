@@ -21,6 +21,8 @@
 #   * Doppler
 #   * Better stack
 #   * https://distoai.com/
+import time
+
 import boto3
 import copy
 import datetime
@@ -83,8 +85,7 @@ def dump_page(page_contents, local_output_prefix, bucket_object_prefix) -> str:
 # Second lambda
 def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, data_entry: DataEntry):
     # ===== Actually perform black magic
-    bucket_object_prefix = f"{data_entry.user_id}-{data_entry.event_id}"
-    bucket_object_prefix = re.sub(r'\s', '-', bucket_object_prefix)
+    bucket_object_prefix = re.sub(r'\W+', '-', f"{data_entry.user_id}-{int(time.time())}")
     # Here we merge all successfully processed
     # * audio attachments
     # * email bodies
@@ -96,7 +97,8 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     people_entries = extract_per_person_summaries(gpt_client, raw_transcript=raw_transcript)
     data_entry.output_people_entries = people_entries
     dynamodb.write_data_entry(data_entry)  # Only update would be nice
-    todays_event_prefix = f"/tmp/todays-event-{data_entry.event_name.replace(' ', '-')}"
+    event_name_safe = re.sub(r'\W', '-', data_entry.event_name) # replace all non-alphanum with dashes
+    todays_event_prefix = f"/tmp/todays-event-{event_name_safe}"
 
     try:
         summaries_filepath, _ = write_output_to_local_and_bucket(
@@ -133,7 +135,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     all_people_entries = [item for sublist in list_of_lists for item in sublist]  # GPT generated no idea how it works
     print(f"all_people_entries {all_people_entries}")
     all_people_entries = sorted(all_people_entries, key=lambda pde: pde.sort_key())
-    all_contacts_as_of_prefix = f"/tmp/all-contacts-as-of-{data_entry.event_name.replace(' ', '-')}"
+    all_contacts_as_of_prefix = f"/tmp/all-contacts-as-of-{event_name_safe}"
 
     # TODO(P1, devx): This is logically the same as the above just with all_people_entries so abstract to sth.
     try:
@@ -369,11 +371,11 @@ if __name__ == "__main__":
     ddb_client.delete_table(TableName=TABLE_NAME_USER)
     local_dynamodb.create_user_table_if_not_exists()
 
-    test_case = "voice"  # FOR EASY TEST CASE SWITCHING
+    test_case = "email"  # FOR EASY TEST CASE SWITCHING
     orig_data_entry = None
     if test_case == "email":
-        # with open("test/katka-og-long-recording", "rb") as handle:
-        with open("test/test-katka-emails-kimberley", "rb") as handle:
+        with open("test/stepan-openai-servererror", "rb") as handle:
+        #with open("test/test-katka-emails-kimberley", "rb") as handle:
             file_contents = handle.read()
             # DynamoDB is used for caching between local test runs, spares both time and money!
             open_ai_client = OpenAiClient(dynamodb=local_dynamodb)

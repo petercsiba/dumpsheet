@@ -25,6 +25,9 @@ from utils import Timer
 openai.api_key = "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"
 # https://platform.openai.com/docs/models/gpt-4
 DEFAULT_MODEL = "gpt-4-0613"  # Thanks Vishal
+# Sometimes seems the newest models experience downtime-so try to backup.
+BACKUP_MODEL = "gpt-3.5-turbo"
+BACKUP_MODEL_AFTER_NUM_RETRIES = 3
 # DEFAULT_MODEL = "gpt-3.5-turbo-0613"
 test_transcript = None
 
@@ -110,14 +113,20 @@ class OpenAiClient:
         stats.total_tokens = stats.prompt_tokens + stats.completion_tokens
         return stats
 
-    def _run_prompt(self, prompt: str, model=DEFAULT_MODEL, retry_timeout=60):
+    def _run_prompt(self, prompt: str, model=DEFAULT_MODEL, retry_timeout=10, retry_num=0):
         # wait is too long so carry on
-        if retry_timeout > 600:
+        if retry_timeout > 300:
             print("ERROR: waiting for prompt too long")
             return None
+        if retry_num >= BACKUP_MODEL_AFTER_NUM_RETRIES and model != BACKUP_MODEL:
+            print(f"WARNING: Changing model from {model} to {BACKUP_MODEL} after {retry_num} retries")
+            # The "cutting-edge" models experience more downtime.
+            model = BACKUP_MODEL
 
-        # TODO(P1, ux): My testing on gpt-4 through the browswer gives better results
+        # TODO(P1, ux): My testing on gpt-4 through the browser gives better results
         #  - get access and use it on drafts.
+        response = None
+        should_retry = False
         try:
             # TODO(P2, devx): This can get stuck-ish, we should handle that somewhat nicely.
             response = openai.ChatCompletion.create(
@@ -129,10 +138,22 @@ class OpenAiClient:
         # You can retry your request, or contact us through our help center at help.openai.com
         # if the error persists.
         # (Please include the request ID 7ed28a69c5cda5378f57266336539b7d in your message.)
-        except openai.error.RateLimitError as err:
-            print(f"Got RATE-LIMITED!!! Sleeping for {retry_timeout} cause {err}")
+        except (openai.error.RateLimitError, openai.error.Timeout, openai.error.TryAgain) as err:
+            print(f"Got time-based {type(err)} error - sleeping for {retry_timeout} cause {err}")
+            should_retry = True
             time.sleep(retry_timeout)
-            return self._run_prompt(prompt, model, 2 * retry_timeout)  # exponential backoff
+        # Their fault
+        except (openai.error.APIError, openai.error.ServiceUnavailableError) as err:
+            print(f"Got server-side {type(err)} error - sleeping for {retry_timeout} cause {err}")
+            should_retry = True
+            time.sleep(retry_timeout)
+        # Our fault
+        except (openai.error.InvalidRequestError, openai.error.InvalidAPIType, openai.error.AuthenticationError) as err:
+            print(f"Got client-side {type(err)} error - we messed up so lets rethrow this error {err}")
+            raise err
+
+        if should_retry:
+            return self._run_prompt(prompt, model, 2 * retry_timeout, retry_num=retry_num+1)  # exponential backoff
 
         return response
 
