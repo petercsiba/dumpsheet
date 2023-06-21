@@ -31,6 +31,7 @@ def mkdir_safe(directory_name):
 
 def write_to_csv(data, output_file):
     # In first row we trust
+    # TODO(P2, reliability/ux): Handle this case - I need some ideas on how.
     fieldnames = data[0].keys()
     print(f"write_to_csv {len(data)} rows with fieldnames {fieldnames}")
 

@@ -21,14 +21,13 @@ import copy
 import datetime
 import email
 import os
-import phonenumbers
 import re
 import subprocess
 import traceback
 
 from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
-from urllib.parse import unquote, unquote_plus, quote_plus
+from urllib.parse import unquote_plus, quote_plus
 from typing import Optional
 
 from openai_client import OpenAiClient
@@ -39,6 +38,7 @@ from emails import send_confirmation, send_response, store_and_get_attachments_f
 from generate_flashcards import generate_page
 from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries
 from storage_utils import write_output_to_local_and_bucket
+from test_utils import extract_phone_number_from_filename
 
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
 STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
@@ -243,45 +243,13 @@ def process_voice_recording_input(
         dynamodb: DynamoDBManager,
         gpt_client: OpenAiClient,
         bucket_url: Optional[str],  # for tracking purposes
-        bucket_key: str,
+        call_sid: str,
         voice_file_data: bytes,
+        phone_number: str,
+        full_name: str,
         event_timestamp: datetime.datetime,
 ) -> Optional[DataEntry]:
-    print(f"Read {bucket_key} voice_file_data with {len(voice_file_data)} bytes")
-
-    # Example bucket_keys:
-    # +16502100123-Undefined Peter Csiba-CA7e063a0e33540dc2496d09f5b81e42aa.wav
-    # undefined--CA0f5399aafc07cf9991eb0be0d1ab7c52.wav
-    # So parse those data now
-    pattern = r"(?P<phone>\+?\d+|undefined)?-?(?P<name>[^-\n]*|undefined)?-?(?P<callSID>[^-\n]*)"
-    # unquote-ing here to get rid of any % (if no % then no change)
-    match = re.search(pattern, unquote(bucket_key))
-    phone_number = None
-    full_name = None
-    call_sid = str(datetime.datetime.now())
-    if match:
-        result = match.groupdict()
-        call_sid = result['callSID']
-        full_name = result['name'].replace('Undefined', '').strip()
-        phone_number = result['phone']
-
-        # Check if phone number is valid
-        if phone_number != 'undefined':
-            try:
-                parsed_number = phonenumbers.parse(phone_number, 'US')
-                formatted_number = phonenumbers.format_number(
-                    parsed_number, phonenumbers.PhoneNumberFormat.INTERNATIONAL
-                )
-                print(formatted_number)
-            except phonenumbers.phonenumberutil.NumberParseException:
-                print(f"ERROR: Invalid phone number {phone_number} for {bucket_key}")
-                # TODO(P1, correctness): If wrong format still let is pass for now to increase chances of results
-                # phone_number = None
-        else:
-            phone_number = None
-    if phone_number is None:
-        print(f"ERROR: Cannot match the phone_number-name-callSID format for {bucket_key}")
-        return None
+    print(f"Read {bucket_url} voice_file_data with {len(voice_file_data)} bytes")
 
     user = dynamodb.get_or_create_user(email_address=None, phone_number=phone_number, full_name=full_name)
     result = DataEntry(
@@ -296,7 +264,7 @@ def process_voice_recording_input(
     )
 
     # TODO(P0, ux): Send confirmation SMS
-    file_path = os.path.join('/tmp/', bucket_key)
+    file_path = os.path.join('/tmp/', call_sid)
     with open(file_path, 'wb') as f:
         f.write(voice_file_data)
     audio_filepath = convert_audio_to_mp4(file_path)
@@ -354,12 +322,20 @@ def lambda_handler(event, context):
     elif bucket == PHONE_RECORDINGS_BUCKET:
         voice_file_data = response['Body'].read()
         head_object = s3.head_object(Bucket=bucket, Key=key)
+        object_metadata = response['Metadata']
+        # Get the phone number and proper name from the metadata
+        # NOTE: the metadata names are case-insensitive, but Amazon S3 returns them in lowercase.
+        call_sid = object_metadata['callsid']
+        phone_number = object_metadata['phonenumber']
+        proper_name = object_metadata['propername']
         data_entry = process_voice_recording_input(
             dynamodb=dynamodb_client,
             gpt_client=gpt_client,
             bucket_url=bucket_url,
-            bucket_key=key,
             voice_file_data=voice_file_data,
+            call_sid=call_sid,
+            phone_number=phone_number,
+            full_name=proper_name,
             event_timestamp=head_object['LastModified']
         )
     else:
@@ -388,7 +364,7 @@ if __name__ == "__main__":
     ddb_client.delete_table(TableName=TABLE_NAME_USER)
     local_dynamodb.create_user_table_if_not_exists()
 
-    test_case = "email"  # for easy test case switching
+    test_case = "voice"  # FOR EASY TEST CASE SWITCHING
     orig_data_entry = None
     if test_case == "email":
         # with open("test/katka-og-long-recording", "rb") as handle:
@@ -404,6 +380,8 @@ if __name__ == "__main__":
             local_dynamodb.write_data_entry(orig_data_entry)
     if test_case == "voice":
         filename = "6502106516-Peter.Csiba-CA7e063a0e33540dc2496d09f5b81e42aa.wav"
+        # In production, we use S3 bucket metadata. Here we just get it from the filename.
+        test_phone_number, test_full_name = extract_phone_number_from_filename(filename)
         filepath = f"test/{filename}"
         creation_time = datetime.datetime.fromtimestamp(os.path.getctime(filepath))
         with open(filepath, "rb") as handle:
@@ -412,7 +390,9 @@ if __name__ == "__main__":
                 dynamodb=local_dynamodb,
                 gpt_client=open_ai_client,
                 bucket_url=None,
-                bucket_key=filename,
+                call_sid=str(creation_time),
+                phone_number=test_phone_number,
+                full_name=test_full_name,
                 voice_file_data=file_contents,
                 event_timestamp=creation_time,  # reasonably idempotent
             )
