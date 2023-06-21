@@ -91,13 +91,13 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     people_entries = extract_per_person_summaries(gpt_client, raw_transcript=raw_transcript)
     data_entry.output_people_entries = people_entries
     dynamodb.write_data_entry(data_entry)  # Only update would be nice
-    todays_event_prefix = f"/tmp/todays-event-{data_entry.event_id.replace(' ', '-')}"
+    todays_event_prefix = f"/tmp/todays-event-{data_entry.event_name.replace(' ', '-')}"
 
     try:
         summaries_filepath, _ = write_output_to_local_and_bucket(
-            # TODO(P0, ux): Generate .XLS
+            # TODO(P2, ux): Generate .XLS
             data=[pde.to_csv_map() for pde in people_entries],
-            suffix="-summaries.csv",
+            suffix=".csv",
             content_type="text/csv",
             local_output_prefix=todays_event_prefix,
             bucket_name=OUTPUT_BUCKET_NAME,
@@ -128,13 +128,13 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     all_people_entries = [item for sublist in list_of_lists for item in sublist]  # GPT generated no idea how it works
     print(f"all_people_entries {all_people_entries}")
     all_people_entries = sorted(all_people_entries, key=lambda pde: pde.sort_key())
-    all_contacts_as_of_prefix = f"/tmp/all-contacts-as-of-{data_entry.event_id.replace(' ', '-')}"
+    all_contacts_as_of_prefix = f"/tmp/all-contacts-as-of-{data_entry.event_name.replace(' ', '-')}"
 
     # TODO(P1, devx): This is logically the same as the above just with all_people_entries so abstract to sth.
     try:
         all_summaries_filepath, _ = write_output_to_local_and_bucket(
             data=[pde.to_csv_map() for pde in all_people_entries],
-            suffix="-summaries-all.csv",
+            suffix=".csv",
             content_type="text/csv",
             local_output_prefix=all_contacts_as_of_prefix,
             bucket_name=OUTPUT_BUCKET_NAME,
@@ -388,7 +388,7 @@ if __name__ == "__main__":
     ddb_client.delete_table(TableName=TABLE_NAME_USER)
     local_dynamodb.create_user_table_if_not_exists()
 
-    test_case = "voice"  # for easy test case switching
+    test_case = "email"  # for easy test case switching
     orig_data_entry = None
     if test_case == "email":
         # with open("test/katka-og-long-recording", "rb") as handle:
