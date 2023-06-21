@@ -1,3 +1,5 @@
+from urllib.parse import quote_plus
+
 import boto3
 import os
 
@@ -11,8 +13,7 @@ def get_boto_s3_client():
 
 
 def get_bucket_url(bucket: str, key: str):
-    # TODO(P2, robustness): Should we use quote here?
-    return f"https://{bucket}.s3.{DEFAULT_REGION}.amazonaws.com/{key}"
+    return f"https://{bucket}.s3.{DEFAULT_REGION}.amazonaws.com/{quote_plus(key)}"
 
 
 def is_running_in_aws():

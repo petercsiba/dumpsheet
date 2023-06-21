@@ -24,8 +24,8 @@ from utils import Timer
 # TODO(P1, specify organization id): Header OpenAI-Organization
 openai.api_key = "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"
 # https://platform.openai.com/docs/models/gpt-4
-# DEFAULT_MODEL = "gpt-4-0613"
-DEFAULT_MODEL = "gpt-3.5-turbo-0613"
+DEFAULT_MODEL = "gpt-4-0613"  # Thanks Vishal
+# DEFAULT_MODEL = "gpt-3.5-turbo-0613"
 test_transcript = None
 
 

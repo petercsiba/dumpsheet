@@ -28,7 +28,7 @@ import traceback
 
 from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
-from urllib.parse import quote, unquote
+from urllib.parse import unquote, unquote_plus, quote_plus
 from typing import Optional
 
 from openai_client import OpenAiClient
@@ -61,7 +61,7 @@ def convert_audio_to_mp4(file_path):
     return audio_file
 
 
-def dump_page(page_contents, local_output_prefix, bucket_object_prefix):
+def dump_page(page_contents, local_output_prefix, bucket_object_prefix) -> str:
     _, bucket_key = write_output_to_local_and_bucket(
         data=page_contents,
         suffix=".html",
@@ -71,7 +71,7 @@ def dump_page(page_contents, local_output_prefix, bucket_object_prefix):
         bucket_object_prefix=bucket_object_prefix
     )
     # TODO(P2, infra): Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
-    page_key = quote((bucket_key or "local").encode('utf-8'))
+    page_key = quote_plus(bucket_key or "local").encode('utf-8')
     return f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{page_key}"
 
 
@@ -320,8 +320,9 @@ def lambda_handler(event, context):
     print(f"Received Event: {event}")
     # Get the bucket name and file key from the event
     bucket = event['Records'][0]['s3']['bucket']['name']
-    # TODO(P2, robustness): Should we use un-quote here?
-    key = event['Records'][0]['s3']['object']['key']
+    # https://stackoverflow.com/questions/37412267/key-given-by-lambda-s3-event-cannot-be-used-when-containing-non-ascii-characters
+    key = unquote_plus(event['Records'][0]['s3']['object']['key'])
+    # Currently only for tracking purposes
     bucket_url = get_bucket_url(bucket, key)
     print(f"Bucket URL: {bucket_url}")
 
