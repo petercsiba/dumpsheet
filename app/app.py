@@ -78,7 +78,7 @@ def dump_page(page_contents, local_output_prefix, bucket_object_prefix) -> str:
 # Second lambda
 def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, data_entry: DataEntry):
     # ===== Actually perform black magic
-    bucket_object_prefix = f"{data_entry.user_id}-{data_entry.event_timestamp}"
+    bucket_object_prefix = f"{data_entry.user_id}-{data_entry.event_id}"
     bucket_object_prefix = re.sub(r'\s', '-', bucket_object_prefix)
     # Here we merge all successfully processed
     # * audio attachments
@@ -87,13 +87,11 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     raw_transcript = "\n\n".join(data_entry.input_transcripts)
     print(f"raw_transcript: {raw_transcript}")
 
-    # TODO(P3, infra): Use more proper temp fs
-    local_output_prefix = f"/tmp/{bucket_object_prefix}"
-
     # TODO(P0, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
     people_entries = extract_per_person_summaries(gpt_client, raw_transcript=raw_transcript)
     data_entry.output_people_entries = people_entries
     dynamodb.write_data_entry(data_entry)  # Only update would be nice
+    todays_event_prefix = f"/tmp/todays-event-{data_entry.event_id.replace(' ', '-')}"
 
     try:
         summaries_filepath, _ = write_output_to_local_and_bucket(
@@ -101,7 +99,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
             data=[pde.to_csv_map() for pde in people_entries],
             suffix="-summaries.csv",
             content_type="text/csv",
-            local_output_prefix=local_output_prefix,
+            local_output_prefix=todays_event_prefix,
             bucket_name=OUTPUT_BUCKET_NAME,
             bucket_object_prefix=bucket_object_prefix
         )
@@ -122,7 +120,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
         event_timestamp=data_entry.event_timestamp,
         person_data_entries=people_entries,
     )
-    data_entry.output_webpage_url = dump_page(event_page_contents, local_output_prefix, bucket_object_prefix)
+    data_entry.output_webpage_url = dump_page(event_page_contents, todays_event_prefix, bucket_object_prefix)
 
     # === Generate page for all people of this user
     all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
@@ -130,6 +128,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     all_people_entries = [item for sublist in list_of_lists for item in sublist]  # GPT generated no idea how it works
     print(f"all_people_entries {all_people_entries}")
     all_people_entries = sorted(all_people_entries, key=lambda pde: pde.sort_key())
+    all_contacts_as_of_prefix = f"/tmp/all-contacts-as-of-{data_entry.event_id.replace(' ', '-')}"
 
     # TODO(P1, devx): This is logically the same as the above just with all_people_entries so abstract to sth.
     try:
@@ -137,7 +136,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
             data=[pde.to_csv_map() for pde in all_people_entries],
             suffix="-summaries-all.csv",
             content_type="text/csv",
-            local_output_prefix=local_output_prefix,
+            local_output_prefix=all_contacts_as_of_prefix,
             bucket_name=OUTPUT_BUCKET_NAME,
             bucket_object_prefix=bucket_object_prefix
         )
@@ -152,7 +151,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     )
     data_entry.all_webpage_url = dump_page(
         all_page_contents,
-        local_output_prefix=f"{local_output_prefix}-all",
+        local_output_prefix=all_contacts_as_of_prefix,
         bucket_object_prefix=user.main_page_name()
     )
     if bool(dynamodb):
