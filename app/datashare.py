@@ -228,6 +228,8 @@ class DataEntry:
     event_timestamp: datetime.datetime
     email_reply_params: EmailParams
     input_s3_url: Optional[str] = None  # No S3 for local testing
+    # TODO(P1, ux): Include the full transcript from the event somewhere.
+    # TODO(P1, quality): Have an easy way to re-generate all input_transcripts t
     input_transcripts: List[str] = field(default_factory=list)
     # Note: these are pre-merged before serializing into the People table
     output_people_entries: List[PersonDataEntry] = field(default_factory=list)

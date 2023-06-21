@@ -1,7 +1,7 @@
 # TODO(P0): Prioritize all TODOs lol:
 #   git grep '# TODO' | awk -F: '{print $2 " " $1 " " $3}' | sed -e 's/^[[:space:]]*//' | sort
 # TODO(_): General product extension ideas:
-#   * Get GPT-4 access
+#   * Custom Fields configuration
 #   * Vertical SaaS (same infra, customizable format), two ways:
 #       * guess event type and come up with field summaries.
 #       * ideally prompt-engineer per recording type
@@ -13,6 +13,10 @@
 # TODO(P0, research): Explore Algolia or other enterprise search tools before going to implement ours
 #   * https://www.algolia.com/doc/guides/sending-and-managing-data/prepare-your-data/
 #   * https://www.wsj.com/articles/businesses-seek-out-chatgpt-tech-for-searching-and-analyzing-their-own-data-393ef4fb
+# TODO(P1, devx): Start integrating tools like:
+#   * Github actions
+#   * Doppler
+#   * https://distoai.com/
 
 import boto3
 import copy
