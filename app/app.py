@@ -78,7 +78,7 @@ def dump_page(page_contents, local_output_prefix, bucket_object_prefix) -> str:
         bucket_object_prefix=bucket_object_prefix
     )
     # TODO(P2, infra): Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
-    page_key = quote_plus(bucket_key or "local").encode('utf-8')
+    page_key = quote_plus(bucket_key or "local")
     return f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{page_key}"
 
 
