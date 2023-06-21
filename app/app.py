@@ -1,7 +1,7 @@
 # TODO(P0): Prioritize all TODOs lol:
 #   git grep '# TODO' | awk -F: '{print $2 " " $1 " " $3}' | sed -e 's/^[[:space:]]*//' | sort
 # TODO(_): General product extension ideas:
-#   * Get GPT-4 access
+#   * Custom Fields configuration
 #   * Vertical SaaS (same infra, customizable format), two ways:
 #       * guess event type and come up with field summaries.
 #       * ideally prompt-engineer per recording type
@@ -10,12 +10,17 @@
 #   * Share networking hacks, like on learning names "use it or lose it", "by association nick from nw", "take notes"
 #   * Self-tact
 # TODO(P1, devx): Include black, isort, flake (ideally on file save).
-# TODO(P0, research): Explore Algolia or other enterprise search tools before going to implement ours
+# TODO(P2, research): Explore Algolia or other enterprise search tools before going to implement ours
 #   * https://www.algolia.com/doc/guides/sending-and-managing-data/prepare-your-data/
 #   * https://www.wsj.com/articles/businesses-seek-out-chatgpt-tech-for-searching-and-analyzing-their-own-data-393ef4fb
 #   * Plugins seem to specialize into search, either PDFs or web: https://chat.openai.com/?model=gpt-4-plugins
 # TODO(P0, research): Try using Meta's VoiceBox to be more like a voice-first assistant:
 #   * http://ai.facebook.com/blog/voicebox-generative-ai-model-speech?trk=public_post_comment-text
+# TODO(P1, devx): Start integrating tools like:
+#   * Github actions
+#   * Doppler
+#   * Better stack
+#   * https://distoai.com/
 import boto3
 import copy
 import datetime
