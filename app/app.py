@@ -100,7 +100,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     dynamodb.write_data_entry(data_entry)  # Only update would be nice
     event_name_safe = re.sub(r'\W', '-', data_entry.event_name) # replace all non-alphanum with dashes
     todays_event_prefix = f"/tmp/todays-event-{event_name_safe}"
-    dump_page_prefix = f"{data_entry.user_id}-{event_name_safe}"
+    dump_page_prefix = f"/tmp/{data_entry.user_id}-{event_name_safe}"
 
     try:
         summaries_filepath, _ = write_output_to_local_and_bucket(
@@ -138,7 +138,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     print(f"all_people_entries {all_people_entries}")
     all_people_entries = sorted(all_people_entries, key=lambda pde: pde.sort_key())
     all_contacts_as_of_prefix = f"/tmp/all-contacts-as-of-{event_name_safe}"
-    all_dumb_page_prefix = f"{user.user_id}-all-as-of-{event_name_safe}"
+    all_dumb_page_prefix = f"/tmp/{user.user_id}-all-as-of-{event_name_safe}"
 
     # TODO(P1, devx): This is logically the same as the above just with all_people_entries so abstract to sth.
     try:
