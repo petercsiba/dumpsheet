@@ -308,6 +308,8 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
         return None
 
     orig_response = raw_response
+    # Output: ```json <text> ```
+    raw_response = re.sub(r'```[a-z\s]*?(.*?) ```', r'\1', raw_response, flags=re.DOTALL)
     # For "Expecting property name enclosed in double quotes"
     # Obviously not bullet-proof for stuff like 'Ed's', can be probably
     # raw_json = raw_response.replace("'", '"')

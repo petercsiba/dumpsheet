@@ -263,6 +263,7 @@ class DataEntry:
 
     def __post_init__(self):
         if isinstance(self.event_timestamp, str):
+            # TODO(P1, ux): Do it in their local timezone
             self.event_timestamp = datetime.datetime.fromisoformat(self.event_timestamp)
 
     def double_check_inputs(self):

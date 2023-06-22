@@ -374,7 +374,7 @@ if __name__ == "__main__":
     test_case = "email"  # FOR EASY TEST CASE SWITCHING
     orig_data_entry = None
     if test_case == "email":
-        with open("test/stepan-openai-servererror", "rb") as handle:
+        with open("test/chris-json-backticks", "rb") as handle:
         #with open("test/test-katka-emails-kimberley", "rb") as handle:
             file_contents = handle.read()
             # DynamoDB is used for caching between local test runs, spares both time and money!

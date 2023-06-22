@@ -74,12 +74,13 @@ exports.handler = async function(context, event, callback) {
       // Upload the recording to S3
         const params = {
             Bucket: 'katka-twillio-recordings',
-            Key: `${properName}-${event.CallSid}.wav`, // use the call SID as the file name
+            Key: `${callSid}.wav`, // use the call SID as the file name
             Body: recording,
             ContentType: 'audio/wav',
             Metadata: {
-                'phoneNumber': phoneNumber,
-                'properName': properName
+                'callSid': String(callSid),
+                'phoneNumber': String(phoneNumber),
+                'properName': String(properName)
             }
         };
         await s3.putObject(params).promise();

@@ -8,4 +8,6 @@ input*
 output*
 secrets*
 shared-local-instance.db
+test/chris-json-backticks
 test/katka-og-long-recording
+test/stepan-openai-servererror
