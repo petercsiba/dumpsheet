@@ -300,7 +300,8 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
         return None
     wrong_input_responses = [
         "Sorry, it is not possible to create a json dict",
-        "Sorry, as an AI language model"
+        "Sorry, as an AI language model",
+        "The note does not mention any person" #'s name or identifier
     ]
     if any(raw_response.startswith(s) for s in wrong_input_responses):
         if debug:

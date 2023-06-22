@@ -1,6 +1,6 @@
 import json
 from dataclasses import asdict
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from datashare import PersonDataEntry, Draft
 from openai_client import gpt_response_to_json, gpt_response_to_plaintext, OpenAiClient, num_tokens_from_string, \
@@ -18,7 +18,7 @@ MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
 # * Many un-attributed gaps (which was painful to map)
 # * Repeat mentions doesn't work
 # My mistake was that I tried to optimize token count, returning only indexes, which made the code very complicated.
-def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str):
+def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str) -> dict:
     transcript_words = raw_transcript.split()
     # NOTE: We shorten the string by words cause easier, but we better estimate the token count by OpenAI counter.
     token_count = num_tokens_from_string(raw_transcript)
@@ -38,6 +38,9 @@ where each string is a person name or identifier".
 The transcript: {}
     """.format(raw_transcript)
     raw_response = gpt_client.run_prompt(query_people)
+    if raw_response is None:
+        print("WARNING: Likely no people found in the input transcript")
+        return {}
     people = gpt_response_to_json(raw_response)
     print(f"People: {json.dumps(people)}")
 
@@ -103,7 +106,7 @@ def summarize_transcripts_to_person_data_entries(
         gpt_client: OpenAiClient,
         person_to_transcript: Dict[str, str]
 ) -> List[PersonDataEntry]:
-    # TODO(P0): Dynamic summary categories based off:
+    # TODO(P1, features): Dynamic summary categories based off:
     #   * Background of the speaker: https://www.reversecontact.com/case-studies
     #   * General question / note categories (chat-gpt)
     #   * Static list to fill-in if not enough (get top 5 say).
@@ -256,6 +259,8 @@ def extract_per_person_summaries(gpt_client: OpenAiClient, raw_transcript: str) 
     # TODO(P1, quality): Make sure all of the original transcript is covered OR at least we should log it.
     print("=== All people with all their mentions === ")
     print(json.dumps(person_to_transcript))
+    if person_to_transcript is None or len(person_to_transcript) == 0:
+        return []
 
     person_data_entries = summarize_transcripts_to_person_data_entries(gpt_client, person_to_transcript)
     print("=== All summaries === ")

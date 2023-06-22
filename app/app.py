@@ -96,6 +96,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     # TODO(P0, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
     people_entries = extract_per_person_summaries(gpt_client, raw_transcript=raw_transcript)
     data_entry.output_people_entries = people_entries
+    # TODO(P0, edge-cases): Make it work with 0 people
     dynamodb.write_data_entry(data_entry)  # Only update would be nice
     event_name_safe = re.sub(r'\W', '-', data_entry.event_name) # replace all non-alphanum with dashes
     todays_event_prefix = f"/tmp/todays-event-{event_name_safe}"
