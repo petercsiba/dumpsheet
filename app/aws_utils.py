@@ -3,13 +3,14 @@ from urllib.parse import quote_plus
 import boto3
 import os
 
+from botocore.config import Config
 
 DEFAULT_REGION = "us-west-2"
 DYNAMO_URL_PROD = f"https://dynamodb.{DEFAULT_REGION}.amazonaws.com"
 
 
 def get_boto_s3_client():
-    return boto3.client('s3', region_name='us-west-2')
+    return boto3.client('s3', region_name='us-west-2', config=Config(read_timeout=30, retries={'max_attempts': 1}))
 
 
 def get_bucket_url(bucket: str, key: str):

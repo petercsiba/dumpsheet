@@ -347,6 +347,9 @@ def lambda_handler(event, context):
     except NoCredentialsError as e:
         print(f"No creds for S3 cause {e}")
         return 'Execution failed'
+    except Exception as e:
+        print(f"Failed to fetch S3 object due to {e}")
+        return 'Execution failed'
     bucket_raw_data = s3_get_object_response['Body'].read()
     print(f"S3: Fetched object of size {len(bucket_raw_data)}")
 
