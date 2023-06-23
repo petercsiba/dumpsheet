@@ -21,6 +21,8 @@
 #   * Doppler
 #   * Better stack
 #   * https://distoai.com/
+# TODO(P0, ux): For not-found websites have a nicer error.html (or rederict) in
+#   * https://s3.console.aws.amazon.com/s3/bucket/static.katka.ai/property/website/edit?region=us-west-2
 import time
 
 import boto3
@@ -49,7 +51,8 @@ from test_utils import extract_phone_number_from_filename
 from twillio_client import TwilioClient
 
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
-STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
+# STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
+STATIC_HOSTING_BUCKET_NAME = "static.katka.ai"
 
 s3 = get_boto_s3_client()
 
@@ -80,7 +83,8 @@ def dump_page(page_contents, local_output_prefix, bucket_object_prefix) -> str:
     )
     # TODO(P2, infra): Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
     page_key = quote_plus(bucket_key or "local")
-    return f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{page_key}"
+    return f"http://static.katka.ai/{page_key}"
+    # return f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{page_key}"
 
 
 def generate_all_person_webpage(
