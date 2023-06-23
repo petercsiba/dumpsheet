@@ -98,6 +98,7 @@ class PromptLog:
 
 class OpenAiClient:
     def __init__(self, dynamodb: Optional[DynamoDBManager]):
+        print("OpenAiClient init")
         self.prompt_cache_table = dynamodb.create_prompt_table_if_not_exists() if bool(dynamodb) else None
         # In-memory representation of the above to mostly sum up stats.
         self.prompt_stats: List[PromptLog] = []

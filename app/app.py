@@ -337,16 +337,18 @@ def lambda_handler(event, context):
     bucket = event['Records'][0]['s3']['bucket']['name']
     # https://stackoverflow.com/questions/37412267/key-given-by-lambda-s3-event-cannot-be-used-when-containing-non-ascii-characters
     key = unquote_plus(event['Records'][0]['s3']['object']['key'])
-    # Currently only for tracking purposes
+    # Currently only used for tracking purposes
     bucket_url = get_bucket_url(bucket, key)
-    print(f"Bucket URL: {bucket_url}")
+    print(f"Gonna get S3 object from bucket URL: {bucket_url}")
 
     # Download the email from S3
     try:
-        response = s3.get_object(Bucket=bucket, Key=key)
+        s3_get_object_response = s3.get_object(Bucket=bucket, Key=key)
     except NoCredentialsError as e:
         print(f"No creds for S3 cause {e}")
         return 'Execution failed'
+    bucket_raw_data = s3_get_object_response['Body'].read()
+    print(f"S3: Fetched object of size {len(bucket_raw_data)}")
 
     # Setup global deps
     endpoint_url = get_dynamo_endpoint_url()
@@ -362,7 +364,7 @@ def lambda_handler(event, context):
 
     # First Lambda
     if bucket == EMAIL_BUCKET:
-        raw_email = response['Body'].read()
+        raw_email = bucket_raw_data
         data_entry = process_email_input(
             dynamodb=dynamodb_client,
             gpt_client=gpt_client,
@@ -370,9 +372,9 @@ def lambda_handler(event, context):
             bucket_url=bucket_url
         )
     elif bucket == PHONE_RECORDINGS_BUCKET:
-        voice_file_data = response['Body'].read()
+        voice_file_data = bucket_raw_data
         head_object = s3.head_object(Bucket=bucket, Key=key)
-        object_metadata = response['Metadata']
+        object_metadata = s3_get_object_response['Metadata']
         # Get the phone number and proper name from the metadata
         # NOTE: the metadata names are case-insensitive, but Amazon S3 returns them in lowercase.
         call_sid = object_metadata['callsid']

@@ -120,6 +120,7 @@ def parse_dynamodb_json(dynamodb_json):
 
 class DynamoDBManager:
     def __init__(self, endpoint_url):
+        print(f"DynamoDBManager Init on {endpoint_url}")
         self.dynamodb = boto3.resource('dynamodb', endpoint_url=endpoint_url)
         self.user_table = self.create_user_table_if_not_exists()
         self.data_entry_table = self.create_data_entry_table_if_not_exists()

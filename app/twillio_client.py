@@ -12,6 +12,7 @@ FROM_PHONE_NUMBER = "+18554137047"
 
 class TwilioClient:
     def __init__(self, from_phone=FROM_PHONE_NUMBER):
+        print(f"TwilioClient init from_phone {from_phone}")
         self.account_sid = os.environ['TWILIO_ACCOUNT_SID']
         self.auth_token = os.environ['TWILIO_AUTH_TOKEN']
         self.from_phone = from_phone
