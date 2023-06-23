@@ -281,6 +281,17 @@ def _get_first_occurrence(s: str, list_of_chars: list):
     return first_occurrence
 
 
+def _get_last_occurrence(s: str, list_of_chars: list):
+    last_occurrence = -1  # initialize to -1 as a "not found" value
+
+    for char in list_of_chars:
+        index = s.rfind(char)
+        if index > last_occurrence:  # update if char found and it's later
+            last_occurrence = index
+
+    return last_occurrence
+
+
 def _try_decode_non_json(raw_response: str):
     # Sometimes it returns a list of strings in format of " -"
     lines = raw_response.split("\n")
@@ -346,9 +357,13 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
     except json.decoder.JSONDecodeError as orig_err:
         # In case there is something before the actual json output like "Output:", "Here you go:", "Sure ..".
         start_index = _get_first_occurrence(raw_response, ['{', '['])
-        raw_json = raw_response[start_index:]  # -1 works
-        if debug and len(raw_json) * 2 < len(raw_response):
-            print(f"WARNING: Likely the GPT response is NOT a JSON:\n{raw_json}\nresulted from\n{orig_response}")
+        last_index = _get_last_occurrence(raw_response, ['}', ']'])
+        raw_json = raw_response[start_index:last_index+1]  # -1 works
+        if debug and len(raw_json) * 2 < len(raw_response):  # heuristic to determine that we shortened too much
+            print(
+                f"WARNING: likely the GPT response is NOT a JSON (shortened [{start_index}:{last_index}]):"
+                f"\n{raw_json}\nresulted from\n{orig_response}"
+            )
             return _try_decode_non_json(raw_response)
         try:
             result = json.loads(raw_json)

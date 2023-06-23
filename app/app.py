@@ -291,7 +291,10 @@ def process_voice_recording_input(
 ) -> Optional[DataEntry]:
     print(f"Read {bucket_url} voice_file_data with {len(voice_file_data)} bytes")
 
-    msg = f"Thanks boss! Received your voicemail of size {pretty_filesize_int} - gonna organize it right away!"
+    msg = (
+        f"Thanks boss! Received your voicemail of size {pretty_filesize_int(len(voice_file_data))}"
+        "- gonna organize it right away!"
+    )
     if bool(twilio_client):
         twilio_client.send_sms(
             phone_number,
