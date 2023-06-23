@@ -35,12 +35,12 @@ import traceback
 from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
 from urllib.parse import unquote_plus, quote_plus
-from typing import Optional
+from typing import Optional, Tuple
 
 from openai_client import OpenAiClient
 from dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager, TABLE_NAME_USER
 from aws_utils import get_bucket_url, get_dynamo_endpoint_url, get_boto_s3_client
-from datashare import DataEntry
+from datashare import DataEntry, User
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
 from generate_flashcards import generate_page
 from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries
@@ -82,6 +82,52 @@ def dump_page(page_contents, local_output_prefix, bucket_object_prefix) -> str:
     return f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{page_key}"
 
 
+def generate_all_person_webpage(
+        dynamodb: DynamoDBManager,
+        user: User,
+        event_name_safe: str,
+        bucket_object_prefix,
+) -> Tuple[Optional[str], Optional[str]]:
+    # === Generate page for all people of this user
+    all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
+    if all_data_entries is None or len(all_data_entries) <= 1:
+        print(f"NOT generating all people entries page cause only one or less DataEntries found for {user.user_id}")
+        return None, None
+
+    list_of_lists = [de.output_people_entries for de in all_data_entries]
+    all_people_entries = [item for sublist in list_of_lists for item in sublist]  # GPT generated no idea how it works
+    print(f"all_people_entries {all_people_entries}")
+    all_people_entries = sorted(all_people_entries, key=lambda pde: pde.sort_key())
+    all_contacts_as_of_prefix = f"/tmp/all-contacts-as-of-{event_name_safe}"
+    all_dumb_page_prefix = f"/tmp/{user.user_id}-all-as-of-{event_name_safe}"
+
+    # TODO(P1, devx): This is logically the same as the above just with all_people_entries so abstract to sth.
+    try:
+        all_summaries_filepath, _ = write_output_to_local_and_bucket(
+            data=[pde.to_csv_map() for pde in all_people_entries],
+            suffix=".csv",
+            content_type="text/csv",
+            local_output_prefix=all_contacts_as_of_prefix,
+            bucket_name=OUTPUT_BUCKET_NAME,
+            bucket_object_prefix=bucket_object_prefix
+        )
+    except Exception as err:
+        print(f"WARNING: could NOT write summaries ALL to local cause {err}")
+        traceback.print_exc()
+        all_summaries_filepath = None
+
+    all_page_contents = generate_page(
+        project_name=f"{user.project_name()} - All",
+        event_timestamp=datetime.datetime.now(),
+        person_data_entries=all_people_entries,
+    )
+    return dump_page(
+        all_page_contents,
+        local_output_prefix=all_dumb_page_prefix,
+        bucket_object_prefix=user.main_page_name()
+    ), all_summaries_filepath
+
+
 # Second lambda
 def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, data_entry: DataEntry):
     # ===== Actually perform black magic
@@ -98,7 +144,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
     data_entry.output_people_entries = people_entries
     # TODO(P0, edge-cases): Make it work with 0 people
     dynamodb.write_data_entry(data_entry)  # Only update would be nice
-    event_name_safe = re.sub(r'\W', '-', data_entry.event_name) # replace all non-alphanum with dashes
+    event_name_safe = re.sub(r'\W', '-', data_entry.event_name)  # replace all non-alphanum with dashes
     todays_event_prefix = f"/tmp/todays-event-{event_name_safe}"
     dump_page_prefix = f"/tmp/{data_entry.user_id}-{event_name_safe}"
 
@@ -130,40 +176,10 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
         person_data_entries=people_entries,
     )
     data_entry.output_webpage_url = dump_page(event_page_contents, dump_page_prefix, bucket_object_prefix)
-
-    # === Generate page for all people of this user
-    all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
-    list_of_lists = [de.output_people_entries for de in all_data_entries]
-    all_people_entries = [item for sublist in list_of_lists for item in sublist]  # GPT generated no idea how it works
-    print(f"all_people_entries {all_people_entries}")
-    all_people_entries = sorted(all_people_entries, key=lambda pde: pde.sort_key())
-    all_contacts_as_of_prefix = f"/tmp/all-contacts-as-of-{event_name_safe}"
-    all_dumb_page_prefix = f"/tmp/{user.user_id}-all-as-of-{event_name_safe}"
-
-    # TODO(P1, devx): This is logically the same as the above just with all_people_entries so abstract to sth.
-    try:
-        all_summaries_filepath, _ = write_output_to_local_and_bucket(
-            data=[pde.to_csv_map() for pde in all_people_entries],
-            suffix=".csv",
-            content_type="text/csv",
-            local_output_prefix=all_contacts_as_of_prefix,
-            bucket_name=OUTPUT_BUCKET_NAME,
-            bucket_object_prefix=bucket_object_prefix
-        )
-    except Exception as err:
-        print(f"WARNING: could NOT write summaries ALL to local cause {err}")
-        traceback.print_exc()
-        all_summaries_filepath = None
-    all_page_contents = generate_page(
-        project_name=f"{user.project_name()} - All",
-        event_timestamp=datetime.datetime.now(),
-        person_data_entries=all_people_entries,
+    data_entry.all_webpage_url, all_summaries_filepath = generate_all_person_webpage(
+        dynamodb, user, event_name_safe, bucket_object_prefix
     )
-    data_entry.all_webpage_url = dump_page(
-        all_page_contents,
-        local_output_prefix=all_dumb_page_prefix,
-        bucket_object_prefix=user.main_page_name()
-    )
+
     if bool(dynamodb):
         print(f"Updating all_webpage_url for {data_entry.user_id} after generate all page")
         dynamodb.write_data_entry(data_entry)
@@ -174,7 +190,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
             return
 
         email_params = copy.deepcopy(data_entry.email_reply_params)
-        email_params.attachment_paths = [x for x in [summaries_filepath, all_summaries_filepath] if x is not None]
+        email_params.attachment_paths = [x for x in [summaries_filepath, data_entry] if x is not None]
         send_response(
             email_params=email_params,
             email_datetime=data_entry.event_timestamp,
@@ -377,8 +393,8 @@ if __name__ == "__main__":
     test_case = "email"  # FOR EASY TEST CASE SWITCHING
     orig_data_entry = None
     if test_case == "email":
+        # with open("test/test-katka-emails-kimberley", "rb") as handle:
         with open("test/chris-json-backticks", "rb") as handle:
-        #with open("test/test-katka-emails-kimberley", "rb") as handle:
             file_contents = handle.read()
             # DynamoDB is used for caching between local test runs, spares both time and money!
             open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
