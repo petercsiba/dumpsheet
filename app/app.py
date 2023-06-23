@@ -190,7 +190,7 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
             return
 
         email_params = copy.deepcopy(data_entry.email_reply_params)
-        email_params.attachment_paths = [x for x in [summaries_filepath, data_entry] if x is not None]
+        email_params.attachment_paths = [x for x in [summaries_filepath, all_summaries_filepath] if x is not None]
         send_response(
             email_params=email_params,
             email_datetime=data_entry.event_timestamp,
