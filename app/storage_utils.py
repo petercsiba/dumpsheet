@@ -7,12 +7,16 @@ from aws_utils import is_running_in_aws, get_boto_s3_client
 s3 = get_boto_s3_client()
 
 
-def pretty_filesize(file_path):
-    return f"{os.path.getsize(file_path) / (1024 * 1024):.2f}MB"
+def pretty_filesize_int(file_size: int) -> str:
+    return f"{file_size / (1024 * 1024):.2f}MB"
+
+
+def pretty_filesize_path(file_path: str) -> str:
+    return pretty_filesize_int(os.path.getsize(file_path))
 
 
 def get_fileinfo(file_handle):
-    return f"File {file_handle.name} is {pretty_filesize(file_handle.name)}"
+    return f"File {file_handle.name} is {pretty_filesize_path(file_handle.name)}"
 
 
 def mkdir_safe(directory_name):
@@ -74,7 +78,7 @@ def write_output_to_local_and_bucket(
     else:
         with open(local_filepath, "w") as file_handle:
             file_handle.write(data)
-    print(f"Written {pretty_filesize(local_filepath)} to {local_filepath}")
+    print(f"Written {pretty_filesize_path(local_filepath)} to {local_filepath}")
 
     bucket_key = None
     if is_running_in_aws():

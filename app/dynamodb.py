@@ -8,8 +8,7 @@ from botocore.exceptions import ClientError
 from dataclasses import dataclass
 from typing import Optional, Type, Any, List
 
-from datashare import DataEntry, dataclass_to_json, User, dict_to_dataclass
-
+from datashare import DataEntry, dataclass_to_json, User, dict_to_dataclass, GSI_NULL
 
 # TODO(P2, security): Ideally the Lambda should only have permissions to these tables
 # https://us-east-1.console.aws.amazon.com/iam/home#/roles/katka-ai-container-lambda-role-iadxzlko$createPolicy?step=edit
@@ -153,10 +152,16 @@ class DynamoDBManager:
             }
         )
 
-    def get_or_create_user(self, email_address: Optional[str], phone_number: Optional[str], full_name: Optional[str]) -> User:
+    def get_or_create_user(
+            self,
+            email_address: Optional[str],
+            phone_number: Optional[str],
+            full_name: Optional[str]
+    ) -> User:
         # NOTE: Cannot user read_data_class as that requires user_id
         response = {}
         if bool(email_address):
+            print("searching user by email_address")
             response = self.user_table.query(
                 IndexName=generate_index_name(self.user_table.table_name, "email_address"),
                 KeyConditionExpression='email_address = :email',
@@ -165,6 +170,7 @@ class DynamoDBManager:
                 }
             )
         elif bool(phone_number):
+            print("searching user by email_address")
             response = self.user_table.query(
                 IndexName=generate_index_name(self.user_table.table_name, "phone_number"),
                 KeyConditionExpression='phone_number = :phone',
@@ -177,9 +183,9 @@ class DynamoDBManager:
 
         items = response['Items']
         if items is None or len(items) == 0:
-            signup_method = "email" if bool(email_address) else phone_number
-            user_email_address = email_address or "TODO"
-            user_phone_number = phone_number or "TODO"
+            signup_method = "email" if bool(email_address) else "phone_number"
+            user_email_address = email_address or GSI_NULL
+            user_phone_number = phone_number or GSI_NULL
             new_user = User(
                 user_id=User.generate_user_id(email_address=email_address, phone_number=phone_number),
                 signup_method=signup_method,

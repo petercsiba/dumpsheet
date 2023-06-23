@@ -44,8 +44,9 @@ from datashare import DataEntry, User
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
 from generate_flashcards import generate_page
 from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries
-from storage_utils import write_output_to_local_and_bucket
+from storage_utils import write_output_to_local_and_bucket, pretty_filesize_int
 from test_utils import extract_phone_number_from_filename
+from twillio_client import TwilioClient
 
 OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
 STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
@@ -129,7 +130,12 @@ def generate_all_person_webpage(
 
 
 # Second lambda
-def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, data_entry: DataEntry):
+def process_transcript_from_data_entry(
+        dynamodb: DynamoDBManager,
+        gpt_client: OpenAiClient,
+        twilio_client: Optional[TwilioClient],
+        data_entry: DataEntry
+):
     # ===== Actually perform black magic
     bucket_object_prefix = re.sub(r'\W+', '-', f"{data_entry.user_id}-{int(time.time())}")
     # Here we merge all successfully processed
@@ -180,9 +186,8 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
         dynamodb, user, event_name_safe, bucket_object_prefix
     )
 
-    if bool(dynamodb):
-        print(f"Updating all_webpage_url for {data_entry.user_id} after generate all page")
-        dynamodb.write_data_entry(data_entry)
+    print(f"Updating all_webpage_url for {data_entry.user_id} after generate all page")
+    dynamodb.write_data_entry(data_entry)
 
     if user.contact_method() == "email":
         if data_entry.email_reply_params is None:
@@ -203,7 +208,15 @@ def process_transcript_from_data_entry(dynamodb: DynamoDBManager, gpt_client: Op
             idempotency_key=f"{data_entry.event_name}-response"
         )
     if user.contact_method() == "sms":
-        print("TODO(P0, ux): Send result sms")
+        msg = f"Here is your event summary: {data_entry.output_webpage_url}"
+        if bool(twilio_client):
+            twilio_client.send_sms(
+                to_phone=user.phone_number,
+                # TODO(P1, ux): Url shortener OR at least static.katka.ai (instead of aws s3)
+                body=msg
+            )
+        else:
+            print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
 
 
 # First lambda
@@ -268,6 +281,7 @@ def process_email_input(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw
 def process_voice_recording_input(
         dynamodb: DynamoDBManager,
         gpt_client: OpenAiClient,
+        twilio_client: Optional[TwilioClient],
         bucket_url: Optional[str],  # for tracking purposes
         call_sid: str,
         voice_file_data: bytes,
@@ -276,6 +290,15 @@ def process_voice_recording_input(
         event_timestamp: datetime.datetime,
 ) -> Optional[DataEntry]:
     print(f"Read {bucket_url} voice_file_data with {len(voice_file_data)} bytes")
+
+    msg = f"Thanks boss! Received your voicemail of size {pretty_filesize_int} - gonna organize it right away!"
+    if bool(twilio_client):
+        twilio_client.send_sms(
+            phone_number,
+            body=msg,
+        )
+    else:
+        print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
 
     user = dynamodb.get_or_create_user(email_address=None, phone_number=phone_number, full_name=full_name)
     result = DataEntry(
@@ -289,7 +312,6 @@ def process_voice_recording_input(
         input_s3_url=bucket_url,
     )
 
-    # TODO(P0, ux): Send confirmation SMS
     file_path = os.path.join('/tmp/', call_sid)
     with open(file_path, 'wb') as f:
         f.write(voice_file_data)
@@ -331,10 +353,12 @@ def lambda_handler(event, context):
     try:
         dynamodb_client = DynamoDBManager(endpoint_url=endpoint_url)
     except Exception as err:
-        print(f"ERROR: Could NOT create DynamoDB to {endpoint_url} cause {err}")
+        print(f"ERROR: Could NOT connect DynamoDB to {endpoint_url} cause {err}")
+        # TODO(p3, devx): Make this a fatal error
         dynamodb_client = None
 
     gpt_client = OpenAiClient(dynamodb=dynamodb_client)
+    twilio_client = TwilioClient()
 
     # First Lambda
     if bucket == EMAIL_BUCKET:
@@ -357,6 +381,7 @@ def lambda_handler(event, context):
         data_entry = process_voice_recording_input(
             dynamodb=dynamodb_client,
             gpt_client=gpt_client,
+            twilio_client=twilio_client,
             bucket_url=bucket_url,
             voice_file_data=voice_file_data,
             call_sid=call_sid,
@@ -372,7 +397,12 @@ def lambda_handler(event, context):
 
     # Second Lambda
     # NOTE: When we actually separate them - be careful about re-tries to clear the output.
-    process_transcript_from_data_entry(dynamodb=dynamodb_client, gpt_client=gpt_client, data_entry=data_entry)
+    process_transcript_from_data_entry(
+        dynamodb=dynamodb_client,
+        gpt_client=gpt_client,
+        twilio_client=twilio_client,
+        data_entry=data_entry
+    )
 
 
 # For local testing without emails or S3, great for bigger refactors.
@@ -390,7 +420,7 @@ if __name__ == "__main__":
     ddb_client.delete_table(TableName=TABLE_NAME_USER)
     local_dynamodb.create_user_table_if_not_exists()
 
-    test_case = "email"  # FOR EASY TEST CASE SWITCHING
+    test_case = "call"  # FOR EASY TEST CASE SWITCHING
     orig_data_entry = None
     if test_case == "email":
         # with open("test/test-katka-emails-kimberley", "rb") as handle:
@@ -404,7 +434,7 @@ if __name__ == "__main__":
                 raw_email=file_contents
             )
             local_dynamodb.write_data_entry(orig_data_entry)
-    if test_case == "voice":
+    if test_case == "call":
         filename = "6502106516-Peter.Csiba-CA7e063a0e33540dc2496d09f5b81e42aa.wav"
         # In production, we use S3 bucket metadata. Here we just get it from the filename.
         test_phone_number, test_full_name = extract_phone_number_from_filename(filename)
@@ -415,6 +445,8 @@ if __name__ == "__main__":
             orig_data_entry = process_voice_recording_input(
                 dynamodb=local_dynamodb,
                 gpt_client=open_ai_client,
+                # TODO(P1, testing): Support local testing
+                twilio_client=None,
                 bucket_url=None,
                 call_sid=str(creation_time),
                 phone_number=test_phone_number,
@@ -431,7 +463,8 @@ if __name__ == "__main__":
     process_transcript_from_data_entry(
         dynamodb=local_dynamodb,
         gpt_client=open_ai_client,
-        data_entry=orig_data_entry
+        data_entry=orig_data_entry,
+        twilio_client=None,
     )
 
     teardown_dynamodb_local(process)

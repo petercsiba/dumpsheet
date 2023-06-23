@@ -12,6 +12,8 @@ from typing import Any, Dict, List, Optional, Type, get_origin, get_args
 #   Do two dynamodb.put_item, one with ConditionExpression='attribute_not_exists(createdAt)'
 # MAYBE I should actually use update_item (instead of put_item)
 
+GSI_NULL = "__NULL_FOR_GSI__"
+
 
 def check_required_str(name, s):
     if s is None or len(s) == 0:
@@ -198,12 +200,12 @@ class PersonDataEntry:
 class User:
     # Partition Key
     user_id: str
-    # NOTE: No sort-key here, just GSIs.
-
-    email_address: Optional[str]
-    phone_number: Optional[str]
 
     signup_method: str  # either email or phone
+
+    # NOTE: No sort-key here, just GSIs - these do NOT allow for NULL.
+    email_address: str = GSI_NULL
+    phone_number: str = GSI_NULL
 
     full_name: Optional[str] = None
 
@@ -217,12 +219,12 @@ class User:
         return f"user.{phone_number[-4:]}.{int(time.time())}"
 
     def contact_method(self) -> str:
-        if self.email_address is not None:
+        if self.email_address != GSI_NULL or self.phone_number == GSI_NULL:
             return "email"
         return "sms"
 
     def get_main_identifier(self) -> str:
-        if self.email_address is not None:
+        if self.contact_method() == "email":
             return self.email_address
         return self.phone_number
 

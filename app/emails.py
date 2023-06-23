@@ -19,7 +19,7 @@ from aws_utils import is_running_in_aws, get_dynamo_endpoint_url
 from datashare import EmailParams, EmailLog
 from dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
 from openai_client import PromptStats
-from storage_utils import pretty_filesize
+from storage_utils import pretty_filesize_path
 
 SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
 DEBUG_RECIPIENTS = ["petherz@gmail.com", "kata.sabo@gmail.com"]
@@ -294,7 +294,7 @@ def send_confirmation(params: EmailParams, attachment_paths: List, dedup_prefix=
     else:
         file_list = []
         for file_path in attachment_paths:
-            file_size = pretty_filesize(file_path)
+            file_size = pretty_filesize_path(file_path)
             file_list.append(f"<li>{os.path.basename(file_path)} ({file_size})</li>")
         file_list_str = "\n".join(file_list)
 
