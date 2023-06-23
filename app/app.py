@@ -300,10 +300,12 @@ def process_voice_recording_input(
         "- gonna organize it right away!"
     )
     if bool(twilio_client):
-        twilio_client.send_sms(
-            phone_number,
-            body=msg,
-        )
+        # TODO(P0, ux):
+        print("SKIPPING send_sms confirmation until Twilio toll-free verification")
+        # twilio_client.send_sms(
+        #     phone_number,
+        #     body=msg,
+        # )
     else:
         print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
 
