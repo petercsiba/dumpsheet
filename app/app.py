@@ -296,16 +296,15 @@ def process_voice_recording_input(
     print(f"Read {bucket_url} voice_file_data with {len(voice_file_data)} bytes")
 
     msg = (
-        f"Thanks boss! Received your voicemail of size {pretty_filesize_int(len(voice_file_data))}"
-        "- gonna organize it right away!"
+        f"I have received your voicemail (size {pretty_filesize_int(len(voice_file_data))}). "
+        "To get your results, please respond with a text contain your email address. "
+        "To opt-out, please respond with 'NO'. Thank you!"
     )
     if bool(twilio_client):
-        # TODO(P0, ux):
-        print("SKIPPING send_sms confirmation until Twilio toll-free verification")
-        # twilio_client.send_sms(
-        #     phone_number,
-        #     body=msg,
-        # )
+        twilio_client.send_sms(
+            phone_number,
+            body=msg,
+        )
     else:
         print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
 

@@ -19,7 +19,8 @@ class TwilioClient:
         self.client = Client(self.account_sid, self.auth_token)
         self.call_count = 0
 
-    # TODO(P0, ux): Support idempotency keys here too.
+    # TODO(P1, ux): Support idempotency keys here too.
+    # TODO(P0, ux): Figure out that consent https://www.twilio.com/en-us/legal/messaging-policy
     def send_sms(self, to_phone, body) -> Optional[str]:
         try:
             with Timer("Twilio Send SMS"):
