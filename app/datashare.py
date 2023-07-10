@@ -6,6 +6,7 @@ from dataclasses import dataclass, field, is_dataclass, asdict, fields
 from json import JSONEncoder
 from typing import Any, Dict, List, Optional, Type, get_origin, get_args
 
+from config import SENDER_EMAIL, DEBUG_RECIPIENTS
 
 # TODO(P1, devx): Figure out created_at, updated_at
 #   Probably need a base dynamo-table dataclass - ah, i might just end up with PynamoDB
@@ -236,6 +237,16 @@ class User:
     def main_page_name(self):
         return self.user_id.replace(".", "-")
 
+    def get_email_reply_params(self, subject):
+        return EmailParams(
+            sender=SENDER_EMAIL,
+            recipient=self.email_address,
+            recipient_full_name=self.full_name,
+            subject=subject,
+            reply_to=DEBUG_RECIPIENTS,  # We skip the orig_to_address, as that would trigger another transcription.
+        )
+    # The rest of params will get filled in later
+
 
 @dataclass
 class DataEntryKey:
@@ -251,7 +262,7 @@ class DataEntry:
     # Additional items
     event_id: str  # used as computer idempotency key, e.g. received email Message-id
     event_timestamp: datetime.datetime
-    email_reply_params: Optional[EmailParams]
+    # email_reply_params: Optional[EmailParams]
     # TODO(P1, devx): Think of how to support emails so no raw strings
     input_type: str  # either email or phone
     input_s3_url: Optional[str] = None  # No S3 for local testing

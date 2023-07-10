@@ -64,8 +64,8 @@ class PromptStats:
     # TODO(P2, fun): Might be cool to translate it to dollars, I guess one-day usage based billing.
     def pretty_print(self):
         return (
-            f"{self.total_requests} queries to LLMs ({self.total_tokens} tokens "
-            f"in {self.request_time_ms/1000:.2f} seconds total query time)."
+            f"{self.total_requests} queries to LLMs ({self.total_tokens} tokens) "
+            f"in {self.request_time_ms/1000:.2f} seconds total query time."
         )
 
 

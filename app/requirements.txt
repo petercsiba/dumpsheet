@@ -4,6 +4,7 @@ openai
 phonenumbers
 plotly
 pytz
+supabase
 tiktoken
 toml
 twilio

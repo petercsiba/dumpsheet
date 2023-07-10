@@ -39,6 +39,7 @@ from email.utils import parseaddr
 from urllib.parse import unquote_plus, quote_plus
 from typing import Optional, Tuple
 
+from config import STATIC_HOSTING_BUCKET_NAME
 from openai_client import OpenAiClient
 from dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager, TABLE_NAME_USER
 from aws_utils import get_bucket_url, get_dynamo_endpoint_url, get_boto_s3_client
@@ -49,10 +50,6 @@ from networking_dump import fill_in_draft_outreaches, extract_per_person_summari
 from storage_utils import write_output_to_local_and_bucket, pretty_filesize_int
 from test_utils import extract_phone_number_from_filename
 from twillio_client import TwilioClient
-
-OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
-# STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
-STATIC_HOSTING_BUCKET_NAME = "static.katka.ai"
 
 s3 = get_boto_s3_client()
 
@@ -193,16 +190,35 @@ def process_transcript_from_data_entry(
     print(f"Updating all_webpage_url for {data_entry.user_id} after generate all page")
     dynamodb.write_data_entry(data_entry)
 
-    if user.contact_method() == "email":
-        if data_entry.email_reply_params is None:
-            print(f"WARNING: contact_method is email but data_entry.email_reply_params is None for {user.user_id}")
-            return
+    if user.contact_method() == "sms":
+        msg = f"Here is your event summary: {data_entry.output_webpage_url}"
+        if not bool(twilio_client):
+            print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
+        else:
+            twilio_client.send_sms(
+                to_phone=user.phone_number,
+                # TODO(P1, ux): Url shortener OR at least static.katka.ai (instead of aws s3)
+                body=msg
+            )
+            # When onboarding through Voice call & SMS, there is a chance that the email gets updated at a wrong time.
+            # So lets keep refreshing it a few times to lower the chances.
+            for i in range(3):
+                print("Sleeping 1 minute to re-fetch the user - maybe we get the email")
+                time.sleep(60)
+                user = dynamodb.get_user(user.user_id)
+                if user.contact_method() == "email":
+                    print("Great success - email was updated and we can send them a nice confirmation too!")
+                    break
 
-        email_params = copy.deepcopy(data_entry.email_reply_params)
-        email_params.attachment_paths = [x for x in [summaries_filepath, all_summaries_filepath] if x is not None]
+    if user.contact_method() == "email":
+        email_params = user.get_email_reply_params(
+            subject=f"The summary from your event at {event_name_safe} is ready for your review!"
+        )
+        # Removed all_summaries_filepath for now
+        email_params.attachment_paths = [x for x in [summaries_filepath] if x is not None]
         send_response(
+            event_name=event_name_safe,
             email_params=email_params,
-            email_datetime=data_entry.event_timestamp,
             webpage_link=data_entry.output_webpage_url,
             all_webpage_url=data_entry.all_webpage_url,
             people_count=len(people_entries),
@@ -211,16 +227,6 @@ def process_transcript_from_data_entry(
             # TODO(P2, reevaluate): Might be better to allow re-generating this.
             idempotency_key=f"{data_entry.event_name}-response"
         )
-    if user.contact_method() == "sms":
-        msg = f"Here is your event summary: {data_entry.output_webpage_url}"
-        if bool(twilio_client):
-            twilio_client.send_sms(
-                to_phone=user.phone_number,
-                # TODO(P1, ux): Url shortener OR at least static.katka.ai (instead of aws s3)
-                body=msg
-            )
-        else:
-            print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
 
 
 # First lambda
@@ -253,7 +259,6 @@ def process_email_input(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw
         event_name=email_datetime.strftime('%B %d, %H:%M'),
         event_id=msg['Message-ID'],
         event_timestamp=email_datetime,
-        email_reply_params=base_email_params,
         input_type="email",
         input_s3_url=bucket_url,
     )
@@ -315,7 +320,6 @@ def process_voice_recording_input(
         event_name=event_timestamp.strftime('%B %d, %H:%M'),
         event_id=call_sid,
         event_timestamp=event_timestamp,
-        email_reply_params=None,
         input_type="phone",
         input_s3_url=bucket_url,
     )
@@ -433,7 +437,7 @@ if __name__ == "__main__":
     ddb_client.delete_table(TableName=TABLE_NAME_USER)
     local_dynamodb.create_user_table_if_not_exists()
 
-    test_case = "call"  # FOR EASY TEST CASE SWITCHING
+    test_case = "email"  # FOR EASY TEST CASE SWITCHING
     orig_data_entry = None
     if test_case == "email":
         # with open("test/test-katka-emails-kimberley", "rb") as handle:

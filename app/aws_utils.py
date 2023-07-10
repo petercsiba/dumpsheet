@@ -5,8 +5,7 @@ import os
 
 from botocore.config import Config
 
-DEFAULT_REGION = "us-west-2"
-DYNAMO_URL_PROD = f"https://dynamodb.{DEFAULT_REGION}.amazonaws.com"
+from config import DEFAULT_REGION, DYNAMO_URL_PROD
 
 
 def get_boto_s3_client():

@@ -2,14 +2,13 @@ from email.header import decode_header
 from typing import Optional, List
 
 import boto3
-import datetime
-import pytz
 import os
 import time
 import traceback
 
 from bs4 import BeautifulSoup
 
+from config import DEBUG_RECIPIENTS
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -20,9 +19,6 @@ from datashare import EmailParams, EmailLog
 from dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
 from openai_client import PromptStats
 from storage_utils import pretty_filesize_path
-
-SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
-DEBUG_RECIPIENTS = ["petherz@gmail.com", "kata.sabo@gmail.com"]
 
 
 def store_and_get_attachments_from_email(msg):
@@ -321,8 +317,8 @@ def send_confirmation(params: EmailParams, attachment_paths: List, dedup_prefix=
 
 
 def send_response(
+        event_name: str,
         email_params: EmailParams,
-        email_datetime: datetime.datetime,
         webpage_link: str,
         all_webpage_url: str,
         people_count: int,
@@ -330,22 +326,9 @@ def send_response(
         prompt_stats: PromptStats,
         idempotency_key: Optional[str],
 ):
-    # TODO(P1, migration): Get it from DataEntry.event_name
-    email_dt_str = email_datetime.strftime('%B %d, %H:%M')
-    now = datetime.datetime.now(pytz.utc)
-    try:
-        time_to_generate = now - email_datetime
-        total_seconds = int(time_to_generate.total_seconds())
-        minutes, seconds = divmod(total_seconds, 60)
-        to_generate_str = f'{minutes} minutes {seconds} seconds'
-    except Exception as err:
-        print(f"couldn't get time-to-generate for {now} - {email_datetime} cause {err}")
-        to_generate_str = "unknown"
-
-    # subject = f"The summary from your event sent at {email_dt_str} is ready for your review!"
     # TODO(P1, ux): The button seems to NOT render - investigate why.
     email_params.body_text = (
-        f"  <h3>The summary from your event sent at {email_dt_str} is ready for your review!</h3>"
+        f"  <h3>The summary from your event sent at {event_name} is ready for your review!</h3>"
         "  <p>Looks like you had a great time at your recent event! Excellent job!</p>"
         "  <p><strong>Here's a little recap of your success:</strong></p>"
         "  <ul>"
@@ -356,18 +339,18 @@ def send_response(
         "  <h4>Now, let's discuss what's next, shall we? 💪 Here's your game plan:</h4>"
         "  <ul>"
         f"      <li><strong>First</strong>, "
-        f"<a href=\"{webpage_link}\">head over to your event summary from {email_dt_str}</a>. "
+        f"<a href=\"{webpage_link}\">head over to your event summary from {event_name}</a>. "
         f"          It's your directory of people with proposed draft messages. ✉️</li>"
         "      <li>Choose the one draft that suits your style, personalize it if necessary, "
         "          and hit send to start building your new connections. 📧</li>"
         "      <li>We've also attached a detailed table of all the key summaries for your excel-cirse skills. 📊</li>"
-        f"     <li>Remember, you can access <a href=\"{all_webpage_url}\">ALL of your profile history on your page</a></li>"
+  #      f"     <li>Remember, you can access <a href=\"{all_webpage_url}\">ALL of your profile history on your page</a></li>"
         "  </ul>"
         "  <p>Have any questions? No problem! 😊</p>"
         f"  <p>Just hit reply or send an email to my supervisors at {' or '.join(DEBUG_RECIPIENTS)}. "
         "      They're here to help. 👍</p>"
         "  <h4>Keep up the great work! 💪</h4>"
         "  <p>Your team at katka.ai</p>"
-        f"This summary took {to_generate_str} to generate using {prompt_stats.pretty_print()}"
+        f"Stats: To generate this summary we used up {prompt_stats.pretty_print()}"
     )
     send_email(params=email_params, idempotency_key=idempotency_key)

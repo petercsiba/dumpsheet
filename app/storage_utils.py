@@ -1,6 +1,6 @@
 import csv
 import os
-from typing import Tuple
+from typing import Tuple, Optional
 
 from aws_utils import is_running_in_aws, get_boto_s3_client
 
@@ -67,8 +67,8 @@ def write_output_to_local_and_bucket(
         suffix: str,
         local_output_prefix: str,
         content_type: str,
-        bucket_name: str,
-        bucket_object_prefix: str,
+        bucket_name: Optional[str],
+        bucket_object_prefix: Optional[str],
 ) -> Tuple[str, str]:
     local_filepath = f"{local_output_prefix}{suffix}"
     print(f"Gonna write some data to {local_filepath}")
