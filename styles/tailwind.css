@@ -3,6 +3,19 @@
 @tailwind utilities;
 
 /* Write your own custom component styles here */
+.btn-purple {
+  @apply border border-black bg-purple text-white font-bold py-2 px-4 rounded text-center;
+}
+.btn-purple:hover {
+  @apply transition duration-150 bg-white text-black;
+}
+.btn-purple-outline {
+  @apply border border-black text-black py-2 px-4 rounded font-bold text-center;
+}
+.btn-purple-outline:hover {
+  @apply transition duration-150 bg-purple text-white;
+}
+
 .btn-black {
   @apply border border-black bg-black text-white font-bold py-2 px-4 rounded text-center;
 }
@@ -16,6 +29,20 @@
   @apply transition duration-150 bg-black text-white;
 }
 
+/* TODO(p2, design): Figure out if there is a better way to override this */
+.supabase-ui-auth_ui-button {
+  @apply border border-black bg-purple text-white font-bold py-2 px-4 rounded text-center;
+}
+.supabase-ui-auth_ui-button:hover {
+  @apply transition duration-150 bg-white text-black;
+}
+.supabase-ui-auth_ui-button-outline {
+  @apply border border-black text-black py-2 px-4 rounded font-bold text-center;
+}
+.supabase-ui-auth_ui-button-outline:hover {
+  @apply transition duration-150 bg-purple text-white;
+}
+
 html,
 body,
 #__next {
@@ -24,7 +51,7 @@ body,
 }
 
 h1 {
-  font-size: 4rem;
+  font-size: 3rem;
   font-weight: bold;
   display: block;
 }
