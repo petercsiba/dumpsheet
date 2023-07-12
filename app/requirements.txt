@@ -3,6 +3,8 @@ boto3
 openai
 phonenumbers
 plotly
+psycopg2[binary,pool]
+python-dotenv
 pytz
 supabase
 tiktoken

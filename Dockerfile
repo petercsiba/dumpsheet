@@ -17,6 +17,7 @@ RUN apk add --no-cache \
 # Stage 2 - build function and dependencies
 FROM python-alpine AS build-image
 # Install aws-lambda-cpp build dependencies
+# postgresql-dev a libffi-dev are for psycopg[binary,pool] (this is always such a pain to install)
 RUN apk add --no-cache \
     build-base \
     libtool \
@@ -28,7 +29,9 @@ RUN apk add --no-cache \
     libcurl \
     ffmpeg \
     rust \
-    cargo
+    cargo \
+    postgresql-dev \
+    libffi-dev
 
 ENV PYTHONUNBUFFERED=1
 

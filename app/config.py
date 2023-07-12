@@ -1,3 +1,7 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # AWS stuff
 DEFAULT_REGION = "us-west-2"
@@ -11,3 +15,10 @@ STATIC_HOSTING_BUCKET_NAME = "static.katka.ai"
 # EMAIL Stuff
 SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
 DEBUG_RECIPIENTS = ["petherz@gmail.com", "kata.sabo@gmail.com"]
+
+
+# SUPABASE STUFF
+SUPABASE_URL: str = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY: str = os.environ.get("SUPABASE_KEY")
+
+POSTGRES_LOGIN_URL: str = os.environ.get("POSTGRES_LOGIN_URL")
