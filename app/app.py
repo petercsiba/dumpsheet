@@ -1,3 +1,17 @@
+# TODO(P0): PLAN MIGRATION TO VOXANA; Will just wing-it.
+#  * Add basic double-write for katka and peter (today)
+#    * For now just users and todos
+#  * Create a new branch (wednesday all day)
+#  * Strip the functionality:
+#    * NO HTML GEN
+#    * NO CSV GEN
+#    * NO DYNAMO DB
+#    *   Figure out caching and idempotency.
+#    *   (P1, devx): Figure out some lightweight ORM?
+#    *     * SQLAlchemy can generate schemas out of describe, so we can supabase pull, apply, generate on-commit hook.
+#  * Move transactional emails to HubSpot (see my Notes)
+#  * Eventually migrate old data (TBD on triggers)
+#
 # TODO(P0): Prioritize all TODOs lol:
 #   git grep '# TODO' | awk -F: '{print $2 " " $1 " " $3}' | sed -e 's/^[[:space:]]*//' | sort
 # TODO(_): General product extension ideas:
@@ -39,7 +53,9 @@ from email.utils import parseaddr
 from urllib.parse import unquote_plus, quote_plus
 from typing import Optional, Tuple
 
-from config import STATIC_HOSTING_BUCKET_NAME
+from supabase_client import get_postgres_connection, get_magic_link_and_create_user_if_does_not_exists, \
+    get_user_id_for_email, insert_into_todos, supabase
+from config import STATIC_HOSTING_BUCKET_NAME, DEBUG_RECIPIENTS
 from openai_client import OpenAiClient
 from dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager, TABLE_NAME_USER
 from aws_utils import get_bucket_url, get_dynamo_endpoint_url, get_boto_s3_client
@@ -52,6 +68,35 @@ from test_utils import extract_phone_number_from_filename
 from twillio_client import TwilioClient
 
 s3 = get_boto_s3_client()
+
+
+def do_voxana(dynamodb: DynamoDBManager, data_entry: DataEntry):
+    # Later for migration all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
+    print(f"DO VOXANA for {data_entry.user_id}")
+
+    with get_postgres_connection() as postgres_conn:
+        dynamodb_user = dynamodb.get_user(user_id=data_entry.user_id)
+        email = dynamodb_user.email_address
+        # TODO(ux, P1): Reconstruct this magic link
+        get_magic_link_and_create_user_if_does_not_exists(email=email)
+        supabase_user_id = get_user_id_for_email(postgres_conn, email)
+        print(f"gonna insert todos for {len(data_entry.output_people_entries)} people for user {supabase_user_id}")
+
+        todos = []
+        for pde in data_entry.output_people_entries:
+            for draft in pde.follow_ups:
+                todos.append({
+                    "user_id": supabase_user_id,
+                    "task": f"{pde.name} ({pde.priority} from {data_entry.event_timestamp}): {draft}",
+                    "is_complete": False,
+                })
+        insert_into_todos(postgres_conn, todos)
+
+        # Just try querying:
+        response = supabase.table('todos').select("*").execute()
+        print(f"all todos for user {supabase_user_id}: {response}")
+
+        supabase.auth.sign_out()
 
 
 # Here object_prefix is used for both local, response attachments and buckets.
@@ -175,6 +220,13 @@ def process_transcript_from_data_entry(
     dynamodb.write_data_entry(data_entry)  # Only update would be nice
 
     user = dynamodb.get_user(user_id=data_entry.user_id)
+    if user.email_address in DEBUG_RECIPIENTS:
+        try:
+            do_voxana(dynamodb, data_entry)
+        except Exception as ex:
+            print(f"do voxana failed with (we gonna carry on): {ex}")
+            traceback.print_exc()
+
     # TODO(P1, ux): Would be nice to include the original full-transcript on the event page.
     # === Generate page with only the new events
     event_page_contents = generate_page(
@@ -440,8 +492,8 @@ if __name__ == "__main__":
     test_case = "email"  # FOR EASY TEST CASE SWITCHING
     orig_data_entry = None
     if test_case == "email":
-        # with open("test/test-katka-emails-kimberley", "rb") as handle:
-        with open("test/chris-json-backticks", "rb") as handle:
+        with open("test/test-katka-emails-kimberley", "rb") as handle:
+        # with open("test/chris-json-backticks", "rb") as handle:
             file_contents = handle.read()
             # DynamoDB is used for caching between local test runs, spares both time and money!
             open_ai_client = OpenAiClient(dynamodb=local_dynamodb)

@@ -52,6 +52,7 @@ RUN python${RUNTIME_VERSION} -m pip install --upgrade pip
 #   However, you can use a tool like pip-accel to speed up installation by parallelizing the process.
 # NOTE: Try to speed up Python requirements build time by using pre-compiled stuff
 RUN python${RUNTIME_VERSION} -m pip install -r ${FUNCTION_DIR}/requirements.txt --target ${FUNCTION_DIR}
+
 # Install Lambda Runtime Interface Client for Python
 # TODO(P1, devx): Figure out how to cache this OR we can split into two lambdas where the other is Python-only.
 RUN python${RUNTIME_VERSION} -m pip install awslambdaric --target ${FUNCTION_DIR}
@@ -59,6 +60,8 @@ RUN python${RUNTIME_VERSION} -m pip install awslambdaric --target ${FUNCTION_DIR
 # Stage 3 - final runtime image
 # Grab a fresh copy of the Python image
 FROM python-alpine
+# Install libpq (PostgreSQL client library)
+RUN apk add --no-cache libpq
 # Include global arg in this stage of the build
 ARG FUNCTION_DIR
 # Set working directory to function root directory

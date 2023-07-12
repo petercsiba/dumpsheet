@@ -56,7 +56,8 @@ def insert_into_todos(conn, todos):
     with conn.cursor() as cur:
         insert_query = "INSERT INTO todos (user_id, task, is_complete) VALUES (%s, %s, %s);"
         for todo in todos:
-            cur.execute(insert_query, (todo['user_id'], todo['task'], todo['is_complete']))
+            res = cur.execute(insert_query, (todo['user_id'], todo['task'], todo['is_complete']))
+            print(f"insert into todos: {res}")
     conn.commit()
 
 
@@ -145,6 +146,5 @@ if __name__ == "__main__":
         # Just try querying:
         response = supabase.table('todos').select("*").execute()
         print(f"all todos for user {user_id}: {response}")
-
 
         supabase.auth.sign_out()
