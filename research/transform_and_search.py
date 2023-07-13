@@ -8,7 +8,7 @@ import toml
 
 # TODO(P1, devx): Refactor this into common and python modules - that requires some docker and install stuff.
 from app.openai_client import gpt_response_to_json, OpenAiClient
-from app.storage_utils import write_to_csv
+# from app.storage_utils import write_to_csv
 
 config = toml.load('secrets.toml')
 openai.api_key = config["OPEN_API_KEY"]
@@ -158,7 +158,8 @@ else:
     for person in people.values():
         print(f"Summarizing {person.get('name', None)}")
         transformed_data.append(openai_client, transform_fields(person))
-    write_to_csv(transformed_data, TRANSFORMED_OUTPUT)
+    # TODO: Resurrect
+    # write_to_csv(transformed_data, TRANSFORMED_OUTPUT)
 
 num_pairs = 10
 n = len(transformed_data)
