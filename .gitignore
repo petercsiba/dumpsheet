@@ -12,4 +12,5 @@ shared-local-instance.db
 test/katka-cbs-action
 test/chris-json-backticks
 test/katka-og-long-recording
+test/prod-dataentry-dump.csv
 test/stepan-openai-servererror
