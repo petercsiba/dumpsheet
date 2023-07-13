@@ -1,5 +1,5 @@
 from email.header import decode_header
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 import boto3
 import os
@@ -8,7 +8,7 @@ import traceback
 
 from bs4 import BeautifulSoup
 
-from config import DEBUG_RECIPIENTS
+from config import DEBUG_RECIPIENTS, SUPPORT_EMAIL
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
@@ -17,7 +17,6 @@ from email.utils import parseaddr
 from aws_utils import is_running_in_aws, get_dynamo_endpoint_url
 from datashare import EmailParams, EmailLog
 from dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
-from openai_client import PromptStats
 from storage_utils import pretty_filesize_path
 
 
@@ -87,11 +86,11 @@ def get_email_params_for_reply(msg):
         recipient=reply_to_address,
         recipient_full_name=sender_full_name,
         subject=f"Re: {orig_subject}",
-        reply_to=DEBUG_RECIPIENTS,  # We skip the orig_to_address, as that would trigger another transcription.
+        reply_to=SUPPORT_EMAIL,  # We skip the orig_to_address, as that would trigger another transcription.
     )
 
 
-# TODO(P0): Have a way to test email-renderings for bugs before deployment.
+# TODO(P1, features): Potentially use multi-part emails with this function
 def get_text_from_email(msg):
     print("get_text_from_email")
     parts = []
@@ -126,7 +125,7 @@ def create_raw_email_with_attachments(params: EmailParams):
     # Fill in sender name
     sender_name, sender_email = parseaddr(params.sender)
     if sender_name == "":
-        params.sender = f"Katka.AI Assistant <{sender_email}>"
+        params.sender = f"voxana.AI Assistant <{sender_email}>"
 
     if params.reply_to is None:
         params.reply_to = [params.sender]
@@ -269,23 +268,27 @@ def send_email(params: EmailParams, idempotency_key: Optional[str] = None) -> bo
         return False
 
 
+def add_signature():
+    return """
+    <h3>Got any questions?</h3>
+        <p>Just hit reply. My supervisors are here to assist you with anything you need. 📞👩‍💼👨‍💼</p>
+        <p>Your team at https://www.voxana.ai</p>
+    """
+
+
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
-#   * OR maybe even to SES.
+#   * Yeah, we might want to centralize this into Hubspot Transactional email API.
 # We have attachment_paths separate, so the response email doesn't re-attach them.
 def send_confirmation(params: EmailParams, attachment_paths: List, dedup_prefix=None):
     if len(attachment_paths) == 0:
         params.body_text = ("""
             <h3>Yo """ + params.get_recipient_first_name() + """, did you forgot the attachment?</h3>
-        <p>Thanks for trying out katka.ai - your personal networking assistant - 
+        <p>Thanks for using voxana.ai - your personal networking assistant - 
         aka the backoffice hero who takes care of the admin so that you can focus on what truly matters.</p>
         <p>But yo boss, where is the attachment? ☕ I would love to brew you a coffee, but I ain't real, 
         so an emoji will have to do it: ☕</p>
         <p>Remember, any audio file would do, I can convert stuff myself! 🎧</p>
-    <h3>Got any questions? 🔥</h3>
-        <p>Feel free to hit reply. My supervisors are here to assist you with anything you need. 📞👩‍💼👨‍💼</p>
-        <p>Keep rocking it!</p>
-        <p>Your amazing team at katka.ai 🚀</p>
-        """)
+        """ + add_signature())
         send_email(params=params, idempotency_key=None if dedup_prefix is None else f"{dedup_prefix}-forgot-attachment")
     else:
         file_list = []
@@ -297,7 +300,7 @@ def send_confirmation(params: EmailParams, attachment_paths: List, dedup_prefix=
         # subject = f"Hey {params.get_recipient_first_name()} - !"
         params.body_text = ("""
     <h3>Hello there """ + params.get_recipient_first_name() + """! 👋</h3>
-        <p>Thanks for trying out katka.ai - your personal networking assistant - aka the backoffice guru who takes care 
+        <p>Thanks for using voxana.ai - your personal networking assistant - aka the backoffice guru who takes care 
             of the admin so that you can focus on what truly matters.</p>
     <h3>Rest assured, I got your recording and I am already crunching through it!</h3>
         <p>I've received the following files:</p>
@@ -307,50 +310,25 @@ def send_confirmation(params: EmailParams, attachment_paths: List, dedup_prefix=
             <li> Relax for about 2 to 10 minutes until I work through your brain-dump boss. ⏱️️</li>
             <li> Be on a look-out for an email from """ + params.sender + """</li>
         </ul>
-    <h3>Got any questions? 🔥</h3>
-        <p>Feel free to hit reply or reach out to my supervisors at """ + ' or '.join(DEBUG_RECIPIENTS) + """
-        They're here to assist you with anything you need. 📞👩‍💼👨‍💼</p>
-        <p>Keep rocking it!</p>
-        <p>Your amazing team at katka.ai 🚀</p>
-        """)
+        """ + add_signature())
         send_email(params=params, idempotency_key=None if dedup_prefix is None else f"{dedup_prefix}-confirmation")
 
 
-def send_response(
+def send_responses(
         event_name: str,
         email_params: EmailParams,
-        webpage_link: str,
-        all_webpage_url: str,
-        people_count: int,
-        drafts_count: int,
-        prompt_stats: PromptStats,
-        idempotency_key: Optional[str],
+        actions: Dict[str, str],
+        idempotency_key_prefix: Optional[str],
 ):
-    # TODO(P1, ux): The button seems to NOT render - investigate why.
-    email_params.body_text = (
-        f"  <h3>The summary from your event sent at {event_name} is ready for your review!</h3>"
-        "  <p>Looks like you had a great time at your recent event! Excellent job!</p>"
-        "  <p><strong>Here's a little recap of your success:</strong></p>"
-        "  <ul>"
-        f"      <li>You had the chance to meet {people_count} impressive individuals. 🤝</li>"
-        f"      <li>And you've got {drafts_count} potential actions to choose from, "
-        f"          complete with drafted messages to start building those new relationships.</li>"
-        "  </ul>"
-        "  <h4>Now, let's discuss what's next, shall we? 💪 Here's your game plan:</h4>"
-        "  <ul>"
-        f"      <li><strong>First</strong>, "
-        f"<a href=\"{webpage_link}\">head over to your event summary from {event_name}</a>. "
-        f"          It's your directory of people with proposed draft messages. ✉️</li>"
-        "      <li>Choose the one draft that suits your style, personalize it if necessary, "
-        "          and hit send to start building your new connections. 📧</li>"
-        "      <li>We've also attached a detailed table of all the key summaries for your excel-cirse skills. 📊</li>"
-  #      f"     <li>Remember, you can access <a href=\"{all_webpage_url}\">ALL of your profile history on your page</a></li>"
-        "  </ul>"
-        "  <p>Have any questions? No problem! 😊</p>"
-        f"  <p>Just hit reply or send an email to my supervisors at {' or '.join(DEBUG_RECIPIENTS)}. "
-        "      They're here to help. 👍</p>"
-        "  <h4>Keep up the great work! 💪</h4>"
-        "  <p>Your team at katka.ai</p>"
-        f"Stats: To generate this summary we used up {prompt_stats.pretty_print()}"
-    )
-    send_email(params=email_params, idempotency_key=idempotency_key)
+    i = 0
+    for subject, body in actions.items():
+        i += 1
+        email_params.subject = subject
+        # TODO(P1, ux): The button seems to NOT render - investigate why.
+        email_params.body_text = (
+            f"  <h3>{subject}</h3>"
+            "  <p>I have crunched through your brain dump and for this action I propose the following draft</p>"
+            # TODO(P0, ux): Format this with bullet points
+            f" <p>{body}</p>" + add_signature()
+        )
+        send_email(params=email_params, idempotency_key=f"{idempotency_key_prefix}-{i}")

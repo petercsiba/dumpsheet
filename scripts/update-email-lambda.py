@@ -123,6 +123,7 @@ def send_email(user_id, email, full_name):
 
     try:
         return ses.send_email(
+            # TODO(PO, migration): Make it @voxana.ai
             Source="Katka.AI <assistant@katka.ai>",  # SES verified email
             Destination={
                 'ToAddresses': [

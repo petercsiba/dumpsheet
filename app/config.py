@@ -14,7 +14,8 @@ STATIC_HOSTING_BUCKET_NAME = "static.katka.ai"
 
 # EMAIL Stuff
 SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
-DEBUG_RECIPIENTS = ["petherz@gmail.com", "kata.sabo@gmail.com"]
+SUPPORT_EMAIL = "Voxana.AI <support@voxana.ai>"
+DEBUG_RECIPIENTS = ["email-archive@voxana.ai"]
 
 
 # SUPABASE STUFF

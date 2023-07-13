@@ -54,12 +54,11 @@ from typing import Optional
 
 from supabase_client import get_postgres_connection, get_magic_link_and_create_user_if_does_not_exists, \
     get_user_id_for_email, insert_into_todos, supabase
-from config import DEBUG_RECIPIENTS
 from openai_client import OpenAiClient
 from dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager, TABLE_NAME_USER
 from aws_utils import get_bucket_url, get_dynamo_endpoint_url, get_boto_s3_client
 from datashare import DataEntry
-from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
+from emails import send_confirmation, send_responses, store_and_get_attachments_from_email, get_email_params_for_reply
 from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries
 from storage_utils import pretty_filesize_int
 from test_utils import extract_phone_number_from_filename
@@ -120,7 +119,6 @@ def process_transcript_from_data_entry(
         data_entry: DataEntry
 ):
     # ===== Actually perform black magic
-    bucket_object_prefix = re.sub(r'\W+', '-', f"{data_entry.user_id}-{int(time.time())}")
     # Here we merge all successfully processed
     # * audio attachments
     # * email bodies
@@ -176,9 +174,12 @@ def process_transcript_from_data_entry(
         actions = {}
         for person in people_entries:
             for draft in person.drafts:
-                actions[f"{person.name}:{draft.intent}"] = draft.message
+                actions[f"{person.name}: {draft.intent}"] = draft.message
 
-        send_response(
+        action_names = '\n'.join(actions.keys())
+        print(f"ALL ACTION SUBJECTS: {action_names}")
+
+        send_responses(
             event_name=event_name_safe,
             email_params=email_params,
             actions=actions,
