@@ -1,13 +1,12 @@
-from contextlib import contextmanager
-from urllib.parse import urlparse
-
 import psycopg2
 
+from contextlib import contextmanager
 from gotrue import Session
 from supabase import create_client, Client
+from urllib.parse import urlparse
 
-from config import SUPABASE_URL, SUPABASE_KEY, POSTGRES_LOGIN_URL
-from aws_utils import is_running_in_aws
+from common.config import SUPABASE_URL, SUPABASE_KEY, POSTGRES_LOGIN_URL
+from common.aws_utils import is_running_in_aws
 
 
 supabase: Client = create_client(

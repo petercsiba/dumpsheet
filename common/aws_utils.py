@@ -1,11 +1,10 @@
-from urllib.parse import quote_plus
-
 import boto3
 import os
 
 from botocore.config import Config
+from urllib.parse import quote_plus
 
-from config import DEFAULT_REGION, DYNAMO_URL_PROD
+from common.config import DEFAULT_REGION, DYNAMO_URL_PROD
 
 
 def get_boto_s3_client():

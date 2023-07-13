@@ -1,3 +1,4 @@
+# TODO(P0, devx): RIP DynamoDB (for now great for caching)
 import boto3
 import json
 import subprocess
@@ -8,7 +9,7 @@ from botocore.exceptions import ClientError
 from dataclasses import dataclass
 from typing import Optional, Type, Any, List
 
-from datashare import DataEntry, dataclass_to_json, User, dict_to_dataclass, GSI_NULL
+from app.datashare import DataEntry, dataclass_to_json, User, dict_to_dataclass, GSI_NULL
 
 # TODO(P2, security): Ideally the Lambda should only have permissions to these tables
 # https://us-east-1.console.aws.amazon.com/iam/home#/roles/katka-ai-container-lambda-role-iadxzlko$createPolicy?step=edit

@@ -17,10 +17,10 @@ import time
 from dataclasses import dataclass
 from typing import Optional, List
 
-from config import OPEN_AI_API_KEY
-from dynamodb import DynamoDBManager, write_data_class, read_data_class
-from storage_utils import get_fileinfo
-from utils import Timer
+from app.dynamodb import DynamoDBManager, write_data_class, read_data_class
+from common.config import OPEN_AI_API_KEY
+from common.storage_utils import get_fileinfo
+from common.utils import Timer
 
 # TODO(P1, specify organization id): Header OpenAI-Organization
 openai.api_key = OPEN_AI_API_KEY

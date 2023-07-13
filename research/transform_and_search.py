@@ -7,7 +7,7 @@ import time
 import toml
 
 # TODO(P1, devx): Refactor this into common and python modules - that requires some docker and install stuff.
-from app.openai_client import gpt_response_to_json, OpenAiClient
+from common.openai_client import gpt_response_to_json, OpenAiClient
 # from app.storage_utils import write_to_csv
 
 config = toml.load('secrets.toml')

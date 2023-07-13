@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, is_dataclass, asdict, fields
 from json import JSONEncoder
 from typing import Any, Dict, List, Optional, Type, get_origin, get_args
 
-from config import SENDER_EMAIL, DEBUG_RECIPIENTS, SUPPORT_EMAIL
+from common.config import SENDER_EMAIL, SUPPORT_EMAIL
 
 # TODO(P1, devx): Figure out created_at, updated_at
 #   Probably need a base dynamo-table dataclass - ah, i might just end up with PynamoDB

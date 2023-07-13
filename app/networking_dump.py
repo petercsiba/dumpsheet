@@ -1,9 +1,9 @@
 import json
 from dataclasses import asdict
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-from datashare import PersonDataEntry, Draft
-from openai_client import gpt_response_to_json, gpt_response_to_plaintext, OpenAiClient, num_tokens_from_string, \
+from app.datashare import PersonDataEntry, Draft
+from common.openai_client import gpt_response_to_json, gpt_response_to_plaintext, OpenAiClient, num_tokens_from_string, \
     DEFAULT_MODEL
 
 MIN_TRANSCRIPT_LENGTH = 80  # characters, can prevent some "hallucinations"

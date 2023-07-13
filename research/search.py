@@ -8,7 +8,7 @@ import numpy as np
 from openai.embeddings_utils import cosine_similarity
 from typing import List, Type, Any
 
-from app.openai_client import OpenAiClient
+from common.openai_client import OpenAiClient
 from app.datashare import DataEntry, PersonDataEntry, dict_to_dataclass
 from app.dynamodb import parse_dynamodb_json
 

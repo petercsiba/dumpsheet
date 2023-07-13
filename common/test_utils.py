@@ -6,6 +6,7 @@ import re
 
 
 # I have sweat a lot on this function so keeping it around - using S3 Metadata is definitely more robust (and PII).
+# TODO(P2, devx): Maybe get rid of this
 def extract_phone_number_from_filename(file_name: str) -> Tuple[Optional[str], Optional[str]]:
     # Example bucket_keys:
     # +16502100123-Undefined Peter Csiba-CA7e063a0e33540dc2496d09f5b81e42aa.wav

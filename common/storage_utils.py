@@ -1,7 +1,7 @@
 import os
 from typing import Tuple, Optional
 
-from aws_utils import is_running_in_aws, get_boto_s3_client
+from common.aws_utils import is_running_in_aws, get_boto_s3_client
 
 s3 = get_boto_s3_client()
 

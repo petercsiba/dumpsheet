@@ -1,23 +1,21 @@
-from email.header import decode_header
-from typing import Optional, List, Dict
-
 import boto3
 import os
 import time
 import traceback
 
 from bs4 import BeautifulSoup
-
-from config import DEBUG_RECIPIENTS, SUPPORT_EMAIL
+from email.header import decode_header
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.application import MIMEApplication
 from email.utils import parseaddr
+from typing import Optional, List, Dict
 
-from aws_utils import is_running_in_aws, get_dynamo_endpoint_url
-from datashare import EmailParams, EmailLog
-from dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
-from storage_utils import pretty_filesize_path
+from app.datashare import EmailParams, EmailLog
+from common.aws_utils import is_running_in_aws, get_dynamo_endpoint_url
+from common.config import DEBUG_RECIPIENTS, SUPPORT_EMAIL
+from app.dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
+from common.storage_utils import pretty_filesize_path
 
 
 def store_and_get_attachments_from_email(msg):

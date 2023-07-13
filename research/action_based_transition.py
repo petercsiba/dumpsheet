@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 
 from app.dynamodb import setup_dynamodb_local, teardown_dynamodb_local
-from app.openai_client import OpenAiClient
+from common.openai_client import OpenAiClient
 
 
 def flatten_json(json_string: str) -> List:
@@ -97,7 +97,7 @@ One personalized sentence to share my excitement, using the main topic and facts
     ]
     parts = []
     for query in queries:
-        gpt_client.run_prompt(query + f"\n\nMy notes: {notes}")
+        parts.append(gpt_client.run_prompt(query + f"\n\nMy notes: {notes}"))
     return "\n===============\n\n".join(parts)
 
 

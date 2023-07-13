@@ -1,10 +1,10 @@
 import os
-from typing import Optional
 
 from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
+from typing import Optional
 
-from utils import Timer
+from common.utils import Timer
 
 
 FROM_PHONE_NUMBER = "+18554137047"

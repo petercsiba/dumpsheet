@@ -52,17 +52,17 @@ from email.utils import parseaddr
 from urllib.parse import unquote_plus
 from typing import Optional
 
-from supabase_client import get_postgres_connection, get_magic_link_and_create_user_if_does_not_exists, \
+from app.datashare import DataEntry
+from app.emails import send_confirmation, send_responses, store_and_get_attachments_from_email, get_email_params_for_reply
+from app.networking_dump import fill_in_draft_outreaches, extract_per_person_summaries
+from common.supabase_client import get_postgres_connection, get_magic_link_and_create_user_if_does_not_exists, \
     get_user_id_for_email, insert_into_todos, supabase
-from openai_client import OpenAiClient
-from dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager, TABLE_NAME_USER
-from aws_utils import get_bucket_url, get_dynamo_endpoint_url, get_boto_s3_client
-from datashare import DataEntry
-from emails import send_confirmation, send_responses, store_and_get_attachments_from_email, get_email_params_for_reply
-from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries
-from storage_utils import pretty_filesize_int
-from test_utils import extract_phone_number_from_filename
-from twillio_client import TwilioClient
+from common.openai_client import OpenAiClient
+from app.dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager, TABLE_NAME_USER
+from common.aws_utils import get_bucket_url, get_dynamo_endpoint_url, get_boto_s3_client
+from common.storage_utils import pretty_filesize_int
+from common.test_utils import extract_phone_number_from_filename
+from common.twillio_client import TwilioClient
 
 s3 = get_boto_s3_client()
 
