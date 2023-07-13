@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, is_dataclass, asdict, fields
 from json import JSONEncoder
 from typing import Any, Dict, List, Optional, Type, get_origin, get_args
 
-from config import SENDER_EMAIL, DEBUG_RECIPIENTS
+from config import SENDER_EMAIL, DEBUG_RECIPIENTS, SUPPORT_EMAIL
 
 # TODO(P1, devx): Figure out created_at, updated_at
 #   Probably need a base dynamo-table dataclass - ah, i might just end up with PynamoDB
@@ -231,7 +231,7 @@ class User:
             recipient=self.email_address,
             recipient_full_name=self.full_name,
             subject=subject,
-            reply_to=DEBUG_RECIPIENTS,  # We skip the orig_to_address, as that would trigger another transcription.
+            reply_to=SUPPORT_EMAIL,  # We skip the orig_to_address, as that would trigger another transcription.
         )
     # The rest of params will get filled in later
 
@@ -259,8 +259,6 @@ class DataEntry:
     input_transcripts: List[str] = field(default_factory=list)
     # Note: these are pre-merged before serializing into the People table
     output_people_entries: List[PersonDataEntry] = field(default_factory=list)
-    output_webpage_url: str = None
-    all_webpage_url: str = None
 
     def __post_init__(self):
         if isinstance(self.event_timestamp, str):

@@ -49,20 +49,19 @@ import traceback
 
 from botocore.exceptions import NoCredentialsError
 from email.utils import parseaddr
-from urllib.parse import unquote_plus, quote_plus
-from typing import Optional, Tuple
+from urllib.parse import unquote_plus
+from typing import Optional
 
 from supabase_client import get_postgres_connection, get_magic_link_and_create_user_if_does_not_exists, \
     get_user_id_for_email, insert_into_todos, supabase
-from config import STATIC_HOSTING_BUCKET_NAME, DEBUG_RECIPIENTS
+from config import DEBUG_RECIPIENTS
 from openai_client import OpenAiClient
 from dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager, TABLE_NAME_USER
 from aws_utils import get_bucket_url, get_dynamo_endpoint_url, get_boto_s3_client
-from datashare import DataEntry, User
+from datashare import DataEntry
 from emails import send_confirmation, send_response, store_and_get_attachments_from_email, get_email_params_for_reply
-from generate_flashcards import generate_page
 from networking_dump import fill_in_draft_outreaches, extract_per_person_summaries
-from storage_utils import write_output_to_local_and_bucket, pretty_filesize_int
+from storage_utils import pretty_filesize_int
 from test_utils import extract_phone_number_from_filename
 from twillio_client import TwilioClient
 
@@ -113,52 +112,6 @@ def convert_audio_to_mp4(file_path):
     return audio_file
 
 
-def dump_page(page_contents, local_output_prefix, bucket_object_prefix) -> str:
-    _, bucket_key = write_output_to_local_and_bucket(
-        data=page_contents,
-        suffix=".html",
-        content_type="text/html",
-        local_output_prefix=local_output_prefix,
-        bucket_name=STATIC_HOSTING_BUCKET_NAME,
-        bucket_object_prefix=bucket_object_prefix
-    )
-    # TODO(P2, infra): Heard it's better at https://vercel.com/guides/deploying-eleventy-with-vercel
-    page_key = quote_plus(bucket_key or "local")
-    return f"http://static.katka.ai/{page_key}"
-    # return f"http://{STATIC_HOSTING_BUCKET_NAME}.s3-website-us-west-2.amazonaws.com/{page_key}"
-
-
-def generate_all_person_webpage(
-        dynamodb: DynamoDBManager,
-        user: User,
-        event_name_safe: str,
-        bucket_object_prefix,
-) -> Tuple[Optional[str], Optional[str]]:
-    # === Generate page for all people of this user
-    all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
-    if all_data_entries is None or len(all_data_entries) <= 1:
-        print(f"NOT generating all people entries page cause only one or less DataEntries found for {user.user_id}")
-        return None, None
-
-    list_of_lists = [de.output_people_entries for de in all_data_entries]
-    all_people_entries = [item for sublist in list_of_lists for item in sublist]  # GPT generated no idea how it works
-    print(f"all_people_entries {all_people_entries}")
-    all_people_entries = sorted(all_people_entries, key=lambda pde: pde.sort_key())
-    all_contacts_as_of_prefix = f"/tmp/all-contacts-as-of-{event_name_safe}"
-    all_dumb_page_prefix = f"/tmp/{user.user_id}-all-as-of-{event_name_safe}"
-
-    all_page_contents = generate_page(
-        project_name=f"{user.project_name()} - All",
-        event_timestamp=datetime.datetime.now(),
-        person_data_entries=all_people_entries,
-    )
-    return dump_page(
-        all_page_contents,
-        local_output_prefix=all_dumb_page_prefix,
-        bucket_object_prefix=user.main_page_name()
-    ), None
-
-
 # Second lambda
 def process_transcript_from_data_entry(
         dynamodb: DynamoDBManager,
@@ -181,43 +134,27 @@ def process_transcript_from_data_entry(
     # TODO(P0, edge-cases): Make it work with 0 people
     dynamodb.write_data_entry(data_entry)  # Only update would be nice
     event_name_safe = re.sub(r'\W', '-', data_entry.event_name)  # replace all non-alphanum with dashes
-    dump_page_prefix = f"/tmp/{data_entry.user_id}-{event_name_safe}"
 
     # This mutates the underlying data_entry.
     fill_in_draft_outreaches(gpt_client, people_entries)
     dynamodb.write_data_entry(data_entry)  # Only update would be nice
 
     user = dynamodb.get_user(user_id=data_entry.user_id)
-    if user.email_address in DEBUG_RECIPIENTS:
+    if user.email_address in ["petherz@gmail.com", "kata.sabo@gmail.com"]:
         try:
             do_voxana(dynamodb, data_entry)
         except Exception as ex:
             print(f"do voxana failed with (we gonna carry on): {ex}")
             traceback.print_exc()
 
-    # TODO(P1, ux): Would be nice to include the original full-transcript on the event page.
-    # === Generate page with only the new events
-    event_page_contents = generate_page(
-        project_name=user.project_name(),
-        event_timestamp=data_entry.event_timestamp,
-        person_data_entries=people_entries,
-    )
-    data_entry.output_webpage_url = dump_page(event_page_contents, dump_page_prefix, bucket_object_prefix)
-    data_entry.all_webpage_url, all_summaries_filepath = generate_all_person_webpage(
-        dynamodb, user, event_name_safe, bucket_object_prefix
-    )
-
-    print(f"Updating all_webpage_url for {data_entry.user_id} after generate all page")
-    dynamodb.write_data_entry(data_entry)
-
     if user.contact_method() == "sms":
-        msg = f"Here is your event summary: {data_entry.output_webpage_url}"
+        # TODO(P1, ux): Improve this message, might need an URL shortener
+        msg = f"Your event summary is ready - check your email Inbox"
         if not bool(twilio_client):
             print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
         else:
             twilio_client.send_sms(
                 to_phone=user.phone_number,
-                # TODO(P1, ux): Url shortener OR at least static.katka.ai (instead of aws s3)
                 body=msg
             )
             # When onboarding through Voice call & SMS, there is a chance that the email gets updated at a wrong time.
@@ -236,16 +173,16 @@ def process_transcript_from_data_entry(
         )
         # Removed all_summaries_filepath for now
         email_params.attachment_paths = []
+        actions = {}
+        for person in people_entries:
+            for draft in person.drafts:
+                actions[f"{person.name}:{draft.intent}"] = draft.message
+
         send_response(
             event_name=event_name_safe,
             email_params=email_params,
-            webpage_link=data_entry.output_webpage_url,
-            all_webpage_url=data_entry.all_webpage_url,
-            people_count=len(people_entries),
-            drafts_count=sum([len(p.drafts) for p in people_entries]),
-            prompt_stats=gpt_client.sum_up_prompt_stats(),
-            # TODO(P2, reevaluate): Might be better to allow re-generating this.
-            idempotency_key=f"{data_entry.event_name}-response"
+            actions=actions,
+            idempotency_key_prefix=f"{data_entry.event_name}-response"
         )
 
 
