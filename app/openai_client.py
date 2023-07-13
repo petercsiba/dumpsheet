@@ -17,12 +17,13 @@ import time
 from dataclasses import dataclass
 from typing import Optional, List
 
+from config import OPEN_AI_API_KEY
 from dynamodb import DynamoDBManager, write_data_class, read_data_class
 from storage_utils import get_fileinfo
 from utils import Timer
 
 # TODO(P1, specify organization id): Header OpenAI-Organization
-openai.api_key = "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"
+openai.api_key = OPEN_AI_API_KEY
 # https://platform.openai.com/docs/models/gpt-4
 DEFAULT_MODEL = "gpt-4-0613"  # Thanks Vishal
 # Sometimes seems the newest models experience downtime-so try to backup.

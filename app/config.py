@@ -17,6 +17,8 @@ SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
 SUPPORT_EMAIL = "Voxana.AI <support@voxana.ai>"
 DEBUG_RECIPIENTS = ["email-archive@voxana.ai"]
 
+# OPENAI STUFF
+OPEN_AI_API_KEY: str = os.environ.get("OPEN_AI_API_KEY")
 
 # SUPABASE STUFF
 SUPABASE_URL: str = os.environ.get("SUPABASE_URL")
