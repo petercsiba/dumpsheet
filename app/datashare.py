@@ -184,18 +184,6 @@ class PersonDataEntry:
         # TODO(P1, debug): Why priority can still be None?
         return self.priority or "", 0 if self.transcript is None else -len(str(self.transcript))
 
-    def to_csv_map(self) -> Dict[str, str]:
-        return {
-            "name": self.name,
-            "role": self.role,
-            "industry": self.industry,
-            "vibes": self.vibes,
-            "priority": self.priority,
-            "needs": dump_to_lines(self.needs),
-            "follow_ups": dump_to_lines(self.follow_ups),
-            "transcript": self.get_transcript_text(),
-        }
-
 
 @dataclass
 class User:

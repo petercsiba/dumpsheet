@@ -7,6 +7,8 @@ from openai_client import gpt_response_to_json, gpt_response_to_plaintext, OpenA
     DEFAULT_MODEL
 
 MIN_TRANSCRIPT_LENGTH = 80  # characters, can prevent some "hallucinations"
+# TODO(P1, features): Go bi-model with Claude which can handle 100k tokens for longer dumps
+#  https://www.anthropic.com/index/claude-2
 MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
 
 

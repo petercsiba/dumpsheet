@@ -4,7 +4,6 @@
 #  * Create a new branch (wednesday all day)
 #  * Strip the functionality:
 #    * NO HTML GEN
-#    * NO CSV GEN
 #    * NO DYNAMO DB
 #    *   Figure out caching and idempotency.
 #    *   (P1, devx): Figure out some lightweight ORM?
@@ -148,21 +147,6 @@ def generate_all_person_webpage(
     all_contacts_as_of_prefix = f"/tmp/all-contacts-as-of-{event_name_safe}"
     all_dumb_page_prefix = f"/tmp/{user.user_id}-all-as-of-{event_name_safe}"
 
-    # TODO(P1, devx): This is logically the same as the above just with all_people_entries so abstract to sth.
-    try:
-        all_summaries_filepath, _ = write_output_to_local_and_bucket(
-            data=[pde.to_csv_map() for pde in all_people_entries],
-            suffix=".csv",
-            content_type="text/csv",
-            local_output_prefix=all_contacts_as_of_prefix,
-            bucket_name=OUTPUT_BUCKET_NAME,
-            bucket_object_prefix=bucket_object_prefix
-        )
-    except Exception as err:
-        print(f"WARNING: could NOT write summaries ALL to local cause {err}")
-        traceback.print_exc()
-        all_summaries_filepath = None
-
     all_page_contents = generate_page(
         project_name=f"{user.project_name()} - All",
         event_timestamp=datetime.datetime.now(),
@@ -172,7 +156,7 @@ def generate_all_person_webpage(
         all_page_contents,
         local_output_prefix=all_dumb_page_prefix,
         bucket_object_prefix=user.main_page_name()
-    ), all_summaries_filepath
+    ), None
 
 
 # Second lambda
@@ -197,23 +181,7 @@ def process_transcript_from_data_entry(
     # TODO(P0, edge-cases): Make it work with 0 people
     dynamodb.write_data_entry(data_entry)  # Only update would be nice
     event_name_safe = re.sub(r'\W', '-', data_entry.event_name)  # replace all non-alphanum with dashes
-    todays_event_prefix = f"/tmp/todays-event-{event_name_safe}"
     dump_page_prefix = f"/tmp/{data_entry.user_id}-{event_name_safe}"
-
-    try:
-        summaries_filepath, _ = write_output_to_local_and_bucket(
-            # TODO(P2, ux): Generate .XLS
-            data=[pde.to_csv_map() for pde in people_entries],
-            suffix=".csv",
-            content_type="text/csv",
-            local_output_prefix=todays_event_prefix,
-            bucket_name=OUTPUT_BUCKET_NAME,
-            bucket_object_prefix=bucket_object_prefix
-        )
-    except Exception as err:
-        print(f"WARNING: could NOT write summaries to local cause {err}")
-        traceback.print_exc()
-        summaries_filepath = None
 
     # This mutates the underlying data_entry.
     fill_in_draft_outreaches(gpt_client, people_entries)
@@ -267,7 +235,7 @@ def process_transcript_from_data_entry(
             subject=f"The summary from your event at {event_name_safe} is ready for your review!"
         )
         # Removed all_summaries_filepath for now
-        email_params.attachment_paths = [x for x in [summaries_filepath] if x is not None]
+        email_params.attachment_paths = []
         send_response(
             event_name=event_name_safe,
             email_params=email_params,
@@ -492,7 +460,7 @@ if __name__ == "__main__":
     test_case = "email"  # FOR EASY TEST CASE SWITCHING
     orig_data_entry = None
     if test_case == "email":
-        with open("test/test-katka-emails-kimberley", "rb") as handle:
+        with open("test/katka-cbs-action", "rb") as handle:
         # with open("test/chris-json-backticks", "rb") as handle:
             file_contents = handle.read()
             # DynamoDB is used for caching between local test runs, spares both time and money!

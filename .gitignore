@@ -9,6 +9,7 @@ input*
 output*
 secrets*
 shared-local-instance.db
+test/katka-cbs-action
 test/chris-json-backticks
 test/katka-og-long-recording
 test/stepan-openai-servererror

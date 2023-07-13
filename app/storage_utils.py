@@ -1,4 +1,3 @@
-import csv
 import os
 from typing import Tuple, Optional
 
@@ -34,34 +33,6 @@ def mkdir_safe(directory_name):
         print(f"An error occurred while creating directory {directory_name}: {e}")
 
 
-def write_to_csv(data, output_file):
-    # In first row we trust
-    # TODO(P2, reliability/ux): Handle this case - I need some ideas on how.
-    fieldnames = data[0].keys()
-    print(f"write_to_csv {len(data)} rows with fieldnames {fieldnames}")
-
-    # All this mambo-jambo just to fix
-    # ValueError: dict contains fields not in fieldnames: 'todo_full_name', 'todo_profile_url'
-    safe_data = []
-    for i, row in enumerate(data):
-        if not isinstance(row, dict):
-            print(f"write_to_csv skipping row {i} as not a dict! {row}")
-            continue
-        missing_keys = set(fieldnames) - set(row.keys())
-        safe_row = dict(row)
-        if len(missing_keys) > 0:
-            print(f"write_to_csv row {i} has missing keys filling in nones for {missing_keys}")
-            for key in missing_keys:
-                safe_row[key] = None
-        safe_data.append(safe_row)
-
-    with open(output_file, 'w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(safe_data)
-    print(f"write_to_csv written {len(safe_data)} rows with {len(fieldnames)} columns")
-
-
 def write_output_to_local_and_bucket(
         data,
         suffix: str,
@@ -72,12 +43,8 @@ def write_output_to_local_and_bucket(
 ) -> Tuple[str, str]:
     local_filepath = f"{local_output_prefix}{suffix}"
     print(f"Gonna write some data to {local_filepath}")
-    # This is kinda hack
-    if suffix.endswith(".csv"):
-        write_to_csv(data, local_filepath)
-    else:
-        with open(local_filepath, "w") as file_handle:
-            file_handle.write(data)
+    with open(local_filepath, "w") as file_handle:
+        file_handle.write(data)
     print(f"Written {pretty_filesize_path(local_filepath)} to {local_filepath}")
 
     bucket_key = None
