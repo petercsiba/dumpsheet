@@ -2,7 +2,9 @@ __pycache__*
 .env
 .idea
 assets/index.html
-/data*
+buildx*
+chromedriver.log
+data*
 dynamodb_local_latest*
 DynamoDBLocal*
 input*
