@@ -6,7 +6,7 @@ For now, most of the Python files have a `if __name__ == "__main__":` which esse
 So you can test the lambda logic by:
 ```bash
 # inside the neomi/ directory
-pyenv activate  # just making sure
+pyenv activate neomi  # just making sure
 python -m app.app
 ```
 TLDR; The `neomi` project is now installed as a module through `setup.py`, so we can conclude research like:
