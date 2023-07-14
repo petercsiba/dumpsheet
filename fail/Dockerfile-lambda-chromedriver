@@ -1,0 +1,65 @@
+# THIS IS A TRUE FUCKING STRUGGLE https://stackoverflow.com/questions/71746654/how-do-i-add-selenium-chromedriver-to-an-aws-lambda-function
+
+# docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+# docker build --platform linux/amd64 -t my_image .
+# docker run --platform linux/amd64 my_image
+
+# OMG HOW IS THIS SO HARD
+# I totally failed installing chromedriver on CentOS based systems.version
+# Defaulting to just running it as Fargate:
+# * Write your Python application that uses Selenium and ChromeDriver to interact with the web.
+# * Create a Dockerfile that includes everything your application needs to run.
+# * Build your Docker image and push it to Amazon Elastic Container Registry (ECR).
+# * Create a Fargate task definition that uses the Docker image from ECR.
+# * Use an AWS Lambda function to start Fargate tasks. Yeah, lets for a container.
+FROM amazonlinux:2
+
+# Update system packages
+RUN yum -y update && yum clean all
+
+# Install Python 3 and Pip3
+RUN yum install -y python3 python3-pip unzip wget tar gzip
+
+# Install Chrome CHAT-GPT version
+# RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
+# RUN yum localinstall -y google-chrome-stable_current_x86_64.rpm
+# RUN rm google-chrome-stable_current_x86_64.rpm
+#
+# # Find Chrome version
+# RUN google-chrome-stable --version | sed 's/^Google Chrome //g' > /chrome_version
+#
+# # Install ChromeDriver
+# RUN CHROME_VERSION=$(cat /chrome_version) \
+#     && CHROME_DRIVER_VERSION=$(curl https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION%%.*}) \
+#     && wget https://chromedriver.storage.googleapis.com/${CHROME_DRIVER_VERSION}/chromedriver_linux64.zip \
+#     && unzip chromedriver_linux64.zip \
+#     && mv chromedriver /usr/local/bin/ \
+#     && chmod +x /usr/local/bin/chromedriver \
+#     && rm chromedriver_linux64.zip
+
+# Install Chrome some random Internet dude version
+# https://gist.github.com/takaya1992/6fc6878fb936559344fac068ab6e90f2
+COPY google-chrome.repo /etc/yum.repos.d/google-chrome.repo
+RUN yum install -y google-chrome-stable lsof
+
+RUN CHROME_MAJOR_VERSION=$(google-chrome --version | sed -E "s/.* ([0-9]+)(\.[0-9]+){3}.*/\1/") \
+  && CHROME_DRIVER_VERSION=$(wget --no-verbose -O - "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION}") \
+  && echo "Using chromedriver version: "$CHROME_DRIVER_VERSION \
+  && wget --no-verbose -O /tmp/chromedriver_linux64.zip https://chromedriver.storage.googleapis.com/$CHROME_DRIVER_VERSION/chromedriver_linux64.zip \
+  && unzip /tmp/chromedriver_linux64.zip chromedriver -d /usr/local/bin/ \
+  && rm /tmp/chromedriver_linux64.zip
+
+# Test ChromeDriver version for checking
+RUN chromedriver --version >> /chromedriver_version
+
+# Upgrade pip
+RUN pip3 install --upgrade pip
+
+# Install Python dependencies
+COPY requirements.txt ./
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the code
+COPY . .
+
+CMD [ "python3", "./scraper.py" ]

@@ -1,0 +1,7 @@
+# https://www.linuxquestions.org/questions/linux-newbie-8/yum-install-fails-due-to-google-chrome-4175467050/
+[google-chrome]
+name=google-chrome
+baseurl=http://dl.google.com/linux/chrome/rpm/stable/x86_64/
+gpgkey=https://dl-ssl.google.com/linux/linux_signing_key.pub
+enabled=1
+gpgcheck=1
