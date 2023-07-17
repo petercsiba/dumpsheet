@@ -43,11 +43,11 @@ RUN mkdir -p ${FUNCTION_DIR}
 # Install my python library
 # NOTE: We do NOT copy everything, as that includes a ton of crap.
 #   -> I feel like some angry dev will read this one day in disbelief.
-COPY ./__init__.py ${FUNCTION_DIR}/neomi/
-COPY ./app ${FUNCTION_DIR}/neomi/app
-COPY ./common ${FUNCTION_DIR}/neomi/common
-COPY ./setup.py ${FUNCTION_DIR}/neomi/
-RUN python${RUNTIME_VERSION} -m pip install ${FUNCTION_DIR}/neomi
+COPY ./__init__.py ${FUNCTION_DIR}/backend/
+COPY ./app ${FUNCTION_DIR}/backend/app
+COPY ./common ${FUNCTION_DIR}/backend/common
+COPY ./setup.py ${FUNCTION_DIR}/backend/
+RUN python${RUNTIME_VERSION} -m pip install ${FUNCTION_DIR}/backend
 
 RUN python${RUNTIME_VERSION} -m pip install --upgrade pip
 # NOTE: To leverage Docker's layer caching,
@@ -56,7 +56,7 @@ RUN python${RUNTIME_VERSION} -m pip install --upgrade pip
 #   However, you can use a tool like pip-accel to speed up installation by parallelizing the process.
 # NOTE: Try to speed up Python requirements build time by using pre-compiled stuff
 # !NOTE! We use  app/requirements.txt as we do NOT need the research deps stuff (installing pandas/numpy is heavy).
-RUN python${RUNTIME_VERSION} -m pip install -r ${FUNCTION_DIR}/neomi/app/requirements.txt --target ${FUNCTION_DIR}
+RUN python${RUNTIME_VERSION} -m pip install -r ${FUNCTION_DIR}/backend/app/requirements.txt --target ${FUNCTION_DIR}
 
 # Install Lambda Runtime Interface Client for Python
 # TODO(P1, devx): Figure out how to cache this OR we can split into two lambdas where the other is Python-only.
@@ -79,4 +79,4 @@ COPY app/entry.sh /
 RUN chmod 755 /usr/bin/aws-lambda-rie /entry.sh
 RUN ffmpeg -version
 ENTRYPOINT [ "/entry.sh" ]
-CMD [ "neomi.app.lambda_handler" ]
+CMD [ "backend.app.lambda_handler" ]

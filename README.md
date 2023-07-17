@@ -1,15 +1,18 @@
 ## Local Setup
-Setup Python your preferred way (virtualenv recommended)
+Setup Python your preferred way (virtualenv recommended) just ask GPT that `pyenv create virtualenv`
+
 
 ### Run tests
 For now, most of the Python files have a `if __name__ == "__main__":` which essentially runs a test.
 So you can test the lambda logic by:
 ```bash
-# inside the neomi/ directory
-pyenv activate neomi  # just making sure
+# inside the backend/ directory
+pyenv virtualenv 3.9.16 backend
+# you might need to run `source ~/.bash_profile` for the new PYENV settings
+pyenv activate backend  # just making sure
 python -m app.app
 ```
-TLDR; The `neomi` project is now installed as a module through `setup.py`, so we can conclude research like:
+TLDR; The `backend` project is now installed as a module through `setup.py`, so we can conclude research like:
 ```bash
 python -m research.action_based_transition
 ```
