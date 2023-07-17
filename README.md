@@ -29,7 +29,7 @@ python -m research.action_based_transition
 ### Running the Lambda locally
 This is tricky for our case as it's triggered by an email stored in S3,
 so prefer `python -m app.app`.
-```
+```shell
 docker build -t hello-world .
 docker run -p 9000:8080 hello-world
 curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
@@ -37,26 +37,19 @@ curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d
 
 
 ## Deployment
-The lambda image lives in https://us-west-2.console.aws.amazon.com/ecr/repositories?region=us-west-2
 
 ### Set up AWS config
+```shell
+aws configure sso --profile voxana-prod
 ```
-# ~/.aws/config
-[default]
-region=us-west-2
-
-# ~/.aws/credentials
-[default]
-aws_access_key_id=
-aws_secret_access_key=
-```
+More in https://www.notion.so/AWS-83f07c0ce85d4e2f8cffbc1bf3a8d700?pvs=4#f9c71df32f024c758e523ca99980dd72
 
 ### Push New Image
 Yeah hardcoded stuff - but it works!
-```
-aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 680516425449.dkr.ecr.us-west-2.amazonaws.com
-docker build -t 680516425449.dkr.ecr.us-west-2.amazonaws.com/networking-summary-lambda:latest .
-docker push 680516425449.dkr.ecr.us-west-2.amazonaws.com/networking-summary-lambda:latest
+```shell
+aws ecr get-login-password --region us-east-1 --profile voxana-prod | docker login --username AWS --password-stdin 831154875375.dkr.ecr.us-east-1.amazonaws.com
+docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups .
+docker push 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups:latest
 ```
 
 ### Deploy Lambda
