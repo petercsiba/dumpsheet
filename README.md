@@ -10,6 +10,13 @@ So you can test the lambda logic by:
 pyenv virtualenv 3.9.16 backend
 # you might need to run `source ~/.bash_profile` for the new PYENV settings
 pyenv activate backend  # just making sure
+pip install -r requirements.txt  # for research/requirements.txt or chromedriver/requirements.txt 
+# for IDE like intelliJ, you would need to setup the VirtualEnv
+echo "$VIRTUAL_ENV/python"
+# Sth like /Users/petercsiba/.pyenv/versions/3.9.16/envs/backend/python
+# Copy this into PyCharm -> Settings -> ... -> Python Interpreter -> Add Local Interpreter
+
+# try running some of our many main functions
 python -m app.app
 ```
 TLDR; The `backend` project is now installed as a module through `setup.py`, so we can conclude research like:
@@ -43,15 +50,25 @@ supabase start
 * ffmpeg
 * colima
 
-### Running the Lambda locally
-This is tricky for our case as it's triggered by an email stored in S3,
-so prefer `python -m app.app`.
-```shell
-docker build -t hello-world .
-docker run -p 9000:8080 hello-world
-curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
-```
 
+
+## Development Workflow
+Below is pretty much filtered https://supabase.com/docs/guides/getting-started/local-development#database-migrations
+### Migrations
+There are a few ways, the best feels like:
+* Create a new table in Supabase UI: http://localhost:54323/project/default/editor
+* MAKE SURE it has RLS enabled. Note that if the policy is empty, then backend can still query it either via Service KEY or directly DB password. 
+* Get the definition of it
+* Potentially add stuff (like multicolumn indexes)
+```shell
+supabase migration new create_prompt_log
+# generate new python models, add some functionality (might need chmod +x)
+./db/generate_models.sh
+# copy paste that definition to the generated file
+supabase db reset  # weird name i know, this takes quite long :/
+# do some testing, then push to prod
+supabase db push 
+```
 
 ## Deployment
 
@@ -140,6 +157,14 @@ For:
  => => # Selecting previousl
 ```
 
+### Running the Lambda locally
+This is tricky for our case as it's triggered by an email stored in S3,
+so prefer `python -m app.app`.
+```shell
+docker build -t hello-world .
+docker run -p 9000:8080 hello-world
+curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+```
 
 ### General Learnings Dealing with Setups (Docker)
 1. **Architecture compatibility:**

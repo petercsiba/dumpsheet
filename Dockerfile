@@ -55,8 +55,8 @@ RUN python${RUNTIME_VERSION} -m pip install --upgrade pip
 # NOTE: Pip doesn't install packages in parallel by default.
 #   However, you can use a tool like pip-accel to speed up installation by parallelizing the process.
 # NOTE: Try to speed up Python requirements build time by using pre-compiled stuff
-# !NOTE! We use  app/requirements.txt as we do NOT need the research deps stuff (installing pandas/numpy is heavy).
-RUN python${RUNTIME_VERSION} -m pip install -r ${FUNCTION_DIR}/backend/app/requirements.txt --target ${FUNCTION_DIR}
+# !NOTE! We use  requirements.txt as we do NOT need the research/requirements deps (heavy pandas/numpy).
+RUN python${RUNTIME_VERSION} -m pip install -r ${FUNCTION_DIR}/backend/requirements.txt --target ${FUNCTION_DIR}
 
 # Install Lambda Runtime Interface Client for Python
 # TODO(P1, devx): Figure out how to cache this OR we can split into two lambdas where the other is Python-only.
