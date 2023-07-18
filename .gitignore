@@ -1,15 +1,10 @@
 __pycache__*
 .env
 .idea
-assets/index.html
 buildx*
 chromedriver.log
-data*
 dynamodb_local_latest*
 DynamoDBLocal*
-input*
-output*
-secrets*
 shared-local-instance.db
 testdata
 

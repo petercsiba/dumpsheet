@@ -59,6 +59,14 @@ supabase start
 
 
 ## Development Workflow
+
+### Committing Changes
+We use `pre-commit` to run flake8, isort, black.
+BEWARE: Sometimes `black` and `isort` disagree. Then:
+* Run `pre-commit run --all-files` - this runs it clean without stash / unstash.
+* If it passes, run `git status`. Likely the problem files aren't stage for commit (or have unstaged changes).
+You might want to default to always do `-a` for `git commit`.
+
 Below is pretty much filtered https://supabase.com/docs/guides/getting-started/local-development#database-migrations
 ### Migrations
 There are a few ways, the best feels like:
