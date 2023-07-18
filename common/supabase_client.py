@@ -1,3 +1,4 @@
+# TODO(P0, reliability): How they do backups / recoveries? What about read-replicas?
 from contextlib import contextmanager
 
 import psycopg2

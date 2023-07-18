@@ -63,7 +63,9 @@ Below is pretty much filtered https://supabase.com/docs/guides/getting-started/l
 ### Migrations
 There are a few ways, the best feels like:
 * Create a new table in Supabase UI: http://localhost:54323/project/default/editor
-* MAKE SURE it has RLS enabled. Note that if the policy is empty, then backend can still query it either via Service KEY or directly DB password.
+* MAKE SURE it has RLS enabled, otherwise the new table has public access (yeah :/).
+  * Easiest likely with `ALTER TABLE your_table_name ENABLE ROW LEVEL SECURITY;` (alternatively with their UI)
+  * Note that if the RLS policy is empty, then backend can still query it either via Service KEY or directly DB password.
 * Get the definition of it
 * Potentially add stuff (like multicolumn indexes)
 ```shell

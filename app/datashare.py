@@ -244,38 +244,3 @@ class User:
         )
 
     # The rest of params will get filled in later
-
-
-@dataclass
-class DataEntryKey:
-    user_id: str
-    event_name: str
-
-
-@dataclass
-class DataEntry:
-    # Partition Key, Sort Key
-    user_id: str
-    event_name: str  # used as human identifier, e.g. date, location, actual event name
-    # Additional items
-    event_id: str  # used as computer idempotency key, e.g. received email Message-id
-    event_timestamp: datetime.datetime
-    # email_reply_params: Optional[EmailParams]
-    # TODO(P1, devx): Think of how to support emails so no raw strings
-    input_type: str  # either email or phone
-    input_s3_url: Optional[str] = None  # No S3 for local testing
-    # TODO(P1, ux): Include the full transcript from the event somewhere.
-    # TODO(P1, quality): Have an easy way to re-generate all input_transcripts t
-    input_transcripts: List[str] = field(default_factory=list)
-    # Note: these are pre-merged before serializing into the People table
-    output_people_entries: List[PersonDataEntry] = field(default_factory=list)
-
-    def __post_init__(self):
-        if isinstance(self.event_timestamp, str):
-            # TODO(P1, ux): Do it in their local timezone
-            self.event_timestamp = datetime.datetime.fromisoformat(self.event_timestamp)
-
-    def double_check_inputs(self):
-        check_required_str("user_id", self.user_id)
-        check_required_str("event_name", self.event_name)
-        check_required_list("input_transcripts", self.input_transcripts)
