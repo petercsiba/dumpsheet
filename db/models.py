@@ -1,8 +1,6 @@
 from peewee import *
 
-database = PostgresqlDatabase(
-    "postgres", **{"host": "localhost", "port": 54322, "user": "postgres"}
-)
+from db.db import database
 
 
 class UnknownField(object):
@@ -15,7 +13,7 @@ class BaseModel(Model):
         database = database
 
 
-class PromptLog(BaseModel):
+class BasePromptLog(BaseModel):
     completion_tokens = BigIntegerField(constraints=[SQL("DEFAULT '0'::bigint")])
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     id = BigAutoField()

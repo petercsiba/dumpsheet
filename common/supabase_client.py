@@ -1,11 +1,11 @@
 from contextlib import contextmanager
-from urllib.parse import urlparse
 
 import psycopg2
 from gotrue import Session
 
 from common.aws_utils import is_running_in_aws
-from common.config import POSTGRES_LOGIN_URL, SUPABASE_KEY, SUPABASE_URL
+from common.config import SUPABASE_KEY, SUPABASE_URL
+from db.db import get_postgres_kwargs
 from supabase import Client, create_client
 
 supabase: Client = create_client(
@@ -15,16 +15,8 @@ supabase: Client = create_client(
 
 
 @contextmanager
-def get_postgres_connection(postgres_login_url: str = POSTGRES_LOGIN_URL):
-    parsed_url = urlparse(postgres_login_url)
-    dbname = parsed_url.path[1:]
-    user = parsed_url.username
-    password = parsed_url.password
-    host = parsed_url.hostname
-    port = parsed_url.port
-    conn = psycopg2.connect(
-        dbname=dbname, user=user, password=password, host=host, port=port
-    )
+def get_postgres_connection():
+    conn = psycopg2.connect(**get_postgres_kwargs())
     try:
         yield conn
     except Exception as e:

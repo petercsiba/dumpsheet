@@ -148,7 +148,7 @@ and
 
 
 if __name__ == "__main__":
-    openai_client = OpenAiClient(dynamodb=None)
+    openai_client = OpenAiClient()
 
     filepath = "test/katka-data-entries.csv"
     embed_filepath = filepath + ".embedded"

@@ -7,6 +7,7 @@ from typing import Any, List, Optional, Type
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from botocore.config import Config
 from botocore.exceptions import ClientError
 
 from app.datashare import (
@@ -21,7 +22,6 @@ from app.datashare import (
 # https://us-east-1.console.aws.amazon.com/iam/home#/roles/katka-ai-container-lambda-role-iadxzlko$createPolicy?step=edit
 TABLE_NAME_DATA_ENTRY = "KatkaAI_DataEntry"
 TABLE_NAME_EMAIL_LOG = "KatkaAI_EmailLog"  # To prevent double-sending
-TABLE_NAME_PROMPT = "KatkaAI_PromptLog"
 TABLE_NAME_USER = "KatkaAI_User"
 
 # For local runs
@@ -140,13 +140,27 @@ def parse_dynamodb_json(dynamodb_json):
 
 
 class DynamoDBManager:
-    def __init__(self, endpoint_url):
+    def __init__(self, endpoint_url, local=False):
         print(f"DynamoDBManager Init on {endpoint_url}")
-        self.dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint_url)
+        if local:
+            # When you are using DynamoDB Local, it does not matter what these credentials are.
+            # DynamoDB Local does not validate the credentials. You just need to provide something.
+            # You can use dummy credentials to overcome this issue.
+            session = boto3.Session(
+                aws_access_key_id="dummy_access_key",
+                aws_secret_access_key="dummy_secret_key",
+                region_name="us-west-2",
+            )
+            self.dynamodb = session.resource(
+                "dynamodb",
+                endpoint_url="http://localhost:8000",
+                config=Config(signature_version="s3v4"),
+            )
+        else:
+            self.dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint_url)
         self.user_table = self.create_user_table_if_not_exists()
         self.data_entry_table = self.create_data_entry_table_if_not_exists()
         self.email_log_table = self.create_email_log_table_if_not_exists()
-        self.prompt_table = self.create_prompt_table_if_not_exists()
 
     def write_data_entry(self, data_entry: DataEntry):
         return write_data_class(self.data_entry_table, data_entry)
@@ -269,17 +283,6 @@ class DynamoDBManager:
             sk_name="idempotency_key",
         )
 
-    def create_prompt_table_if_not_exists(self):
-        result = self.get_table_if_exists(TABLE_NAME_PROMPT)
-        if result is not None:
-            return result
-
-        return self.create_table_with_option(
-            table_name=TABLE_NAME_PROMPT,
-            pk_name="prompt_hash",
-            sk_name="model",
-        )
-
     def create_user_table_if_not_exists(self):
         result = self.get_table_if_exists(TABLE_NAME_USER)
         if result is not None:
@@ -394,7 +397,7 @@ def setup_dynamodb_local():
     print("DynamoDB: Sleeping until DynamoDB becomes available")
     time.sleep(1)
 
-    manager = DynamoDBManager(endpoint_url="http://localhost:8000")
+    manager = DynamoDBManager(endpoint_url="http://localhost:8000", local=True)
 
     return dynamodb_process, manager
 

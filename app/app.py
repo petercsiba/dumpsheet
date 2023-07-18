@@ -76,6 +76,7 @@ from common.supabase_client import (
 )
 from common.test_utils import extract_phone_number_from_filename
 from common.twillio_client import TwilioClient
+from db.db import connect_to_postgres
 
 s3 = get_boto_s3_client()
 
@@ -358,6 +359,7 @@ def lambda_handler(event, context):
     print(f"S3: Fetched object of size {len(bucket_raw_data)}")
 
     # Setup global deps
+    connect_to_postgres()
     endpoint_url = get_dynamo_endpoint_url()
     try:
         dynamodb_client = DynamoDBManager(endpoint_url=endpoint_url)
@@ -366,7 +368,7 @@ def lambda_handler(event, context):
         # TODO(p3, devx): Make this a fatal error
         dynamodb_client = None
 
-    gpt_client = OpenAiClient(dynamodb=dynamodb_client)
+    gpt_client = OpenAiClient()
     twilio_client = TwilioClient()
 
     # First Lambda
@@ -422,9 +424,12 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     OUTPUT_BUCKET_NAME = None
 
+    connect_to_postgres()
     process, local_dynamodb = setup_dynamodb_local()
     # DynamoDB is used for caching between local test runs, spares both time and money!
-    open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
+    open_ai_client = OpenAiClient()
+    open_ai_client.run_prompt(f"test {time.time()}")
+
     # For the cases when I mess up development.
     # print(f"Deleting some tables")
     ddb_client = boto3.client("dynamodb", endpoint_url=get_dynamo_endpoint_url())
@@ -438,7 +443,6 @@ if __name__ == "__main__":
             # with open("test/chris-json-backticks", "rb") as handle:
             file_contents = handle.read()
             # DynamoDB is used for caching between local test runs, spares both time and money!
-            open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
             orig_data_entry = process_email_input(
                 dynamodb=local_dynamodb,
                 gpt_client=open_ai_client,

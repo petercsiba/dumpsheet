@@ -1,27 +1,16 @@
 #!/bin/bash
 
-# Define database connection parameters
+# Define database connection parameters for local
+# We will replace it for prod with POSTGRES_LOGIN_URL
 host="localhost"
 port="54322"
 username="postgres"
 database="postgres"
+MODEL_FILE=db/models.py
 
 # Generate the models using pwiz,
-export PGPASSWORD=postgres; python -m pwiz -e postgresql -H $host -p $port -u $username $database > models.py
+export PGPASSWORD=postgres; python -m pwiz -e postgresql -H $host -p $port -u $username $database > $MODEL_FILE
 
-# Use sed to prefix all classes that inherit from BaseModel with 'Base', e.g.:
-# class ClassName(BaseModel):
-# replace to
-# class BaseClassName(BaseModel):
+python db/generate_models.py $MODEL_FILE
 
-# Detect the operating system and use the appropriate sed command
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    # macOS sed
-    sed -i "" '/class .*BaseModel/ s/\(class \)\(.*\)/\1Base\2/' models.py
-else
-    # Linux and other UNIX-like systems sed
-    sed -i '/class .*BaseModel/ s/\(class \)\(.*\)/\1Base\2/' models.py
-fi
-
-# Run black formatter
-black models.py
+black $MODEL_FILE

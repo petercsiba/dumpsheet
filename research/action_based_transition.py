@@ -4,7 +4,6 @@ from typing import Any, List
 
 import pandas as pd
 
-from app.dynamodb import setup_dynamodb_local, teardown_dynamodb_local
 from app.networking_dump import summarize_transcripts_to_person_data_entries
 from common.openai_client import OpenAiClient
 
@@ -131,9 +130,8 @@ As my executive assistant reading my notes do:
     return "\n===============\n\n".join(parts)
 
 
-process, local_dynamodb = setup_dynamodb_local()
 # DynamoDB is used for caching between local test runs, spares both time and money!
-open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
+open_ai_client = OpenAiClient()
 
 # Load the csv
 df = pd.read_csv("test/prod-dataentry-dump.csv")
@@ -160,6 +158,3 @@ for transcript in df["input_transcripts"]:
     drafted_email = draft_email(open_ai_client, transcript, pde.follow_ups)
     print(drafted_email)
     print("\n\n")
-
-
-teardown_dynamodb_local(process)

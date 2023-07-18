@@ -136,7 +136,7 @@ def evaluate_match(openai_client: OpenAiClient, orig_person1: dict, orig_person2
 
 # Matching part
 # TODO(peter): There is a lot to train / experiment with here.
-openai_client = OpenAiClient(dynamodb=None)
+openai_client = OpenAiClient()
 
 
 with open(SCRAPED_OUTPUT, "r") as handle:

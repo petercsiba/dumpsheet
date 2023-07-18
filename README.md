@@ -20,6 +20,8 @@ echo "$VIRTUAL_ENV/python"
 # Sth like /Users/petercsiba/.pyenv/versions/3.9.16/envs/backend/python
 # Copy this into PyCharm -> Settings -> ... -> Python Interpreter -> Add Local Interpreter
 
+# you would need to fill in some .env variables for local
+cp .env.template .env
 # try running some of our many main functions
 python -m app.app
 ```

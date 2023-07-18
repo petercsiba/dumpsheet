@@ -13,7 +13,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-from app.dynamodb import setup_dynamodb_local, teardown_dynamodb_local
 from chrome_webscraper.extract_profile import extract_profile_data, text_from_html
 from common.openai_client import OpenAiClient
 
@@ -48,9 +47,8 @@ search_box.clear()
 search_box.send_keys("Martin Stuebler BioFluff")
 search_box.submit()
 
-process, local_dynamodb = setup_dynamodb_local()
 # DynamoDB is used for caching between local test runs, spares both time and money!
-open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
+open_ai_client = OpenAiClient()
 
 try:
     # Wait until the first search result is loaded
@@ -112,5 +110,3 @@ except TimeoutException:
 finally:
     # Close the browser
     driver.quit()
-
-teardown_dynamodb_local(process)

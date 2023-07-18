@@ -16,11 +16,12 @@ from typing import List, Optional
 
 import openai
 import tiktoken
+from peewee import InterfaceError
 
-from app.dynamodb import DynamoDBManager, read_data_class, write_data_class
 from common.config import OPEN_AI_API_KEY
 from common.storage_utils import get_fileinfo
 from common.utils import Timer
+from db.models import BasePromptLog
 
 # TODO(P1, specify organization id): Header OpenAI-Organization
 openai.api_key = OPEN_AI_API_KEY
@@ -70,39 +71,46 @@ class PromptStats:
         )
 
 
-# Also DynamoDB table
-@dataclass
-class PromptLog:
-    # The maximum size of a primary key (partition key and sort key combined) is 2048 bytes
-    prompt_hash: str
-    model: str
-
-    prompt: str
-    result: str = None
-    # OMG DynamoDB and floats
-    request_time_ms: int = 0  # in milliseconds
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
+class PromptLog(BasePromptLog):
+    class Meta:
+        # db_table = BasePromptLog.Meta.table_name
+        # TODO(p1, devx): Figure out why peewee uses "promptlog" for queries, heard they try derive it from class name?
+        #   GPT claims "db_table" has no effect - but it actually fixes stuff.
+        db_table = "prompt_log"
 
     def total_tokens(self) -> int:
         return self.prompt_tokens + self.completion_tokens
 
-    # Cannot over-ride the default init method as that's used by my custom DynamoDB driver.
     @staticmethod
-    def create(prompt, model):
-        return PromptLog(
-            prompt=prompt,
-            prompt_hash=hashlib.sha256(prompt.encode()).hexdigest(),
-            model=model,
-        )
+    def get_prompt_hash(prompt: str) -> str:
+        return hashlib.sha256(prompt.encode()).hexdigest()
+
+    @staticmethod
+    def get_or_create_from_cache(prompt, model):
+        prompt_hash = PromptLog.get_prompt_hash(prompt)
+        try:
+            return PromptLog.get(
+                PromptLog.prompt_hash == prompt_hash, PromptLog.model == model
+            )
+        except PromptLog.DoesNotExist:
+            return PromptLog(prompt=prompt, prompt_hash=prompt_hash, model=model)
+        except InterfaceError:
+            print("DB NOT connected, NOT using gpt prompt caching")
+            return PromptLog(prompt=prompt, prompt_hash=prompt_hash, model=model)
+
+    def write_cache(self) -> List:
+        try:
+            res = self.save()
+            print(f"cached_prompt: written to cache {self.prompt_hash}")
+            return res
+        except InterfaceError:
+            print("DB NOT connected, NOT using gpt prompt caching")
+            return []
 
 
 class OpenAiClient:
-    def __init__(self, dynamodb: Optional[DynamoDBManager]):
+    def __init__(self):
         print("OpenAiClient init")
-        self.prompt_cache_table = (
-            dynamodb.create_prompt_table_if_not_exists() if bool(dynamodb) else None
-        )
         # In-memory representation of the above to mostly sum up stats.
         self.prompt_stats: List[PromptLog] = []
 
@@ -186,32 +194,20 @@ class OpenAiClient:
     # TODO(P1, devx): We should templatize the prompt into "function body" and "parameters";
     #   then we can re-use the "body" to "fine-tune" a model and have faster responses.
     def run_prompt(self, prompt: str, model=DEFAULT_MODEL, print_prompt=True):
-        prompt_log = PromptLog.create(prompt=prompt, model=model)
-
         if print_prompt:
             loggable_prompt = prompt.replace("\n", " ")
             print(f"Asking {model} for: {loggable_prompt}")
 
-        key = PromptLog.create(prompt, model)
-        if bool(self.prompt_cache_table):
-            cached_prompt: PromptLog = read_data_class(
-                data_class_type=PromptLog,
-                table=self.prompt_cache_table,
-                key={
-                    "prompt_hash": key.prompt_hash,
-                    "model": key.model,
-                },
-                print_not_found=False,
-            )
-            if bool(cached_prompt):
-                print("cached_prompt: servifsdfng out of cache")
-                if cached_prompt.prompt != prompt:
-                    print(
-                        f"ERROR: hash collision for {key.prompt_hash} for prompt {prompt}"
-                    )
-                else:
-                    self.prompt_stats.append(cached_prompt)
-                    return cached_prompt.result
+        prompt_log = PromptLog.get_or_create_from_cache(prompt, model)
+        if bool(prompt_log.result):
+            print("cached_prompt: serving out of cache")
+            if prompt_log.prompt != prompt:
+                print(
+                    f"ERROR: hash collision for {prompt_log.prompt_hash} for prompt {prompt}"
+                )
+            else:
+                self.prompt_stats.append(prompt_log)
+                return prompt_log.result
 
         start_time = time.time()
         # ====== ACTUAL LOGIC, everything else is monitoring, caching and analytics.
@@ -237,16 +233,13 @@ class OpenAiClient:
             print(f"Token usage {json.dumps(token_usage)}")
 
         # Log and cache the result
-        if bool(self.prompt_cache_table):
-            write_data_class(self.prompt_cache_table, prompt_log)
-            print(f"cached_prompt: written to cache {key.prompt_hash}")
+        prompt_log.write_cache()
         return gpt_result
 
     # They claim to return 1536 dimension of normalized to 1 (cosine or euclid returns same)
-    # TODO(P0, quality): There are a LOT of unknowns here for me:
+    # TODO(P1, research): There are a LOT of unknowns here for me:
     #   * How it works with larger texts?
     #   * What is LangChan good for? It feels just like a layer on top of (OpenAI) models.
-    #   * How the to event store this in DynamoDB? Probably gonna go with Pinecode or similar from the beginning.
     def get_embedding(self, text, model="text-embedding-ada-002"):
         text = text.replace("\n", " ")
         print(
