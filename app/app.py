@@ -34,7 +34,7 @@
 #   * Doppler
 #   * Better stack
 #   * https://distoai.com/
-# TODO(P0, ux): For not-found websites have a nicer error.html (or rederict) in
+# TODO(P0, ux): For not-found websites have a nicer error.html (or redirect) in
 #   * https://s3.console.aws.amazon.com/s3/bucket/static.katka.ai/property/website/edit?region=us-west-2
 import datetime
 import os
@@ -47,73 +47,26 @@ import boto3
 from botocore.exceptions import NoCredentialsError
 
 from app.datashare import PersonDataEntry
-from app.dynamodb import (
-    TABLE_NAME_USER,
-    DynamoDBManager,
-    setup_dynamodb_local,
-    teardown_dynamodb_local,
-)
+from app.dynamodb import DynamoDBManager, setup_dynamodb_local, teardown_dynamodb_local
 from app.emails import send_responses
 from app.networking_dump import extract_per_person_summaries, fill_in_draft_outreaches
 from common.aws_utils import get_boto_s3_client, get_bucket_url, get_dynamo_endpoint_url
 from common.openai_client import OpenAiClient
-from common.supabase_client import (
-    get_magic_link_and_create_user_if_does_not_exists,
-    get_postgres_connection,
-    get_user_id_for_email,
-    insert_into_todos,
-    supabase,
-)
-from common.test_utils import extract_phone_number_from_filename
 from common.twillio_client import TwilioClient
 from db.db import connect_to_postgres
 from db.models import BaseDataEntry
+from db.user import User
 from input.call import process_voice_recording_input
 from input.email import process_email_input
 
 s3 = get_boto_s3_client()
 
 
-def BROKEN_do_voxana(dynamodb: DynamoDBManager, data_entry: BaseDataEntry):
-    # Later for migration all_data_entries = dynamodb.get_all_data_entries_for_user(user_id=user.user_id)
-    print(f"DO VOXANA for {data_entry.user_id}")
-
-    with get_postgres_connection() as postgres_conn:
-        dynamodb_user = dynamodb.get_user(user_id=data_entry.user_id)
-        email = dynamodb_user.email_address
-        # TODO(ux, P1): Reconstruct this magic link
-        get_magic_link_and_create_user_if_does_not_exists(email=email)
-        supabase_user_id = get_user_id_for_email(postgres_conn, email)
-        print(
-            f"gonna insert todos for {len(data_entry.output_people_entries)} people for user {supabase_user_id}"
-        )
-
-        todos = []
-        for pde in data_entry.output_people_entries:
-            for draft in pde.follow_ups:
-                todos.append(
-                    {
-                        "user_id": supabase_user_id,
-                        "task": f"{pde.name} ({pde.priority} from {data_entry.event_timestamp}): {draft}",
-                        "is_complete": False,
-                    }
-                )
-        insert_into_todos(postgres_conn, todos)
-
-        # Just try querying:
-        response = supabase.table("todos").select("*").execute()
-        print(f"all todos for user {supabase_user_id}: {response}")
-
-        supabase.auth.sign_out()
-
-
 # Second lambda
 def process_transcript_from_data_entry(
-    dynamodb: DynamoDBManager,
     gpt_client: OpenAiClient,
     twilio_client: Optional[TwilioClient],
     data_entry: BaseDataEntry,
-    dynamo_user_id: str,
 ) -> List[PersonDataEntry]:
     # ===== Actually perform black magic
     # TODO(P0, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
@@ -128,27 +81,20 @@ def process_transcript_from_data_entry(
     fill_in_draft_outreaches(gpt_client, people_entries)
     data_entry.save()  # This will only update the fields which have changed.
 
-    user = dynamodb.get_user(user_id=dynamo_user_id)
-    # if user.email_address in ["petherz@gmail.com", "kata.sabo@gmail.com"]:
-    #     try:
-    #         do_voxana(dynamodb, data_entry)
-    #     except Exception as ex:
-    #         print(f"do voxana failed with (we gonna carry on): {ex}")
-    #         traceback.print_exc()
-
+    user = User.get_by_id(data_entry.user)
     if user.contact_method() == "sms":
         # TODO(P1, ux): Improve this message, might need an URL shortener
         msg = "Your event summary is ready - check your email Inbox"
         if not bool(twilio_client):
             print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
         else:
-            twilio_client.send_sms(to_phone=user.phone_number, body=msg)
+            twilio_client.send_sms(to_phone=user.phone, body=msg)
             # When onboarding through Voice call & SMS, there is a chance that the email gets updated at a wrong time.
             # So lets keep refreshing it a few times to lower the chances.
             for i in range(3):
                 print("Sleeping 1 minute to re-fetch the user - maybe we get the email")
                 time.sleep(60)
-                user = dynamodb.get_user(user.user_id)
+                user = User.get_by_id(data_entry.user)
                 if user.contact_method() == "email":
                     print(
                         "Great success - email was updated and we can send them a nice confirmation too!"
@@ -211,62 +157,60 @@ def lambda_handler(event, context):
     print(f"S3: Fetched object of size {len(bucket_raw_data)}")
 
     # Setup global deps
-    connect_to_postgres()
-    endpoint_url = get_dynamo_endpoint_url()
-    try:
-        dynamodb_client = DynamoDBManager(endpoint_url=endpoint_url)
-    except Exception as err:
-        print(f"ERROR: Could NOT connect DynamoDB to {endpoint_url} cause {err}")
-        # TODO(p3, devx): Make this a fatal error
-        dynamodb_client = None
+    with connect_to_postgres():
+        endpoint_url = get_dynamo_endpoint_url()
+        try:
+            dynamodb_client = DynamoDBManager(endpoint_url=endpoint_url)
+        except Exception as err:
+            print(f"ERROR: Could NOT connect DynamoDB to {endpoint_url} cause {err}")
+            # TODO(p3, devx): Make this a fatal error
+            dynamodb_client = None
 
-    gpt_client = OpenAiClient()
-    twilio_client = TwilioClient()
+        gpt_client = OpenAiClient()
+        twilio_client = TwilioClient()
 
-    # First Lambda
-    if bucket == EMAIL_BUCKET:
-        raw_email = bucket_raw_data
-        user, data_entry = process_email_input(
-            dynamodb=dynamodb_client,
-            gpt_client=gpt_client,
-            raw_email=raw_email,
-            bucket_url=bucket_url,
-        )
-    elif bucket == PHONE_RECORDINGS_BUCKET:
-        voice_file_data = bucket_raw_data
-        head_object = s3.head_object(Bucket=bucket, Key=key)
-        object_metadata = s3_get_object_response["Metadata"]
-        # Get the phone number and proper name from the metadata
-        # NOTE: the metadata names are case-insensitive, but Amazon S3 returns them in lowercase.
-        call_sid = object_metadata["callsid"]
-        phone_number = object_metadata["phonenumber"]
-        proper_name = object_metadata["propername"]
-        user, data_entry = process_voice_recording_input(
-            dynamodb=dynamodb_client,
+        # First Lambda
+        if bucket == EMAIL_BUCKET:
+            raw_email = bucket_raw_data
+            data_entry = process_email_input(
+                dynamodb=dynamodb_client,
+                gpt_client=gpt_client,
+                raw_email=raw_email,
+                bucket_url=bucket_url,
+            )
+        elif bucket == PHONE_RECORDINGS_BUCKET:
+            voice_file_data = bucket_raw_data
+            head_object = s3.head_object(Bucket=bucket, Key=key)
+            object_metadata = s3_get_object_response["Metadata"]
+            # Get the phone number and proper name from the metadata
+            # NOTE: the metadata names are case-insensitive, but Amazon S3 returns them in lowercase.
+            call_sid = object_metadata["callsid"]
+            phone_number = object_metadata["phonenumber"]
+            proper_name = object_metadata["propername"]
+            data_entry = process_voice_recording_input(
+                dynamodb=dynamodb_client,
+                gpt_client=gpt_client,
+                twilio_client=twilio_client,
+                bucket_url=bucket_url,
+                voice_file_data=voice_file_data,
+                call_sid=call_sid,
+                phone_number=phone_number,
+                full_name=proper_name,
+                event_timestamp=head_object["LastModified"],
+            )
+        else:
+            data_entry = None
+            print(
+                f"ERROR: Un-recognized bucket name {bucket_url} please add the mapping in your lambda"
+            )
+
+        # Second Lambda
+        # NOTE: When we actually separate them - be careful about re-tries to clear the output.
+        process_transcript_from_data_entry(
             gpt_client=gpt_client,
             twilio_client=twilio_client,
-            bucket_url=bucket_url,
-            voice_file_data=voice_file_data,
-            call_sid=call_sid,
-            phone_number=phone_number,
-            full_name=proper_name,
-            event_timestamp=head_object["LastModified"],
+            data_entry=data_entry,
         )
-    else:
-        data_entry = None
-        print(
-            f"ERROR: Un-recognized bucket name {bucket_url} please add the mapping in your lambda"
-        )
-
-    # Second Lambda
-    # NOTE: When we actually separate them - be careful about re-tries to clear the output.
-    process_transcript_from_data_entry(
-        dynamodb=dynamodb_client,
-        gpt_client=gpt_client,
-        twilio_client=twilio_client,
-        data_entry=data_entry,
-        dynamo_user_id=user.user_id,
-    )
 
 
 # For local testing without emails or S3, great for bigger refactors.
@@ -275,61 +219,58 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     OUTPUT_BUCKET_NAME = None
 
-    connect_to_postgres()
-    process, local_dynamodb = setup_dynamodb_local()
-    # DynamoDB is used for caching between local test runs, spares both time and money!
-    open_ai_client = OpenAiClient()
-    # open_ai_client.run_prompt(f"test {time.time()}")
+    with connect_to_postgres():
+        process, local_dynamodb = setup_dynamodb_local()
+        # DynamoDB is used for caching between local test runs, spares both time and money!
+        open_ai_client = OpenAiClient()
+        # open_ai_client.run_prompt(f"test {time.time()}")
 
-    # For the cases when I mess up development.
-    # print(f"Deleting some tables")
-    ddb_client = boto3.client("dynamodb", endpoint_url=get_dynamo_endpoint_url())
-    ddb_client.delete_table(TableName=TABLE_NAME_USER)
-    local_dynamodb.create_user_table_if_not_exists()
+        # For the cases when I mess up development.
+        # print(f"Deleting some tables")
+        ddb_client = boto3.client("dynamodb", endpoint_url=get_dynamo_endpoint_url())
 
-    test_case = "email"  # FOR EASY TEST CASE SWITCHING
-    orig_data_entry = None
-    if test_case == "email":
-        with open("testdata/email-short-audio", "rb") as handle:
-            # with open("test/chris-json-backticks", "rb") as handle:
-            file_contents = handle.read()
-            # DynamoDB is used for caching between local test runs, spares both time and money!
-            user, orig_data_entry = process_email_input(
-                dynamodb=local_dynamodb,
-                gpt_client=open_ai_client,
-                raw_email=file_contents,
-            )
-    if test_case == "call":
-        filename = "6502106516-Peter.Csiba-CA7e063a0e33540dc2496d09f5b81e42aa.wav"
-        # In production, we use S3 bucket metadata. Here we just get it from the filename.
-        test_phone_number, test_full_name = extract_phone_number_from_filename(filename)
-        filepath = f"test/{filename}"
-        creation_time = datetime.datetime.fromtimestamp(os.path.getctime(filepath))
-        with open(filepath, "rb") as handle:
-            file_contents = handle.read()
-            user, orig_data_entry = process_voice_recording_input(
-                dynamodb=local_dynamodb,
-                gpt_client=open_ai_client,
-                # TODO(P1, testing): Support local testing
-                twilio_client=None,
-                bucket_url=None,
-                call_sid=str(creation_time),
-                phone_number=test_phone_number,
-                full_name=test_full_name,
-                voice_file_data=file_contents,
-                event_timestamp=creation_time,  # reasonably idempotent
-            )
+        test_case = "email"  # FOR EASY TEST CASE SWITCHING
+        orig_data_entry = None
+        if test_case == "email":
+            with open("testdata/email-short-audio", "rb") as handle:
+                # with open("test/chris-json-backticks", "rb") as handle:
+                file_contents = handle.read()
+                # Postgres is used for caching between local test runs, spares both time and money!
+                orig_data_entry = process_email_input(
+                    dynamodb=local_dynamodb,
+                    gpt_client=open_ai_client,
+                    raw_email=file_contents,
+                )
+        if test_case == "call":
+            filename = "6502106516-Peter.Csiba-CA7e063a0e33540dc2496d09f5b81e42aa.wav"
+            # In production, we use S3 bucket metadata. Here we just get it from the filename.
+            test_full_name = "Peter Csiba"
+            test_phone_number = "6502106516"
+            filepath = f"test/{filename}"
+            creation_time = datetime.datetime.fromtimestamp(os.path.getctime(filepath))
+            with open(filepath, "rb") as handle:
+                file_contents = handle.read()
+                orig_data_entry = process_voice_recording_input(
+                    dynamodb=local_dynamodb,
+                    gpt_client=open_ai_client,
+                    # TODO(P1, testing): Support local testing
+                    twilio_client=None,
+                    bucket_url=None,
+                    call_sid=str(creation_time),
+                    phone_number=test_phone_number,
+                    full_name=test_full_name,
+                    voice_file_data=file_contents,
+                    event_timestamp=creation_time,  # reasonably idempotent
+                )
 
-    loaded_data_entry = BaseDataEntry.get(BaseDataEntry.id == orig_data_entry.id)
-    print(f"loaded_data_entry: {loaded_data_entry}")
+        loaded_data_entry = BaseDataEntry.get(BaseDataEntry.id == orig_data_entry.id)
+        print(f"loaded_data_entry: {loaded_data_entry}")
 
-    # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
-    process_transcript_from_data_entry(
-        dynamodb=local_dynamodb,
-        gpt_client=open_ai_client,
-        data_entry=orig_data_entry,
-        twilio_client=None,
-        dynamo_user_id=user.user_id,
-    )
+        # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
+        process_transcript_from_data_entry(
+            gpt_client=open_ai_client,
+            data_entry=orig_data_entry,
+            twilio_client=None,
+        )
 
     teardown_dynamodb_local(process)

@@ -2,7 +2,6 @@ beautifulsoup4
 boto3
 openai
 peewee
-phonenumbers
 plotly
 psycopg2[binary,pool]
 python-dotenv

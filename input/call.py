@@ -2,12 +2,12 @@ import datetime
 import os
 from typing import Optional
 
-from app.datashare import User
 from app.dynamodb import DynamoDBManager
 from common.openai_client import OpenAiClient
 from common.storage_utils import pretty_filesize_int
 from common.twillio_client import TwilioClient
 from db.models import BaseDataEntry
+from db.user import User
 from input.common import ffmpeg_convert_audio_to_mp4
 
 
@@ -21,7 +21,7 @@ def process_voice_recording_input(
     phone_number: str,
     full_name: str,
     event_timestamp: datetime.datetime,
-) -> [User, BaseDataEntry]:
+) -> BaseDataEntry:
     print(f"Read {bucket_url} voice_file_data with {len(voice_file_data)} bytes")
 
     msg = (
@@ -37,8 +37,8 @@ def process_voice_recording_input(
     else:
         print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
 
-    user = dynamodb.get_or_create_user(
-        email_address=None, phone_number=phone_number, full_name=full_name
+    user = User.get_or_create_using_rest(
+        email=None, phone=phone_number, full_name=full_name
     )
     nice_ts = event_timestamp.strftime("%B %d, %H:%M")
     inserted_id = (
@@ -48,9 +48,7 @@ def process_voice_recording_input(
             idempotency_id=call_sid,
             input_type="call",
             input_uri=bucket_url,
-            # TODO(P0): Set it once it is uuid
-            user_id=None,
-            # user_id=user.user_id,
+            user_id=user.id,
         )
         .on_conflict(
             conflict_target=[BaseDataEntry.idempotency_id],
@@ -78,4 +76,4 @@ def process_voice_recording_input(
         )
 
     result.save()
-    return user, result
+    return result

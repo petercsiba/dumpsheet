@@ -10,11 +10,10 @@ from boto3.dynamodb.conditions import Key
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-from app.datashare import GSI_NULL, User, dataclass_to_json, dict_to_dataclass
+from app.datashare import dataclass_to_json, dict_to_dataclass
 
 # https://us-east-1.console.aws.amazon.com/iam/home#/roles/katka-ai-container-lambda-role-iadxzlko$createPolicy?step=edit
 TABLE_NAME_EMAIL_LOG = "KatkaAI_EmailLog"  # To prevent double-sending
-TABLE_NAME_USER = "KatkaAI_User"
 
 # For local runs
 JAR_PATH = "DynamoDBLocal.jar"
@@ -150,80 +149,7 @@ class DynamoDBManager:
             )
         else:
             self.dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint_url)
-        self.user_table = self.create_user_table_if_not_exists()
         self.email_log_table = self.create_email_log_table_if_not_exists()
-
-    # TODO(P2, devx): dynamodb.update is safer but no-time.
-
-    def get_user(self, user_id) -> Optional[User]:
-        return read_data_class(
-            User,
-            self.user_table,
-            {
-                "user_id": user_id,
-            },
-        )
-
-    def get_or_create_user(
-        self,
-        email_address: Optional[str],
-        phone_number: Optional[str],
-        full_name: Optional[str],
-    ) -> User:
-        # NOTE: Cannot user read_data_class as that requires user_id
-        response = {}
-        if bool(email_address):
-            print("searching user by email_address")
-            response = self.user_table.query(
-                IndexName=generate_index_name(
-                    self.user_table.table_name, "email_address"
-                ),
-                KeyConditionExpression="email_address = :email",
-                ExpressionAttributeValues={":email": email_address},
-            )
-        elif bool(phone_number):
-            print("searching user by email_address")
-            response = self.user_table.query(
-                IndexName=generate_index_name(
-                    self.user_table.table_name, "phone_number"
-                ),
-                KeyConditionExpression="phone_number = :phone",
-                ExpressionAttributeValues={":phone": phone_number},
-            )
-        else:
-            print("ERROR: email or phone required for get_or_create_user")
-
-        items = response["Items"]
-        if items is None or len(items) == 0:
-            signup_method = "email" if bool(email_address) else "phone_number"
-            user_email_address = email_address or GSI_NULL
-            user_phone_number = phone_number or GSI_NULL
-            new_user = User(
-                user_id=User.generate_user_id(
-                    email_address=email_address, phone_number=phone_number
-                ),
-                signup_method=signup_method,
-                # TODO(P1, db): AWS DynamoDB does not allow NULL or empty string values for any key attribute,
-                #  whether it's a primary key for the table or a key for a Global Secondary Index (GSI).
-                #  Keys in DynamoDB must have values; they cannot be null or empty strings.
-                email_address=user_email_address,
-                phone_number=user_phone_number,
-                full_name=full_name,
-            )
-            print(f"DynamoDB: creating new user {new_user}!")
-            write_data_class(self.user_table, data=new_user)
-            return new_user
-
-        if len(items) > 1:
-            print(
-                f"WARNING: DynamoDB found multiple users for {email_address} and {phone_number}, returning first"
-            )
-
-        result: User = dict_to_dataclass(items[0], dataclass_type=User)
-        print(
-            f"DynamoDB: found existing user {result.user_id} for {result.email_address} and {result.phone_number}"
-        )
-        return result
 
     def get_table_if_exists(self, table_name):
         existing_tables = [t.name for t in self.dynamodb.tables.all()]
@@ -243,19 +169,6 @@ class DynamoDBManager:
             table_name=TABLE_NAME_EMAIL_LOG,
             pk_name="email_to",
             sk_name="idempotency_key",
-        )
-
-    def create_user_table_if_not_exists(self):
-        result = self.get_table_if_exists(TABLE_NAME_USER)
-        if result is not None:
-            return result
-
-        # TODO(clean, P2): Would be nice to somehow derive the schema with compile-time checks.
-        return self.create_table_with_option(
-            table_name=TABLE_NAME_USER,
-            pk_name="user_id",
-            sk_name=None,
-            gsi_attributes=["email_address", "phone_number"],
         )
 
     # TODO(P1, utils): Currently we require primary_key (pk), sort_key (sk) and GSI attributes to be strings.

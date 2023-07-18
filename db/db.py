@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from urllib.parse import urlparse
 
 from peewee import OperationalError, PostgresqlDatabase
@@ -23,9 +24,15 @@ def get_postgres_kwargs(postgres_login_url: str = POSTGRES_LOGIN_URL):
 database = PostgresqlDatabase(**get_postgres_kwargs())
 
 
+@contextmanager
 def connect_to_postgres():
     try:
         database.connect()
         database.execute_sql("SELECT 1")
+        yield database
     except OperationalError:
         print("Couldn't connect to the database, running in offline mode.")
+        yield None
+    finally:
+        print("closing connection to postgres database")
+        database.close()

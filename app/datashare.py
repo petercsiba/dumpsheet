@@ -1,18 +1,8 @@
 import datetime
 import json
-import time
 from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from json import JSONEncoder
-from typing import Any, Dict, List, Optional, Type, get_args, get_origin
-
-from common.config import SENDER_EMAIL, SUPPORT_EMAIL
-
-# TODO(P1, devx): Figure out created_at, updated_at
-#   Probably need a base dynamo-table dataclass - ah, i might just end up with PynamoDB
-#   Do two dynamodb.put_item, one with ConditionExpression='attribute_not_exists(createdAt)'
-# MAYBE I should actually use update_item (instead of put_item)
-
-GSI_NULL = "__NULL_FOR_GSI__"
+from typing import Any, Dict, List, Type, get_args, get_origin
 
 
 def check_required_str(name, s):
@@ -194,55 +184,3 @@ class PersonDataEntry:
         return self.priority or "", 0 if self.transcript is None else -len(
             str(self.transcript)
         )
-
-
-@dataclass
-class User:
-    # Partition Key
-    user_id: str
-
-    signup_method: str  # either email or phone
-
-    # NOTE: No sort-key here, just GSIs - these do NOT allow for NULL.
-    email_address: str = GSI_NULL
-    phone_number: str = GSI_NULL
-
-    full_name: Optional[str] = None
-
-    # TODO(P1, ux): Add more user-related fields
-
-    @staticmethod
-    def generate_user_id(email_address: Optional[str], phone_number: Optional[str]):
-        # TODO(P3, devx): Better user-name
-        if bool(email_address):
-            return f"user.{email_address[:3]}.{int(time.time())}"
-        return f"user.{phone_number[-4:]}.{int(time.time())}"
-
-    def contact_method(self) -> str:
-        if self.email_address != GSI_NULL or self.phone_number == GSI_NULL:
-            return "email"
-        return "sms"
-
-    def get_main_identifier(self) -> str:
-        if self.contact_method() == "email":
-            return self.email_address
-        return self.phone_number
-
-    def project_name(self):
-        if bool(self.full_name):
-            return str(self.full_name)
-        return self.get_main_identifier()
-
-    def main_page_name(self):
-        return self.user_id.replace(".", "-")
-
-    def get_email_reply_params(self, subject):
-        return EmailParams(
-            sender=SENDER_EMAIL,
-            recipient=self.email_address,
-            recipient_full_name=self.full_name,
-            subject=subject,
-            reply_to=SUPPORT_EMAIL,  # We skip the orig_to_address, as that would trigger another transcription.
-        )
-
-    # The rest of params will get filled in later

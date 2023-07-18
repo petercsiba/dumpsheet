@@ -89,3 +89,13 @@ class BasePromptLog(BaseModel):
         schema = "public"
         table_name = "prompt_log"
         indexes = ((("prompt_hash", "model"), True),)
+
+
+class BaseUserProfile(BaseModel):
+    full_name = TextField(null=True)
+    id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
+    user = ForeignKeyField(column_name="user_id", field="id", model=BaseUsers)
+
+    class Meta:
+        schema = "public"
+        table_name = "user_profile"

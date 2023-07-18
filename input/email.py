@@ -4,7 +4,6 @@ import traceback
 from email import message_from_bytes
 from email.utils import parsedate_to_datetime
 
-from app.datashare import User
 from app.dynamodb import DynamoDBManager
 from app.emails import (
     get_email_params_for_reply,
@@ -13,12 +12,13 @@ from app.emails import (
 )
 from common.openai_client import OpenAiClient
 from db.models import BaseDataEntry
+from db.user import User
 from input.common import ffmpeg_convert_audio_to_mp4
 
 
 def process_email_input(
     dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw_email, bucket_url=None
-) -> [User, BaseDataEntry]:
+) -> BaseDataEntry:
     # TODO(P1, migration): Refactor the email processing to another function which returns some custom object maybe
     print(f"Read raw_email body with {len(raw_email)} bytes")
 
@@ -37,18 +37,14 @@ def process_email_input(
 
     attachment_file_paths = store_and_get_attachments_from_email(msg)
 
-    user = dynamodb.get_or_create_user(
-        email_address=base_email_params.recipient,
-        phone_number=None,
+    user = User.get_or_create_using_rest(
+        email=base_email_params.recipient,
         full_name=base_email_params.recipient_full_name,
     )
 
     inserted_id = (
         BaseDataEntry.insert(
-            # TODO(P0): Set it once it is uuid
-            user_id=None,
-            # user_id=user.user_id,
-            # IMPORTANT: This is used as idempotency-key all over the place!
+            user_id=user.id,
             display_name=email_datetime.strftime("%B %d, %H:%M"),
             idempotency_id=msg["Message-ID"],
             created_at=email_datetime,
@@ -102,4 +98,4 @@ def process_email_input(
             )
     result.output_transcript = "\n\n".join(input_transcripts)
 
-    return user, result
+    return result
