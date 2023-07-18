@@ -25,6 +25,20 @@ python -m research.action_based_transition
 * Unpack `tar -xvf dynamodb_local_latest.tar`
 * `app/app.py` starts it itself, if you need it you can start it with (default port is 8000): `java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb`
 
+### Setup Supabase
+Pretty much a relevant summary of https://supabase.com/docs/guides/getting-started/local-development
+The configuration will live in `backend/supabase` (part of .gitignore).
+ 
+```shell
+supabase init
+# PLEASE do NOT store your DB password here - keep using chrome or Doppler.
+supabase link --project-ref kubtuncgxkefdlzdnnue
+# Get remote migrations
+supabase db remote commit
+# Start bunch of stuff (you will need Docker) 
+supabase start 
+```
+
 ### Setup Other Requirements
 * ffmpeg
 * colima
