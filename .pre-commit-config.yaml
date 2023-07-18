@@ -9,6 +9,8 @@ repos:
     rev: 5.12.0
     hooks:
     -   id: isort
+        language_version: "3.9.16"
+        args: ["--profile", "black"]
 -   repo: https://github.com/psf/black
     # rev is required, great for reproducibility, safety and optimization
     rev: 23.7.0
@@ -18,6 +20,7 @@ repos:
     rev: 3.9.2
     hooks:
     -   id: flake8
+#        args: ["--verbose"]
 # Performs security checks - this is too harsh for experimentation
 # TODO(P2, Security): Use Semgred (over Snyk)
 #-   repo: https://github.com/pycqa/bandit
