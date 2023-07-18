@@ -1,7 +1,8 @@
-import pandas as pd
 import json
-from typing import Any, List
 from json import JSONDecodeError
+from typing import Any, List
+
+import pandas as pd
 
 from app.dynamodb import setup_dynamodb_local, teardown_dynamodb_local
 from app.networking_dump import summarize_transcripts_to_person_data_entries
@@ -9,29 +10,32 @@ from common.openai_client import OpenAiClient
 
 
 def get_query_for_actionable_email(actions: List) -> str:
-    return """
+    return (
+        """
 Draft an actionable email as a response to the person based on my notes.
-Make it 
-* causal, 
-* friendly, 
-* using up same words, facts i used in the transcript to sound like me, 
+Make it
+* causal,
+* friendly,
+* using up same words, facts i used in the transcript to sound like me,
 while do NOT use
-* jargon, 
-* corp speak, 
-* metaphors 
+* jargon,
+* corp speak,
+* metaphors
 * nor too many superlatives.
 
 The email based on my notes should be structured as following:
 
-First part: 
-Say Hi, 
-Very brief and direct personalized summary of our last encounter, 
-mention what I enjoyed OR appreciated in our conversation. 
-Add a fact from my notes. Shortly explain why we should work on this together. 
+First part:
+Say Hi,
+Very brief and direct personalized summary of our last encounter,
+mention what I enjoyed OR appreciated in our conversation.
+Add a fact from my notes. Shortly explain why we should work on this together.
 
-Body part: 
+Body part:
 For every of these actions:
- """ + "\n* ".join(actions) + """
+ """
+        + "\n* ".join(actions)
+        + """
  write a matter-of-fact bullet point:
 * 1st bullet: start with a bold point describing the action in several words
 * 2nd bullet: proposed solution
@@ -40,20 +44,23 @@ For every of these actions:
 Closing part:
 One personalized sentence to share my excitement, using the main topic and facts from my note.
     """
+    )
 
 
 def get_query_for_nice_to_meet_you(follow_up: str) -> str:
     return """From the notes on the following person
-please generate a short outreach message written in style of 
-a "smooth casual friendly yet professional person", 
-ideally adjusted to the talking style from the note, 
+please generate a short outreach message written in style of
+a "smooth casual friendly yet professional person",
+ideally adjusted to the talking style from the note,
 to say that "{}"  (use up to 250 characters)
 Please make sure that:
 * to mention what I enjoyed OR appreciated in the conversation
 * include a fact / a hobby / an interest from our conversation
 * omit any sensitive information, especially money
 Only output the resulting message - do not use double quotes at all.
-""".format(follow_up)
+""".format(
+        follow_up
+    )
 
 
 def extract_transcript(json_string: str) -> str:
@@ -85,9 +92,13 @@ def extract_transcript(json_string: str) -> str:
                     person_transcript = entry["M"]["transcript"]
                     # print(f"{entry['M']['name']['S']}: {person_transcript}")
                     if "L" in person_transcript:
-                        return entry['M']['name']['S'] + ": " + handle_entry(person_transcript["L"])
+                        return (
+                            entry["M"]["name"]["S"]
+                            + ": "
+                            + handle_entry(person_transcript["L"])
+                        )
                     if "S" in person_transcript:
-                        return entry['M']['name']['S'] + ": " + person_transcript["S"]
+                        return entry["M"]["name"]["S"] + ": " + person_transcript["S"]
             return "\n".join(map(str, entry.values()))
         elif isinstance(entry, list):
             return "\n".join(map(handle_entry, entry))
@@ -114,7 +125,9 @@ As my executive assistant reading my notes do:
     queries = [follow_up_query, summary_query]
     parts = []
     for query in queries:
-        parts.append(gpt_client.run_prompt(query + f"\n\nMy notes: {notes}", print_prompt=True))
+        parts.append(
+            gpt_client.run_prompt(query + f"\n\nMy notes: {notes}", print_prompt=True)
+        )
     return "\n===============\n\n".join(parts)
 
 
@@ -123,14 +136,14 @@ process, local_dynamodb = setup_dynamodb_local()
 open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
 
 # Load the csv
-df = pd.read_csv('test/prod-dataentry-dump.csv')
+df = pd.read_csv("test/prod-dataentry-dump.csv")
 
 # Raw inputs
-df['input_transcripts'] = df['input_transcripts'].apply(extract_transcript)
+df["input_transcripts"] = df["input_transcripts"].apply(extract_transcript)
 
 # # print all values from 'input_transcripts' column
 i = 0
-for transcript in df['input_transcripts']:
+for transcript in df["input_transcripts"]:
     if len(transcript) <= 1000:
         continue
     i += 1

@@ -1,13 +1,12 @@
-import psycopg2
-
 from contextlib import contextmanager
-from gotrue import Session
-from supabase import create_client, Client
 from urllib.parse import urlparse
 
-from common.config import SUPABASE_URL, SUPABASE_KEY, POSTGRES_LOGIN_URL
-from common.aws_utils import is_running_in_aws
+import psycopg2
+from gotrue import Session
 
+from common.aws_utils import is_running_in_aws
+from common.config import POSTGRES_LOGIN_URL, SUPABASE_KEY, SUPABASE_URL
+from supabase import Client, create_client
 
 supabase: Client = create_client(
     supabase_url=SUPABASE_URL,
@@ -24,11 +23,7 @@ def get_postgres_connection(postgres_login_url: str = POSTGRES_LOGIN_URL):
     host = parsed_url.hostname
     port = parsed_url.port
     conn = psycopg2.connect(
-        dbname=dbname,
-        user=user,
-        password=password,
-        host=host,
-        port=port
+        dbname=dbname, user=user, password=password, host=host, port=port
     )
     try:
         yield conn
@@ -53,9 +48,13 @@ def get_user_id_for_email(conn, email: str):
 
 def insert_into_todos(conn, todos):
     with conn.cursor() as cur:
-        insert_query = "INSERT INTO todos (user_id, task, is_complete) VALUES (%s, %s, %s);"
+        insert_query = (
+            "INSERT INTO todos (user_id, task, is_complete) VALUES (%s, %s, %s);"
+        )
         for todo in todos:
-            res = cur.execute(insert_query, (todo['user_id'], todo['task'], todo['is_complete']))
+            res = cur.execute(
+                insert_query, (todo["user_id"], todo["task"], todo["is_complete"])
+            )
             print(f"insert into todos: {res}")
     conn.commit()
 
@@ -69,10 +68,12 @@ def get_or_create_user_rest(conn, email: str, password) -> Session:
     if not user_exists(conn, email):
         # User does not exist, so sign them up
         print(f"sign_up {email} with {password}")
-        sign_up_res = supabase.auth.sign_up({
-          "email": email,
-          "password": password,
-        })
+        sign_up_res = supabase.auth.sign_up(
+            {
+                "email": email,
+                "password": password,
+            }
+        )
         print(f"sign_up user_id {sign_up_res.user.id}")
         return sign_up_res.session
 
@@ -84,12 +85,16 @@ def get_or_create_user_rest(conn, email: str, password) -> Session:
 # TODO(P0, ux): Users will need to set password / connect their SSO - figure this out there must be Next.js code.
 def get_magic_link_and_create_user_if_does_not_exists(email: str) -> Session:
     # If the user doesn't exist, sign_in_with_otp() will signup the user instead.
-    response = supabase.auth.sign_in_with_otp({
-        "email": email,
-        "options": {
-            "email_redirect_to": 'https://app.voxana.ai/' if is_running_in_aws() else "http://localhost:3000/"
+    response = supabase.auth.sign_in_with_otp(
+        {
+            "email": email,
+            "options": {
+                "email_redirect_to": "https://app.voxana.ai/"
+                if is_running_in_aws()
+                else "http://localhost:3000/"
+            },
         }
-    })
+    )
     print(f"sign_in_with_otp for {email} yielded {response}")
     return response
 
@@ -106,20 +111,22 @@ def create_todos_rest(session: Session):
 
     todos = []
     for i in range(3):
-        todos.append({
-            "user_id": session.user.id,
-            "task": f"Test REST {i}",
-            "is_complete": False,
-        })
+        todos.append(
+            {
+                "user_id": session.user.id,
+                "task": f"Test REST {i}",
+                "is_complete": False,
+            }
+        )
 
-    insert_response, count = supabase.table('todos').insert(todos).execute()
+    insert_response, count = supabase.table("todos").insert(todos).execute()
     # TODO: This response seems off
     print(f"inserted {count} rows with response {insert_response}")
 
 
 if __name__ == "__main__":
     with get_postgres_connection() as postgres_conn:
-        test_email = f"peter+otp@voxana.ai"
+        test_email = "peter+otp@voxana.ai"
 
         # Through REST API
         # test_email = "peter+test1@voxana.ai"
@@ -135,15 +142,17 @@ if __name__ == "__main__":
 
         todos = []
         for i in range(3):
-            todos.append({
-                "user_id": user_id,
-                "task": f"Test Psycopg2 {i}",
-                "is_complete": False,
-            })
+            todos.append(
+                {
+                    "user_id": user_id,
+                    "task": f"Test Psycopg2 {i}",
+                    "is_complete": False,
+                }
+            )
         insert_into_todos(postgres_conn, todos)
 
         # Just try querying:
-        response = supabase.table('todos').select("*").execute()
+        response = supabase.table("todos").select("*").execute()
         print(f"all todos for user {user_id}: {response}")
 
         supabase.auth.sign_out()

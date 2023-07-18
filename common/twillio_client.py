@@ -1,11 +1,10 @@
 import os
-
-from twilio.rest import Client
-from twilio.base.exceptions import TwilioRestException
 from typing import Optional
 
-from common.utils import Timer
+from twilio.base.exceptions import TwilioRestException
+from twilio.rest import Client
 
+from common.utils import Timer
 
 FROM_PHONE_NUMBER = "+18554137047"
 
@@ -13,8 +12,8 @@ FROM_PHONE_NUMBER = "+18554137047"
 class TwilioClient:
     def __init__(self, from_phone=FROM_PHONE_NUMBER):
         print(f"TwilioClient init from_phone {from_phone}")
-        self.account_sid = os.environ['TWILIO_ACCOUNT_SID']
-        self.auth_token = os.environ['TWILIO_AUTH_TOKEN']
+        self.account_sid = os.environ["TWILIO_ACCOUNT_SID"]
+        self.auth_token = os.environ["TWILIO_AUTH_TOKEN"]
         self.from_phone = from_phone
         self.client = Client(self.account_sid, self.auth_token)
         self.call_count = 0
@@ -26,9 +25,7 @@ class TwilioClient:
             with Timer("Twilio Send SMS"):
                 print(f"Sending SMS to {to_phone} with body {body}")
                 message = self.client.messages.create(
-                    from_=self.from_phone,
-                    body=body,
-                    to=to_phone
+                    from_=self.from_phone, body=body, to=to_phone
                 )
                 self.call_count += 1
                 return message.sid

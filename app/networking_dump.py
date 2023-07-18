@@ -2,9 +2,14 @@ import json
 from dataclasses import asdict
 from typing import Dict, List
 
-from app.datashare import PersonDataEntry, Draft
-from common.openai_client import gpt_response_to_json, gpt_response_to_plaintext, OpenAiClient, num_tokens_from_string, \
-    DEFAULT_MODEL
+from app.datashare import Draft, PersonDataEntry
+from common.openai_client import (
+    DEFAULT_MODEL,
+    OpenAiClient,
+    gpt_response_to_json,
+    gpt_response_to_plaintext,
+    num_tokens_from_string,
+)
 
 MIN_TRANSCRIPT_LENGTH = 80  # characters, can prevent some "hallucinations"
 # TODO(P1, features): Go bi-model with Claude which can handle 100k tokens for longer dumps
@@ -28,17 +33,21 @@ def get_per_person_transcript(gpt_client: OpenAiClient, raw_transcript: str) -> 
     # Make sure to include the whole string without gaps.
     # TODO(P1, quality): Eventually we would need to implement processing a larger input.
     if token_count > MAX_TRANSCRIPT_TOKEN_COUNT:
-        print(f"ERROR: raw_transcript too long ({token_count}), truncating to {MAX_TRANSCRIPT_TOKEN_COUNT}")
+        print(
+            f"ERROR: raw_transcript too long ({token_count}), truncating to {MAX_TRANSCRIPT_TOKEN_COUNT}"
+        )
         raw_transcript = " ".join(transcript_words[:MAX_TRANSCRIPT_TOKEN_COUNT])
 
     # TODO(P1, devx): Historically, this query give me most of the headaches.
     #   * GPT-4 suggests using Named Entity Recognition (NER)
     #   * If it remains a problem - maybe just do it one-by-one, screw token cost.
-    query_people = """ 
-Find all the people mentioned in the follow note, please output a valid json list of strings 
+    query_people = """
+Find all the people mentioned in the follow note, please output a valid json list of strings
 where each string is a person name or identifier".
 The transcript: {}
-    """.format(raw_transcript)
+    """.format(
+        raw_transcript
+    )
     raw_response = gpt_client.run_prompt(query_people)
     if raw_response is None:
         print("WARNING: Likely no people found in the input transcript")
@@ -57,7 +66,7 @@ The transcript: {}
 
     result = {}
     size = 100 if DEFAULT_MODEL.startswith("gpt-4") else 5
-    sublists = [people[i:i+size] for i in range(0, len(people), size)]
+    sublists = [people[i : i + size] for i in range(0, len(people), size)]
     # Output format: json map of name to list of strings mentioning them
     # lead to non-parse-able json like : ...cool",    ], (the extra comma)
     for sublist in sublists:
@@ -74,7 +83,7 @@ Try to use up all words from the transcript and include extra context for those 
         query_mentions_first_try = query_mentions.format(
             "only output a valid json map of name to list of substrings",
             sublist_in_query,
-            raw_transcript
+            raw_transcript,
         )
         raw_response = gpt_client.run_prompt(query_mentions_first_try)
         people = gpt_response_to_json(raw_response)
@@ -84,7 +93,7 @@ Try to use up all words from the transcript and include extra context for those 
                 "only output a valid json map with key equal to persons name and where value"
                 "is a string joined of all found mentions",
                 sublist_in_query,
-                raw_transcript
+                raw_transcript,
             )
             raw_response = gpt_client.run_prompt(query_mentions_second_try)
             # TODO(P2, quality): Maybe we should filter out short or one sentence transcripts,
@@ -93,7 +102,9 @@ Try to use up all words from the transcript and include extra context for those 
             # TODO: Some error handling and defaulting to retry one-by-one? I can see it a recurring theme
             #   of batch gpt failing and retrying with one-by-one.
         if len(people) != len(sublist):
-            print(f"WARNING: mentions size {len(people)} different from input size {len(sublist)}")
+            print(
+                f"WARNING: mentions size {len(people)} different from input size {len(sublist)}"
+            )
         # Update the existing map with the new entries
         result.update(people)
 
@@ -105,8 +116,7 @@ Try to use up all words from the transcript and include extra context for those 
 #  .. well, cause matching the original raw transcript to the output of this, easiest seems to just do it one-by-one
 #  I am paying by tokens so the overhead is the "function definition" (which we can fine-tune later on).
 def summarize_transcripts_to_person_data_entries(
-        gpt_client: OpenAiClient,
-        person_to_transcript: Dict[str, str]
+    gpt_client: OpenAiClient, person_to_transcript: Dict[str, str]
 ) -> List[PersonDataEntry]:
     # TODO(P1, features): Dynamic summary categories based off:
     #   * Background of the speaker: https://www.reversecontact.com/case-studies
@@ -121,12 +131,12 @@ def summarize_transcripts_to_person_data_entries(
 I want to structure the following note describing me meeting {}.
 Input: a transcript of me talking about the person.
 Output: a single json dict with the following key value pairs:
-    * name: name (or 2-3 word description) 
+    * name: name (or 2-3 word description)
     * industry: which business area they specialize in professionally
     * role: current role or past experience
     * vibes: my first impression and general vibes of them
-    * priority: on scale from 1 to 5 how excited i am to follow up, never null 
-    * follow_ups: list of action items or follow ups i mentioned, null if none 
+    * priority: on scale from 1 to 5 how excited i am to follow up, never null
+    * follow_ups: list of action items or follow ups i mentioned, null if none
     * needs: list of what {} is looking for, null for empty
 The input transcript: {}"""
     people = []
@@ -137,12 +147,17 @@ The input transcript: {}"""
         # NOTE: transcript might be a list of strings.
         len_transcript = len(str(transcript))
         if len_transcript < MIN_TRANSCRIPT_LENGTH:
-            print(f"Skipping summary for {name} as transcript too short: {len_transcript} < {MIN_TRANSCRIPT_LENGTH}")
+            print(
+                f"Skipping summary for {name} as transcript too short: {len_transcript} < {MIN_TRANSCRIPT_LENGTH}"
+            )
             raw_summary = None
             raw_response = f"Thanks for mentioning {name}! Unfortunately there is too little info to summarize from."
         else:
-            # TODO(P1, bug): ParsingError: { "name": "Michmucho", "industry": "", "role": "", "vibes": "Unknown", "priority": 3, "follow_ups": null, "needs": null }
-            raw_response = gpt_client.run_prompt(query_summarize.format(name, name, transcript), print_prompt=True)
+            # TODO(P1, bug): ParsingError: { "name": "Michmucho", "industry": "", "role": "", "vibes": "Unknown",
+            #  "priority": 3, "follow_ups": null, "needs": null }
+            raw_response = gpt_client.run_prompt(
+                query_summarize.format(name, name, transcript), print_prompt=True
+            )
             raw_summary = gpt_response_to_json(raw_response)
 
         person = PersonDataEntry()
@@ -159,11 +174,12 @@ The input transcript: {}"""
 
         summary_name = raw_summary.get("name", name)
         if summary_name != name:
-            print(f"INFO: name from person chunking {name} ain't equal the one from the summary {summary_name}")
+            print(
+                f"INFO: name from person chunking {name} ain't equal the one from the summary {summary_name}"
+            )
 
         person.priority = PersonDataEntry.PRIORITIES_MAPPING.get(
-            raw_summary.get("priority", 2),
-            "P3 - Unsure: Check if you have time"
+            raw_summary.get("priority", 2), "P3 - Unsure: Check if you have time"
         )
         # person.mnemonic = raw_summary.get("mnemonic", None)
         # person.mnemonic_explanation = raw_summary.get("mnemonic_explanation", None)
@@ -179,7 +195,7 @@ The input transcript: {}"""
         # So making a separate query for the mnemonic
         query_mnemonic = (
             "I need your help with a fun little task. "
-            f"Can you come up with a catchy three-word phrase that's easy to remember and includes {person.name}? " 
+            f"Can you come up with a catchy three-word phrase that's easy to remember and includes {person.name}? "
             "Here's the catch: all the words should start with the same letter and describe the person."
             "Please output the result on two lines as:\n"
             "* phrase\n"
@@ -190,13 +206,15 @@ The input transcript: {}"""
         non_whitespace_lines = []
         if bool(raw_mnemonic):
             lines = str(raw_mnemonic).split("\n")
-            non_whitespace_lines = [line for line in lines if line.strip() != '']
+            non_whitespace_lines = [line for line in lines if line.strip() != ""]
             if len(non_whitespace_lines) > 0:
                 person.mnemonic = non_whitespace_lines[0]
             if len(non_whitespace_lines) > 1:
                 person.mnemonic_explanation = non_whitespace_lines[1]
         if len(non_whitespace_lines) < 2:
-            print(f"WARNING: Could NOT get mnemonic (catch phrase) for {person.name} got raw: {raw_mnemonic}")
+            print(
+                f"WARNING: Could NOT get mnemonic (catch phrase) for {person.name} got raw: {raw_mnemonic}"
+            )
 
     # TODO(P1, quality): There are too many un-named people, either:
     #  * Filter out transcripts which are a strict subset of other transcripts
@@ -206,7 +224,9 @@ The input transcript: {}"""
     filtered_result = []
     for person in people:
         if any(pattern.lower() in person.name.lower() for pattern in likely_duplicate):
-            print(f"WARNING: Filtering out un-identified person {person.name} for transcript {person.get_transcript_text()}")
+            print(
+                f"WARNING: Filtering out un-identified person {person.name} for {person.get_transcript_text()}"
+            )
             continue
         filtered_result.append(person)
 
@@ -214,10 +234,7 @@ The input transcript: {}"""
 
 
 def generate_first_outreaches(
-        gpt_client: OpenAiClient,
-        name: str,
-        person_transcript: str,
-        intents: List[str]
+    gpt_client: OpenAiClient, name: str, person_transcript: str, intents: List[str]
 ) -> List[Draft]:
     result = []
     for intent in intents:
@@ -225,46 +242,55 @@ def generate_first_outreaches(
         # TODO(P2, feature): Add a text area which allows to fine-tune, regenerate the draft with extra prompts
         #   i.e. have an embedded chat gpt experience.
         #   Maybe add info from stalking tools like https://www.reversecontact.com
-        query_outreaches = """ 
-From the notes on the following person I just met at an event 
-please generate a short outreach message written in style of 
-a "smooth casual friendly yet professional person", 
-ideally adjusted to the talking style from the note, 
+        query_outreaches = """
+From the notes on the following person I just met at an event
+please generate a short outreach message written in style of
+a "smooth casual friendly yet professional person",
+ideally adjusted to the talking style from the note,
 to say that "{}"  (use up to 250 characters)
 Please make sure that:
 * to mention what I enjoyed OR appreciated in the conversation
 * include a fact / a hobby / an interest from our conversation
 * omit any sensitive information, especially money
 Only output the resulting message - do not use double quotes at all.
-My notes of person "{}" are as follows "{}" """.format(intent, name, person_transcript)
+My notes of person "{}" are as follows "{}" """.format(
+            intent, name, person_transcript
+        )
         raw_response = gpt_client.run_prompt(query_outreaches)
 
         is_it_json = gpt_response_to_json(raw_response, debug=False)
         if isinstance(is_it_json, (dict, list)):
-            print(f"WARNING: generate_first_outreaches returned a dict or list {raw_response}")
+            print(
+                f"WARNING: generate_first_outreaches returned a dict or list {raw_response}"
+            )
             raw_response = str(is_it_json)
 
-        result.append(Draft(
-            intent=intent,
-            message=raw_response
-        ))
+        result.append(Draft(intent=intent, message=raw_response))
 
     return result
 
 
 # =============== MAIN FUNCTIONS TO BE CALLED  =================
-def extract_per_person_summaries(gpt_client: OpenAiClient, raw_transcript: str) -> List[PersonDataEntry]:
+def extract_per_person_summaries(
+    gpt_client: OpenAiClient, raw_transcript: str
+) -> List[PersonDataEntry]:
     # TODO(P2, devx): Use tiktoken
-    print(f"Running networking_dump on raw_transcript of {len(raw_transcript.split())} token size")
+    print(
+        f"Running networking_dump on raw_transcript of {len(raw_transcript.split())} token size"
+    )
 
-    person_to_transcript = get_per_person_transcript(gpt_client, raw_transcript=raw_transcript)
+    person_to_transcript = get_per_person_transcript(
+        gpt_client, raw_transcript=raw_transcript
+    )
     # TODO(P1, quality): Make sure all of the original transcript is covered OR at least we should log it.
     print("=== All people with all their mentions === ")
     print(json.dumps(person_to_transcript))
     if person_to_transcript is None or len(person_to_transcript) == 0:
         return []
 
-    person_data_entries = summarize_transcripts_to_person_data_entries(gpt_client, person_to_transcript)
+    person_data_entries = summarize_transcripts_to_person_data_entries(
+        gpt_client, person_to_transcript
+    )
     print("=== All summaries === ")
     # Sort by priority, these are now P0, P1 so do it ascending.
     person_data_entries = sorted(person_data_entries, key=lambda pde: pde.sort_key())
@@ -274,8 +300,12 @@ def extract_per_person_summaries(gpt_client: OpenAiClient, raw_transcript: str) 
     return person_data_entries
 
 
-def fill_in_draft_outreaches(gpt_client: OpenAiClient, person_data_entries: List[PersonDataEntry]):
-    print(f"Running fill_in_draft_outreaches on {len(person_data_entries)} person data entries")
+def fill_in_draft_outreaches(
+    gpt_client: OpenAiClient, person_data_entries: List[PersonDataEntry]
+):
+    print(
+        f"Running fill_in_draft_outreaches on {len(person_data_entries)} person data entries"
+    )
 
     for person in person_data_entries:
         # If any mentioned in the transcript then use those, otherwise fill
@@ -288,13 +318,17 @@ def fill_in_draft_outreaches(gpt_client: OpenAiClient, person_data_entries: List
         ]
 
         if person.parsing_error is not None and len(person.parsing_error) > 10:
-            print(f"WARNING: Person {person.name} encountered a parsing error, shortening intents")
+            print(
+                f"WARNING: Person {person.name} encountered a parsing error, shortening intents"
+            )
             # Likely means the transcript was odd, so don't even try much.
-            follow_ups = ["Great to meet you, let me know if I can ever do anything for you!"]
+            follow_ups = [
+                "Great to meet you, let me know if I can ever do anything for you!"
+            ]
 
         person.drafts = generate_first_outreaches(
             gpt_client=gpt_client,
             name=person.name,
             person_transcript=person.get_transcript_text(),
-            intents=follow_ups
+            intents=follow_ups,
         )

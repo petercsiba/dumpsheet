@@ -1,10 +1,9 @@
 import datetime
 import json
 import time
-
-from dataclasses import dataclass, field, is_dataclass, asdict, fields
+from dataclasses import asdict, dataclass, field, fields, is_dataclass
 from json import JSONEncoder
-from typing import Any, Dict, List, Optional, Type, get_origin, get_args
+from typing import Any, Dict, List, Optional, Type, get_args, get_origin
 
 from common.config import SENDER_EMAIL, SUPPORT_EMAIL
 
@@ -62,7 +61,9 @@ def dict_to_dataclass(dict_: dict, dataclass_type: Type[Any]) -> dataclass:
         return dataclass_type()
 
     if not isinstance(dict_, dict):
-        print(f"WARNING: dict_to_dataclass expected a dict, given {type(dict_)} for {dict_}")
+        print(
+            f"WARNING: dict_to_dataclass expected a dict, given {type(dict_)} for {dict_}"
+        )
         return dataclass_type()
 
     init_values = {}
@@ -71,7 +72,11 @@ def dict_to_dataclass(dict_: dict, dataclass_type: Type[Any]) -> dataclass:
         value = dict_.get(f.name)  # e.g. None might be NOT set
         # GPT generated magic to handle List[DataClass] parsing.
         field_args = get_args(f.type)
-        if get_origin(f.type) is list and len(field_args) == 1 and is_dataclass(field_args[0]):
+        if (
+            get_origin(f.type) is list
+            and len(field_args) == 1
+            and is_dataclass(field_args[0])
+        ):
             sub_dataclass_type = field_args[0]
             list_of_dataclass = []
             # Now for each element of the list, which is expected to be a dataclass, parse it from the expected dict
@@ -131,7 +136,9 @@ def dump_to_lines(sth_like_a_string, sep="\n") -> str:
     elif isinstance(sth_like_a_string, list):  # Check if follow_ups is a list
         return sep.join([dump_to_lines(x, sep) for x in sth_like_a_string])
     elif isinstance(sth_like_a_string, dict):  # Check if follow_ups is a dictionary
-        return sep.join(f"{str(key)}: {str(value)}" for key, value in sth_like_a_string.items())
+        return sep.join(
+            f"{str(key)}: {str(value)}" for key, value in sth_like_a_string.items()
+        )
     else:
         return str(sth_like_a_string)
 
@@ -182,7 +189,9 @@ class PersonDataEntry:
     def sort_key(self):
         # Sort by priority ascending, and transcript length descending.
         # TODO(P1, debug): Why priority can still be None?
-        return self.priority or "", 0 if self.transcript is None else -len(str(self.transcript))
+        return self.priority or "", 0 if self.transcript is None else -len(
+            str(self.transcript)
+        )
 
 
 @dataclass
@@ -233,6 +242,7 @@ class User:
             subject=subject,
             reply_to=SUPPORT_EMAIL,  # We skip the orig_to_address, as that would trigger another transcription.
         )
+
     # The rest of params will get filled in later
 
 

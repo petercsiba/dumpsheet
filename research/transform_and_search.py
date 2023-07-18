@@ -1,16 +1,18 @@
 import csv
 import json
-import openai
 import os
 import random
 import time
+
+import openai
 import toml
 
 # TODO(P1, devx): Refactor this into common and python modules - that requires some docker and install stuff.
-from common.openai_client import gpt_response_to_json, OpenAiClient
+from common.openai_client import OpenAiClient, gpt_response_to_json
+
 # from app.storage_utils import write_to_csv
 
-config = toml.load('secrets.toml')
+config = toml.load("secrets.toml")
 openai.api_key = config["OPEN_API_KEY"]
 
 output_folder = "data"
@@ -48,12 +50,12 @@ def transform_fields(openai_client: OpenAiClient, orig_person):
     #   * Chat-gpt is assuming nice skills like collaboration, team-work, leadership
     #   * Sometimes even makes things up - just cause Peter lives in Zurich he likes skiing
     prompt = (
-            f"Input json is a persons professional experience - please summarize into the followings attributes"
-            f" output as a json dictionary with the corresponding dictionary keys"
-            # f" if you less than 50% sure then just output None instead of making up things"
-            # TODO(pii): Try to stripe at least the basic identifiers. 
-            """  
-- get Current Organization, key = organization 
+        f"Input json is a persons professional experience - please summarize into the followings attributes"
+        f" output as a json dictionary with the corresponding dictionary keys"
+        # f" if you less than 50% sure then just output None instead of making up things"
+        # TODO(pii): Try to stripe at least the basic identifiers.
+        """
+- get Current Organization, key = organization
 - get primary industry, key = industry
 - Role, key = role
 - Seniority, key = seniority
@@ -61,9 +63,9 @@ def transform_fields(openai_client: OpenAiClient, orig_person):
 - Interests in two sentences, key = interests
 - Skills as up to 50 tags, key = skills
 - Career next steps or needs in two sentences, key = needs
-- Characteristics and personality in up to 200 words, key = character 
+- Characteristics and personality in up to 200 words, key = character
             """
-            f"Input json: {json.dumps(person)}"
+        f"Input json: {json.dumps(person)}"
     )
     raw_response = openai_client.run_prompt(prompt)
     result = gpt_response_to_json(raw_response)
@@ -82,7 +84,9 @@ def evaluate_match(openai_client: OpenAiClient, orig_person1: dict, orig_person2
     # TODO(peter): Try embeddings, that should be a better way to search for alikes
     #   https://platform.openai.com/docs/guides/embeddings
     print("==========================================================")
-    print(f"Matching {orig_person1.get('full_name')} and {orig_person2.get('full_name')}")
+    print(
+        f"Matching {orig_person1.get('full_name')} and {orig_person2.get('full_name')}"
+    )
     person1 = strip_pii(orig_person1)
     person2 = strip_pii(orig_person2)
 
@@ -99,18 +103,18 @@ def evaluate_match(openai_client: OpenAiClient, orig_person1: dict, orig_person2
         # and support each other's professional development.
         "peer: peer camaraderie where they support each other's professional development in their industries\n"
         "recruiter: one side is looking for talent the other can provide to their company, open to work helps\n"
-        # The leader provides direction and support, while the follower contributes through execution and feedback, 
+        # The leader provides direction and support, while the follower contributes through execution and feedback,
         # ensuring organizational success.
         "leadership: leader provides direction and support, while the follower contributes execution and feedback\n"
-        "expert: expert provides one-time advice to the other side\n" 
-        # contract negotiator and a contractor involves ongoing dialogue, mutual agreement, 
+        "expert: expert provides one-time advice to the other side\n"
+        # contract negotiator and a contractor involves ongoing dialogue, mutual agreement,
         # and conflict resolution to ensure beneficial outcomes for all parties
         "contractor: contractor provides well-scoped work for someone with a need they can fulfill\n"
         # We are in SF Bay Area, everyone is thinking about angel-investing
         "investor: investor provides capital and network which bootstraps the other sides idea \n"
-        # TODO(cofounder): MAYBE 
+        # TODO(cofounder): MAYBE
         # REMOVED(mentor): Cause usually self-served
-        # the mentor imparts wisdom and guidance while the protégé absorbs and applies this knowledge, 
+        # the mentor imparts wisdom and guidance while the protégé absorbs and applies this knowledge,
         # fostering a cycle of growth and progression."
         # "mentor: mentor-protégé dynamic\n"
         # REMOVED(service): Cause usually self-served
@@ -121,7 +125,7 @@ def evaluate_match(openai_client: OpenAiClient, orig_person1: dict, orig_person2
         # leading to successful project outcomes.
         # "team: collaboration between project team members\n"
         # REMOVED(innovator): too similar to expert
-        # innovator creates solutions, and the user provides feedback for improvements, 
+        # innovator creates solutions, and the user provides feedback for improvements,
         # creating a cycle of continuous enhancement (feels similar to expert)
         # "innovator: innovator or problem solver and client or user relationship\n"
         f"and these are the two persons to evaluate match likelihood as json objects:\n{person1}\nand\n{person2}"
@@ -142,7 +146,9 @@ with open(SCRAPED_OUTPUT, "r") as handle:
     # people = slice_dictionary(people_not_none)
     people = people_not_none
 
-    print(f"Loaded {len(people)} people, not-none are {len(people_not_none)} and running with {len(people)}")
+    print(
+        f"Loaded {len(people)} people, not-none are {len(people_not_none)} and running with {len(people)}"
+    )
 
 
 transformed_data = []
@@ -163,22 +169,27 @@ else:
 
 num_pairs = 10
 n = len(transformed_data)
-random_pairs = [(random.randint(0, n - 1), random.randint(0, n - 1)) for _ in range(num_pairs)]
+random_pairs = [
+    (random.randint(0, n - 1), random.randint(0, n - 1)) for _ in range(num_pairs)
+]
 match_results = []
 for pair in random_pairs:
     if pair[0] == pair[1]:
         continue
     person1 = transformed_data[pair[0]]
     person2 = transformed_data[pair[1]]
-    match_result = evaluate_match(openai_client, orig_person1=person1, orig_person2=person2)
-    match_results.append({
-        "person1": person1,
-        "person2": person2,
-        "result": match_result,
-    })
+    match_result = evaluate_match(
+        openai_client, orig_person1=person1, orig_person2=person2
+    )
+    match_results.append(
+        {
+            "person1": person1,
+            "person2": person2,
+            "result": match_result,
+        }
+    )
 
 
 print(f"Saving sample match data to {MATCH_OUTPUT}")
-with open(MATCH_OUTPUT, 'w') as handle:
+with open(MATCH_OUTPUT, "w") as handle:
     json.dump(match_results, handle)
-

@@ -1,11 +1,19 @@
 from typing import Dict
 
 from bs4 import BeautifulSoup, Comment
+
 from common.openai_client import OpenAiClient, gpt_response_to_json
 
 
 def tag_visible(element):
-    if element.parent.name in ['style', 'script', 'head', 'title', 'meta', '[document]']:
+    if element.parent.name in [
+        "style",
+        "script",
+        "head",
+        "title",
+        "meta",
+        "[document]",
+    ]:
         return False
     if isinstance(element, Comment):
         return False
@@ -15,15 +23,15 @@ def tag_visible(element):
 def text_from_html(soup: BeautifulSoup):
     texts = soup.findAll(text=True)
     visible_texts = filter(tag_visible, texts)
-    return u"\n".join(t.strip() for t in visible_texts if len(t.strip()) > 1)
+    return "\n".join(t.strip() for t in visible_texts if len(t.strip()) > 1)
 
 
 def split_text(text, chunk_size=2500, overlap=400):
     words = text.split()
     chunks = []
     for i in range(0, len(words), chunk_size - overlap):
-        chunk = words[i:i + chunk_size]
-        chunks.append(' '.join(chunk))
+        chunk = words[i : i + chunk_size]
+        chunks.append(" ".join(chunk))
     return chunks
 
 
@@ -35,7 +43,7 @@ def extract_profile_data(gpt_client: OpenAiClient, text_only_data: str) -> Dict:
 this web page in visible text only format talks about {} profile
 extract all relevant information for this person,
 omit general sounding information
-also omit other peoples bio 
+also omit other peoples bio
 be sure to describe all relevant experiences for this person
 only output a json for all the found structured data
 text: {}"""
@@ -44,7 +52,7 @@ text: {}"""
         if i == 0:
             name = "a person"
         else:
-            name = first_result.get('name', 'a person')
+            name = first_result.get("name", "a person")
 
         query = query_template.format(name, chunk)
         result = gpt_client.run_prompt(query, print_prompt=True)

@@ -7,17 +7,17 @@
 # TODO(P1, devx): This Haystack library looks quite good https://github.com/deepset-ai/haystack
 # TODO(P3, research, fine-tune): TLDR; NOT worth it. Feels like for repeated tasks it would be great to
 #  speed up and/or cost save https://platform.openai.com/docs/guides/fine-tuning/advanced-usage
-import json
 import hashlib
-import openai
+import json
 import re
-import tiktoken
 import time
-
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import List, Optional
 
-from app.dynamodb import DynamoDBManager, write_data_class, read_data_class
+import openai
+import tiktoken
+
+from app.dynamodb import DynamoDBManager, read_data_class, write_data_class
 from common.config import OPEN_AI_API_KEY
 from common.storage_utils import get_fileinfo
 from common.utils import Timer
@@ -91,16 +91,18 @@ class PromptLog:
     @staticmethod
     def create(prompt, model):
         return PromptLog(
-            prompt = prompt,
-            prompt_hash = hashlib.sha256(prompt.encode()).hexdigest(),
-            model = model
+            prompt=prompt,
+            prompt_hash=hashlib.sha256(prompt.encode()).hexdigest(),
+            model=model,
         )
 
 
 class OpenAiClient:
     def __init__(self, dynamodb: Optional[DynamoDBManager]):
         print("OpenAiClient init")
-        self.prompt_cache_table = dynamodb.create_prompt_table_if_not_exists() if bool(dynamodb) else None
+        self.prompt_cache_table = (
+            dynamodb.create_prompt_table_if_not_exists() if bool(dynamodb) else None
+        )
         # In-memory representation of the above to mostly sum up stats.
         self.prompt_stats: List[PromptLog] = []
 
@@ -115,13 +117,17 @@ class OpenAiClient:
         stats.total_tokens = stats.prompt_tokens + stats.completion_tokens
         return stats
 
-    def _run_prompt(self, prompt: str, model=DEFAULT_MODEL, retry_timeout=10, retry_num=0):
+    def _run_prompt(
+        self, prompt: str, model=DEFAULT_MODEL, retry_timeout=10, retry_num=0
+    ):
         # wait is too long so carry on
         if retry_timeout > 300:
             print("ERROR: waiting for prompt too long")
             return None
         if retry_num >= BACKUP_MODEL_AFTER_NUM_RETRIES and model != BACKUP_MODEL:
-            print(f"WARNING: Changing model from {model} to {BACKUP_MODEL} after {retry_num} retries")
+            print(
+                f"WARNING: Changing model from {model} to {BACKUP_MODEL} after {retry_num} retries"
+            )
             # The "cutting-edge" models experience more downtime.
             model = BACKUP_MODEL
 
@@ -140,22 +146,38 @@ class OpenAiClient:
         # You can retry your request, or contact us through our help center at help.openai.com
         # if the error persists.
         # (Please include the request ID 7ed28a69c5cda5378f57266336539b7d in your message.)
-        except (openai.error.RateLimitError, openai.error.Timeout, openai.error.TryAgain) as err:
-            print(f"Got time-based {type(err)} error - sleeping for {retry_timeout} cause {err}")
+        except (
+            openai.error.RateLimitError,
+            openai.error.Timeout,
+            openai.error.TryAgain,
+        ) as err:
+            print(
+                f"Got time-based {type(err)} error - sleeping for {retry_timeout} cause {err}"
+            )
             should_retry = True
             time.sleep(retry_timeout)
         # Their fault
         except (openai.error.APIError, openai.error.ServiceUnavailableError) as err:
-            print(f"Got server-side {type(err)} error - sleeping for {retry_timeout} cause {err}")
+            print(
+                f"Got server-side {type(err)} error - sleeping for {retry_timeout} cause {err}"
+            )
             should_retry = True
             time.sleep(retry_timeout)
         # Our fault
-        except (openai.error.InvalidRequestError, openai.error.InvalidAPIType, openai.error.AuthenticationError) as err:
-            print(f"Got client-side {type(err)} error - we messed up so lets rethrow this error {err}")
+        except (
+            openai.error.InvalidRequestError,
+            openai.error.InvalidAPIType,
+            openai.error.AuthenticationError,
+        ) as err:
+            print(
+                f"Got client-side {type(err)} error - we messed up so lets rethrow this error {err}"
+            )
             raise err
 
         if should_retry:
-            return self._run_prompt(prompt, model, 2 * retry_timeout, retry_num=retry_num+1)  # exponential backoff
+            return self._run_prompt(
+                prompt, model, 2 * retry_timeout, retry_num=retry_num + 1
+            )  # exponential backoff
 
         return response
 
@@ -167,19 +189,26 @@ class OpenAiClient:
         prompt_log = PromptLog.create(prompt=prompt, model=model)
 
         if print_prompt:
-            loggable_prompt = prompt.replace('\n', ' ')
+            loggable_prompt = prompt.replace("\n", " ")
             print(f"Asking {model} for: {loggable_prompt}")
 
         key = PromptLog.create(prompt, model)
         if bool(self.prompt_cache_table):
-            cached_prompt: PromptLog = read_data_class(data_class_type=PromptLog, table=self.prompt_cache_table, key={
-                'prompt_hash': key.prompt_hash,
-                'model': key.model,
-            }, print_not_found=False)
+            cached_prompt: PromptLog = read_data_class(
+                data_class_type=PromptLog,
+                table=self.prompt_cache_table,
+                key={
+                    "prompt_hash": key.prompt_hash,
+                    "model": key.model,
+                },
+                print_not_found=False,
+            )
             if bool(cached_prompt):
                 print("cached_prompt: servifsdfng out of cache")
                 if cached_prompt.prompt != prompt:
-                    print(f"ERROR: hash collision for {key.prompt_hash} for prompt {prompt}")
+                    print(
+                        f"ERROR: hash collision for {key.prompt_hash} for prompt {prompt}"
+                    )
                 else:
                     self.prompt_stats.append(cached_prompt)
                     return cached_prompt.result
@@ -190,14 +219,16 @@ class OpenAiClient:
 
         prompt_log.request_time_ms = int(1000 * (time.time() - start_time))
         if print_prompt:
-            print(f"ChatCompletion: { prompt_log.request_time_ms / 1000} seconds")  # Note, includes retry time.
+            print(
+                f"ChatCompletion: { prompt_log.request_time_ms / 1000} seconds"
+            )  # Note, includes retry time.
 
         if response is None:
             return None
         # TODO(P2, test): There used to be new-line replacement, imho more confusing than useful.
         gpt_result = response.choices[0].message.content.strip()
 
-        token_usage = response['usage']
+        token_usage = response["usage"]
         prompt_log.result = gpt_result
         prompt_log.prompt_tokens = token_usage.get("prompt_tokens", 0)
         prompt_log.completion_tokens = token_usage.get("completion_tokens", 0)
@@ -218,17 +249,21 @@ class OpenAiClient:
     #   * How the to event store this in DynamoDB? Probably gonna go with Pinecode or similar from the beginning.
     def get_embedding(self, text, model="text-embedding-ada-002"):
         text = text.replace("\n", " ")
-        print(f"Running embedding for {num_tokens_from_string(text)} token of text {text[:100]}")
+        print(
+            f"Running embedding for {num_tokens_from_string(text)} token of text {text[:100]}"
+        )
         with Timer("Embedding"):
-            embedding = openai.Embedding.create(input=[text], model=model)['data'][0]['embedding']
+            embedding = openai.Embedding.create(input=[text], model=model)["data"][0][
+                "embedding"
+            ]
             # print(f"Embedding: {embedding}")
             return embedding
 
-    # TODO(P1, Facebook MMS): Better multi-language support, Slovak was OK, but it got some things quite wrong.
+    # TODO(P2, Facebook MMS): Better multi-language support, Slovak was OK, but it got some things quite wrong.
     #   * https://about.fb.com/news/2023/05/ai-massively-multilingual-speech-technology/
     #   We might need to run the above ourselves for now (BaseTen hosting?)
     #   For inspiration on how to run Whisper locally:
-    #   * https://towardsdatascience.com/whisper-transcribe-translate-audio-files-with-human-level-performance-df044499877
+    #   https://towardsdatascience.com/whisper-transcribe-translate-audio-files-with-human-level-performance-df044499877
     # They claim to have WER <50% for these:
     # Afrikaans, Arabic, Armenian, Azerbaijani, Belarusian, Bosnian, Bulgarian, Catalan, Chinese, Croatian, Czech,
     # Danish, Dutch, English, Estonian, Finnish, French, Galician, German, Greek, Hebrew, Hindi, Hungarian, Icelandic,
@@ -247,7 +282,9 @@ class OpenAiClient:
         # TODO(P2, feature); For longer inputs, we can use pydub to chunk it up
         #   https://platform.openai.com/docs/guides/speech-to-text/longer-inputs
         with open(audio_filepath, "rb") as audio_file:
-            print(f"Transcribing (and translating) {get_fileinfo(file_handle=audio_file)}")
+            print(
+                f"Transcribing (and translating) {get_fileinfo(file_handle=audio_file)}"
+            )
             # Data submitted through the API is no longer used for service improvements (including model training)
             #   unless the organization opts in
             # https://openai.com/blog/introducing-chatgpt-and-whisper-apis
@@ -274,7 +311,9 @@ def _get_first_occurrence(s: str, list_of_chars: list):
 
     for char in list_of_chars:
         index = s.find(char)
-        if index != -1 and index < first_occurrence:  # update if char found and it's earlier
+        if (
+            index != -1 and index < first_occurrence
+        ):  # update if char found and it's earlier
             first_occurrence = index
 
     if first_occurrence == len(s):
@@ -297,10 +336,12 @@ def _try_decode_non_json(raw_response: str):
     # Sometimes it returns a list of strings in format of " -"
     lines = raw_response.split("\n")
     if len(lines) > 1:
-        bullet_point_lines = sum(s.lstrip().startswith('-') for s in lines)
+        bullet_point_lines = sum(s.lstrip().startswith("-") for s in lines)
         if bullet_point_lines + 1 >= len(lines):
-            print(f"Most of lines {bullet_point_lines} out of {len(lines)} start as a bullet point, assuming list")
-            return [s for s in lines if s.lstrip().startswith('-')]
+            print(
+                f"Most of lines {bullet_point_lines} out of {len(lines)} start as a bullet point, assuming list"
+            )
+            return [s for s in lines if s.lstrip().startswith("-")]
 
     print("WARNING: Giving up on decoding")
     return None
@@ -314,42 +355,50 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
     wrong_input_responses = [
         "Sorry, it is not possible to create a json dict",
         "Sorry, as an AI language model",
-        "The note does not mention any person" #'s name or identifier
+        "The note does not mention any person",  # 's name or identifier
     ]
     if any(raw_response.startswith(s) for s in wrong_input_responses):
         if debug:
-            print(f"WARNING: Likely provided wrong input as GPT is complaining with {raw_response}")
+            print(
+                f"WARNING: Likely provided wrong input as GPT is complaining with {raw_response}"
+            )
         return None
 
     orig_response = raw_response
     # Output: ```json <text> ```
-    raw_response = re.sub(r'```[a-z\s]*?(.*?) ```', r'\1', raw_response, flags=re.DOTALL)
+    raw_response = re.sub(
+        r"```[a-z\s]*?(.*?) ```", r"\1", raw_response, flags=re.DOTALL
+    )
     # For "Expecting property name enclosed in double quotes"
     # Obviously not bullet-proof for stuff like 'Ed's', can be probably
     # raw_json = raw_response.replace("'", '"')
     # GPT to rescue: Use regex to replace single quotes with double quotes
     # raw_response = re.sub(r"\'((?:[^']|(?<=\\\\)')*?[^'])\'", r'"\1"', raw_response)
     # Welp - OMG this from PPrint :facepalm:
-    raw_response = raw_response.replace("{'", '{"').replace("':", '":').replace(", '", ', "')
-    raw_response = raw_response.replace("',", '",').replace(": '", ': "').replace("'}", '"}')
+    raw_response = (
+        raw_response.replace("{'", '{"').replace("':", '":').replace(", '", ', "')
+    )
+    raw_response = (
+        raw_response.replace("',", '",').replace(": '", ': "').replace("'}", '"}')
+    )
     raw_response = raw_response.replace(': ""', ': "').replace('""}', '"}')
     # Sometimes, it includes the input in the response. So only consider what is after "Output"
     match = re.search("(?i)output:", raw_response)
     if match:
-        raw_response = raw_response[match.start():]
+        raw_response = raw_response[match.start() :]
     # Yeah, sometimes it does that lol
     #   **Output:**<br> ["Shervin: security startup guy from Maryland who wears a 1337/1338 shirt"]<br>
-    raw_response = raw_response.replace('<br>\n', '\n')
-    raw_response = raw_response.replace('<br />\n', '\n')
+    raw_response = raw_response.replace("<br>\n", "\n")
+    raw_response = raw_response.replace("<br />\n", "\n")
     # Sometimes GPT adds the extra comma, well, everyone is guilty of that leading to a production outage so :shrug:
     # Examples: """her so it was cool",    ],"""
     # TODO(P2, devx): Redundant character escape
     raw_response = re.sub(r'",\s*\]', '"]', raw_response)
     raw_response = re.sub(r'",\s*\}', '"}', raw_response)
-    raw_response = re.sub(r'\],\s*\}', ']}', raw_response)
-    raw_response = re.sub(r'\],\s*\]', ']]', raw_response)
-    raw_response = re.sub(r'\},\s*\}', '}}', raw_response)
-    raw_response = re.sub(r'\},\s*\]', '}]', raw_response)
+    raw_response = re.sub(r"\],\s*\}", "]}", raw_response)
+    raw_response = re.sub(r"\],\s*\]", "]]", raw_response)
+    raw_response = re.sub(r"\},\s*\}", "}}", raw_response)
+    raw_response = re.sub(r"\},\s*\]", "}]", raw_response)
     # if debug:
     #     print(f"converted {orig_response}\n\nto\n\n{raw_response}")
     try:
@@ -357,10 +406,12 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
         result = json.loads(raw_response)
     except json.decoder.JSONDecodeError as orig_err:
         # In case there is something before the actual json output like "Output:", "Here you go:", "Sure ..".
-        start_index = _get_first_occurrence(raw_response, ['{', '['])
-        last_index = _get_last_occurrence(raw_response, ['}', ']'])
-        raw_json = raw_response[start_index:last_index+1]  # -1 works
-        if debug and len(raw_json) * 2 < len(raw_response):  # heuristic to determine that we shortened too much
+        start_index = _get_first_occurrence(raw_response, ["{", "["])
+        last_index = _get_last_occurrence(raw_response, ["}", "]"])
+        raw_json = raw_response[start_index : last_index + 1]  # -1 works
+        if debug and len(raw_json) * 2 < len(
+            raw_response
+        ):  # heuristic to determine that we shortened too much
             print(
                 f"WARNING: likely the GPT response is NOT a JSON (shortened [{start_index}:{last_index}]):"
                 f"\n{raw_json}\nresulted from\n{orig_response}"
@@ -404,7 +455,7 @@ def gpt_response_to_plaintext(raw_response) -> str:
 
 
 if __name__ == "__main__":
-    test_json_with_extra_output = """Output: 
+    test_json_with_extra_output = """Output:
     {
         "name": "Marco",
         "mnemonic": "Fashion Italy",
@@ -419,4 +470,4 @@ if __name__ == "__main__":
         ]
     }"""
     result = gpt_response_to_json(test_json_with_extra_output)
-    assert(result["name"] == "Marco")
+    assert result["name"] == "Marco"

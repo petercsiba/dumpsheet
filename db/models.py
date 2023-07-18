@@ -1,13 +1,19 @@
 from peewee import *
 
-database = PostgresqlDatabase('postgres', **{'host': 'localhost', 'port': 54322, 'user': 'postgres'})
+database = PostgresqlDatabase(
+    "postgres", **{"host": "localhost", "port": 54322, "user": "postgres"}
+)
+
 
 class UnknownField(object):
-    def __init__(self, *_, **__): pass
+    def __init__(self, *_, **__):
+        pass
+
 
 class BaseModel(Model):
     class Meta:
         database = database
+
 
 class PromptLog(BaseModel):
     completion_tokens = BigIntegerField(constraints=[SQL("DEFAULT '0'::bigint")])
@@ -21,8 +27,5 @@ class PromptLog(BaseModel):
     result = TextField()
 
     class Meta:
-        table_name = 'prompt_log'
-        indexes = (
-            (('prompt_hash', 'model'), True),
-        )
-
+        table_name = "prompt_log"
+        indexes = ((("prompt_hash", "model"), True),)

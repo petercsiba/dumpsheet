@@ -1,7 +1,7 @@
 import os
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
-from common.aws_utils import is_running_in_aws, get_boto_s3_client
+from common.aws_utils import get_boto_s3_client, is_running_in_aws
 
 s3 = get_boto_s3_client()
 
@@ -34,12 +34,12 @@ def mkdir_safe(directory_name):
 
 
 def write_output_to_local_and_bucket(
-        data,
-        suffix: str,
-        local_output_prefix: str,
-        content_type: str,
-        bucket_name: Optional[str],
-        bucket_object_prefix: Optional[str],
+    data,
+    suffix: str,
+    local_output_prefix: str,
+    content_type: str,
+    bucket_name: Optional[str],
+    bucket_object_prefix: Optional[str],
 ) -> Tuple[str, str]:
     local_filepath = f"{local_output_prefix}{suffix}"
     print(f"Gonna write some data to {local_filepath}")
@@ -55,7 +55,7 @@ def write_output_to_local_and_bucket(
             local_filepath,
             bucket_name,
             bucket_key,
-            ExtraArgs={'ContentType': content_type},
+            ExtraArgs={"ContentType": content_type},
         )
 
     return local_filepath, bucket_key

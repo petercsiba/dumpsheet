@@ -10,14 +10,13 @@ import os
 from bs4 import BeautifulSoup
 
 
-
 def shorten_class_names(_soup):
     for tag in _soup.find_all(True):
-        if 'class' in tag.attrs:
-            new_classes = [cls.split('-')[0] for cls in tag['class']]
-            tag['class'] = new_classes
+        if "class" in tag.attrs:
+            new_classes = [cls.split("-")[0] for cls in tag["class"]]
+            tag["class"] = new_classes
         for attr in list(tag.attrs.keys()):
-            if attr not in ['class', 'id']:
+            if attr not in ["class", "id"]:
                 del tag[attr]
     return _soup
 
@@ -30,7 +29,7 @@ with open(input_filepath, "r") as f:
 base, ext = os.path.splitext(input_filepath)
 output_filepath = f"{base}-short{ext}"
 with open(output_filepath, "w") as f:
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, "html.parser")
     new_soup = shorten_class_names(soup)
     new_content = new_soup.prettify()
     print(f"shortened {output_filepath} from {len(html)} to {len(new_content)}")

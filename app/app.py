@@ -36,31 +36,44 @@
 #   * https://distoai.com/
 # TODO(P0, ux): For not-found websites have a nicer error.html (or rederict) in
 #   * https://s3.console.aws.amazon.com/s3/bucket/static.katka.ai/property/website/edit?region=us-west-2
-import time
-
-import boto3
 import copy
 import datetime
 import email
 import os
 import re
 import subprocess
+import time
 import traceback
-
-from botocore.exceptions import NoCredentialsError
-from email.utils import parseaddr
-from urllib.parse import unquote_plus
 from typing import Optional
+from urllib.parse import unquote_plus
+
+import boto3
+from botocore.exceptions import NoCredentialsError
 
 from app.datashare import DataEntry
-from app.emails import send_confirmation, send_responses, store_and_get_attachments_from_email, get_email_params_for_reply
-from app.networking_dump import fill_in_draft_outreaches, extract_per_person_summaries
-from common.supabase_client import get_postgres_connection, get_magic_link_and_create_user_if_does_not_exists, \
-    get_user_id_for_email, insert_into_todos, supabase
+from app.dynamodb import (
+    TABLE_NAME_USER,
+    DynamoDBManager,
+    setup_dynamodb_local,
+    teardown_dynamodb_local,
+)
+from app.emails import (
+    get_email_params_for_reply,
+    send_confirmation,
+    send_responses,
+    store_and_get_attachments_from_email,
+)
+from app.networking_dump import extract_per_person_summaries, fill_in_draft_outreaches
+from common.aws_utils import get_boto_s3_client, get_bucket_url, get_dynamo_endpoint_url
 from common.openai_client import OpenAiClient
-from app.dynamodb import setup_dynamodb_local, teardown_dynamodb_local, DynamoDBManager, TABLE_NAME_USER
-from common.aws_utils import get_bucket_url, get_dynamo_endpoint_url, get_boto_s3_client
 from common.storage_utils import pretty_filesize_int
+from common.supabase_client import (
+    get_magic_link_and_create_user_if_does_not_exists,
+    get_postgres_connection,
+    get_user_id_for_email,
+    insert_into_todos,
+    supabase,
+)
 from common.test_utils import extract_phone_number_from_filename
 from common.twillio_client import TwilioClient
 
@@ -77,20 +90,24 @@ def do_voxana(dynamodb: DynamoDBManager, data_entry: DataEntry):
         # TODO(ux, P1): Reconstruct this magic link
         get_magic_link_and_create_user_if_does_not_exists(email=email)
         supabase_user_id = get_user_id_for_email(postgres_conn, email)
-        print(f"gonna insert todos for {len(data_entry.output_people_entries)} people for user {supabase_user_id}")
+        print(
+            f"gonna insert todos for {len(data_entry.output_people_entries)} people for user {supabase_user_id}"
+        )
 
         todos = []
         for pde in data_entry.output_people_entries:
             for draft in pde.follow_ups:
-                todos.append({
-                    "user_id": supabase_user_id,
-                    "task": f"{pde.name} ({pde.priority} from {data_entry.event_timestamp}): {draft}",
-                    "is_complete": False,
-                })
+                todos.append(
+                    {
+                        "user_id": supabase_user_id,
+                        "task": f"{pde.name} ({pde.priority} from {data_entry.event_timestamp}): {draft}",
+                        "is_complete": False,
+                    }
+                )
         insert_into_todos(postgres_conn, todos)
 
         # Just try querying:
-        response = supabase.table('todos').select("*").execute()
+        response = supabase.table("todos").select("*").execute()
         print(f"all todos for user {supabase_user_id}: {response}")
 
         supabase.auth.sign_out()
@@ -102,10 +119,10 @@ def convert_audio_to_mp4(file_path):
     print(f"Running ffmpeg on {file_path} outputting to {audio_file}")
     try:
         # -y to force overwrite in case the file already exists
-        subprocess.run(['ffmpeg', '-y', '-i', file_path, audio_file], check=True)
-        print(f'Converted file saved as: {audio_file}')
+        subprocess.run(["ffmpeg", "-y", "-i", file_path, audio_file], check=True)
+        print(f"Converted file saved as: {audio_file}")
     except subprocess.CalledProcessError as e:
-        print(f'ffmpeg error occurred: {e}')
+        print(f"ffmpeg error occurred: {e}")
         traceback.print_exc()
         return None
     return audio_file
@@ -113,10 +130,10 @@ def convert_audio_to_mp4(file_path):
 
 # Second lambda
 def process_transcript_from_data_entry(
-        dynamodb: DynamoDBManager,
-        gpt_client: OpenAiClient,
-        twilio_client: Optional[TwilioClient],
-        data_entry: DataEntry
+    dynamodb: DynamoDBManager,
+    gpt_client: OpenAiClient,
+    twilio_client: Optional[TwilioClient],
+    data_entry: DataEntry,
 ):
     # ===== Actually perform black magic
     # Here we merge all successfully processed
@@ -127,11 +144,15 @@ def process_transcript_from_data_entry(
     print(f"raw_transcript: {raw_transcript}")
 
     # TODO(P0, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
-    people_entries = extract_per_person_summaries(gpt_client, raw_transcript=raw_transcript)
+    people_entries = extract_per_person_summaries(
+        gpt_client, raw_transcript=raw_transcript
+    )
     data_entry.output_people_entries = people_entries
     # TODO(P0, edge-cases): Make it work with 0 people
     dynamodb.write_data_entry(data_entry)  # Only update would be nice
-    event_name_safe = re.sub(r'\W', '-', data_entry.event_name)  # replace all non-alphanum with dashes
+    event_name_safe = re.sub(
+        r"\W", "-", data_entry.event_name
+    )  # replace all non-alphanum with dashes
 
     # This mutates the underlying data_entry.
     fill_in_draft_outreaches(gpt_client, people_entries)
@@ -147,14 +168,11 @@ def process_transcript_from_data_entry(
 
     if user.contact_method() == "sms":
         # TODO(P1, ux): Improve this message, might need an URL shortener
-        msg = f"Your event summary is ready - check your email Inbox"
+        msg = "Your event summary is ready - check your email Inbox"
         if not bool(twilio_client):
             print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
         else:
-            twilio_client.send_sms(
-                to_phone=user.phone_number,
-                body=msg
-            )
+            twilio_client.send_sms(to_phone=user.phone_number, body=msg)
             # When onboarding through Voice call & SMS, there is a chance that the email gets updated at a wrong time.
             # So lets keep refreshing it a few times to lower the chances.
             for i in range(3):
@@ -162,7 +180,9 @@ def process_transcript_from_data_entry(
                 time.sleep(60)
                 user = dynamodb.get_user(user.user_id)
                 if user.contact_method() == "email":
-                    print("Great success - email was updated and we can send them a nice confirmation too!")
+                    print(
+                        "Great success - email was updated and we can send them a nice confirmation too!"
+                    )
                     break
 
     if user.contact_method() == "email":
@@ -176,19 +196,21 @@ def process_transcript_from_data_entry(
             for draft in person.drafts:
                 actions[f"{person.name}: {draft.intent}"] = draft.message
 
-        action_names = '\n'.join(actions.keys())
+        action_names = "\n".join(actions.keys())
         print(f"ALL ACTION SUBJECTS: {action_names}")
 
         send_responses(
             event_name=event_name_safe,
             email_params=email_params,
             actions=actions,
-            idempotency_key_prefix=f"{data_entry.event_name}-response"
+            idempotency_key_prefix=f"{data_entry.event_name}-response",
         )
 
 
 # First lambda
-def process_email_input(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw_email, bucket_url=None) -> DataEntry:
+def process_email_input(
+    dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw_email, bucket_url=None
+) -> DataEntry:
     # TODO(P1, migration): Refactor the email processing to another function which returns some custom object maybe
     print(f"Read raw_email body with {len(raw_email)} bytes")
 
@@ -197,10 +219,12 @@ def process_email_input(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw
     base_email_params = get_email_params_for_reply(msg)
 
     # Generate run-id as an idempotency key for re-runs
-    if 'Date' in msg:
-        email_datetime = email.utils.parsedate_to_datetime(msg['Date'])
+    if "Date" in msg:
+        email_datetime = email.utils.parsedate_to_datetime(msg["Date"])
     else:
-        print(f"email msg does NOT have Date field, defaulting to now for email {base_email_params}")
+        print(
+            f"email msg does NOT have Date field, defaulting to now for email {base_email_params}"
+        )
         email_datetime = datetime.datetime.now()
 
     attachment_file_paths = store_and_get_attachments_from_email(msg)
@@ -208,14 +232,14 @@ def process_email_input(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw
     user = dynamodb.get_or_create_user(
         email_address=base_email_params.recipient,
         phone_number=None,
-        full_name=base_email_params.recipient_full_name
+        full_name=base_email_params.recipient_full_name,
     )
 
     result = DataEntry(
         user_id=user.user_id,
         # IMPORTANT: This is used as idempotency-key all over the place!
-        event_name=email_datetime.strftime('%B %d, %H:%M'),
-        event_id=msg['Message-ID'],
+        event_name=email_datetime.strftime("%B %d, %H:%M"),
+        event_id=msg["Message-ID"],
         event_timestamp=email_datetime,
         input_type="email",
         input_s3_url=bucket_url,
@@ -230,31 +254,37 @@ def process_email_input(dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw
         send_confirmation(
             params=confirmation_email_params,
             attachment_paths=attachment_file_paths,
-            dedup_prefix=result.event_name
+            dedup_prefix=result.event_name,
         )
     except Exception as err:
-        print(f"ERROR: Could not send confirmation to {base_email_params.recipient} cause {err}")
+        print(
+            f"ERROR: Could not send confirmation to {base_email_params.recipient} cause {err}"
+        )
         traceback.print_exc()
 
     for attachment_num, attachment_file_path in enumerate(attachment_file_paths):
-        print(f"Processing attachment {attachment_num} out of {len(attachment_file_paths)}")
+        print(
+            f"Processing attachment {attachment_num} out of {len(attachment_file_paths)}"
+        )
         audio_filepath = convert_audio_to_mp4(attachment_file_path)
         if bool(audio_filepath):
-            result.input_transcripts.append(gpt_client.transcribe_audio(audio_filepath=audio_filepath))
+            result.input_transcripts.append(
+                gpt_client.transcribe_audio(audio_filepath=audio_filepath)
+            )
 
     return result
 
 
 def process_voice_recording_input(
-        dynamodb: DynamoDBManager,
-        gpt_client: OpenAiClient,
-        twilio_client: Optional[TwilioClient],
-        bucket_url: Optional[str],  # for tracking purposes
-        call_sid: str,
-        voice_file_data: bytes,
-        phone_number: str,
-        full_name: str,
-        event_timestamp: datetime.datetime,
+    dynamodb: DynamoDBManager,
+    gpt_client: OpenAiClient,
+    twilio_client: Optional[TwilioClient],
+    bucket_url: Optional[str],  # for tracking purposes
+    call_sid: str,
+    voice_file_data: bytes,
+    phone_number: str,
+    full_name: str,
+    event_timestamp: datetime.datetime,
 ) -> Optional[DataEntry]:
     print(f"Read {bucket_url} voice_file_data with {len(voice_file_data)} bytes")
 
@@ -271,23 +301,27 @@ def process_voice_recording_input(
     else:
         print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
 
-    user = dynamodb.get_or_create_user(email_address=None, phone_number=phone_number, full_name=full_name)
+    user = dynamodb.get_or_create_user(
+        email_address=None, phone_number=phone_number, full_name=full_name
+    )
     result = DataEntry(
         user_id=user.user_id,
         # IMPORTANT: This is used as idempotency-key all over the place!
-        event_name=event_timestamp.strftime('%B %d, %H:%M'),
+        event_name=event_timestamp.strftime("%B %d, %H:%M"),
         event_id=call_sid,
         event_timestamp=event_timestamp,
         input_type="phone",
         input_s3_url=bucket_url,
     )
 
-    file_path = os.path.join('/tmp/', call_sid)
-    with open(file_path, 'wb') as f:
+    file_path = os.path.join("/tmp/", call_sid)
+    with open(file_path, "wb") as f:
         f.write(voice_file_data)
     audio_filepath = convert_audio_to_mp4(file_path)
     if bool(audio_filepath):
-        result.input_transcripts.append(gpt_client.transcribe_audio(audio_filepath=audio_filepath))
+        result.input_transcripts.append(
+            gpt_client.transcribe_audio(audio_filepath=audio_filepath)
+        )
 
     return result
 
@@ -304,9 +338,9 @@ PHONE_RECORDINGS_BUCKET = "katka-twillio-recordings"
 def lambda_handler(event, context):
     print(f"Received Event: {event}")
     # Get the bucket name and file key from the event
-    bucket = event['Records'][0]['s3']['bucket']['name']
+    bucket = event["Records"][0]["s3"]["bucket"]["name"]
     # https://stackoverflow.com/questions/37412267/key-given-by-lambda-s3-event-cannot-be-used-when-containing-non-ascii-characters
-    key = unquote_plus(event['Records'][0]['s3']['object']['key'])
+    key = unquote_plus(event["Records"][0]["s3"]["object"]["key"])
     # Currently only used for tracking purposes
     bucket_url = get_bucket_url(bucket, key)
     print(f"Gonna get S3 object from bucket URL: {bucket_url}")
@@ -316,11 +350,11 @@ def lambda_handler(event, context):
         s3_get_object_response = s3.get_object(Bucket=bucket, Key=key)
     except NoCredentialsError as e:
         print(f"No creds for S3 cause {e}")
-        return 'Execution failed'
+        return "Execution failed"
     except Exception as e:
         print(f"Failed to fetch S3 object due to {e}")
-        return 'Execution failed'
-    bucket_raw_data = s3_get_object_response['Body'].read()
+        return "Execution failed"
+    bucket_raw_data = s3_get_object_response["Body"].read()
     print(f"S3: Fetched object of size {len(bucket_raw_data)}")
 
     # Setup global deps
@@ -342,17 +376,17 @@ def lambda_handler(event, context):
             dynamodb=dynamodb_client,
             gpt_client=gpt_client,
             raw_email=raw_email,
-            bucket_url=bucket_url
+            bucket_url=bucket_url,
         )
     elif bucket == PHONE_RECORDINGS_BUCKET:
         voice_file_data = bucket_raw_data
         head_object = s3.head_object(Bucket=bucket, Key=key)
-        object_metadata = s3_get_object_response['Metadata']
+        object_metadata = s3_get_object_response["Metadata"]
         # Get the phone number and proper name from the metadata
         # NOTE: the metadata names are case-insensitive, but Amazon S3 returns them in lowercase.
-        call_sid = object_metadata['callsid']
-        phone_number = object_metadata['phonenumber']
-        proper_name = object_metadata['propername']
+        call_sid = object_metadata["callsid"]
+        phone_number = object_metadata["phonenumber"]
+        proper_name = object_metadata["propername"]
         data_entry = process_voice_recording_input(
             dynamodb=dynamodb_client,
             gpt_client=gpt_client,
@@ -362,11 +396,13 @@ def lambda_handler(event, context):
             call_sid=call_sid,
             phone_number=phone_number,
             full_name=proper_name,
-            event_timestamp=head_object['LastModified']
+            event_timestamp=head_object["LastModified"],
         )
     else:
         data_entry = None
-        print(f"ERROR: Un-recognized bucket name {bucket_url} please add the mapping in your lambda")
+        print(
+            f"ERROR: Un-recognized bucket name {bucket_url} please add the mapping in your lambda"
+        )
     if bool(dynamodb_client):
         dynamodb_client.write_data_entry(data_entry)
 
@@ -376,7 +412,7 @@ def lambda_handler(event, context):
         dynamodb=dynamodb_client,
         gpt_client=gpt_client,
         twilio_client=twilio_client,
-        data_entry=data_entry
+        data_entry=data_entry,
     )
 
 
@@ -391,7 +427,7 @@ if __name__ == "__main__":
     open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
     # For the cases when I mess up development.
     # print(f"Deleting some tables")
-    ddb_client = boto3.client('dynamodb', endpoint_url=get_dynamo_endpoint_url())
+    ddb_client = boto3.client("dynamodb", endpoint_url=get_dynamo_endpoint_url())
     ddb_client.delete_table(TableName=TABLE_NAME_USER)
     local_dynamodb.create_user_table_if_not_exists()
 
@@ -399,14 +435,14 @@ if __name__ == "__main__":
     orig_data_entry = None
     if test_case == "email":
         with open("test/katka-cbs-action", "rb") as handle:
-        # with open("test/chris-json-backticks", "rb") as handle:
+            # with open("test/chris-json-backticks", "rb") as handle:
             file_contents = handle.read()
             # DynamoDB is used for caching between local test runs, spares both time and money!
             open_ai_client = OpenAiClient(dynamodb=local_dynamodb)
             orig_data_entry = process_email_input(
                 dynamodb=local_dynamodb,
                 gpt_client=open_ai_client,
-                raw_email=file_contents
+                raw_email=file_contents,
             )
             local_dynamodb.write_data_entry(orig_data_entry)
     if test_case == "call":
@@ -431,7 +467,9 @@ if __name__ == "__main__":
             )
             local_dynamodb.write_data_entry(orig_data_entry)
 
-    loaded_data_entry = local_dynamodb.read_data_entry(orig_data_entry.user_id, orig_data_entry.event_name)
+    loaded_data_entry = local_dynamodb.read_data_entry(
+        orig_data_entry.user_id, orig_data_entry.event_name
+    )
     print(f"loaded_data_entry: {loaded_data_entry}")
 
     # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.

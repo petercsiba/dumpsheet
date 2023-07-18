@@ -9,8 +9,12 @@ So you can test the lambda logic by:
 # inside the backend/ directory
 pyenv virtualenv 3.9.16 backend
 # you might need to run `source ~/.bash_profile` for the new PYENV settings
-pyenv activate backend  # just making sure
-pip install -r requirements.txt  # for research/requirements.txt or chromedriver/requirements.txt 
+pyenv activate backend  # just making sure the install is fine
+# for research/requirements.txt or chromedriver/requirements.txt
+pip install -r requirements/local.txt -r requirements/common.txt
+# setup pre-commit checks
+pre-commit install
+pre-commit run --all-files  # check if works
 # for IDE like intelliJ, you would need to setup the VirtualEnv
 echo "$VIRTUAL_ENV/python"
 # Sth like /Users/petercsiba/.pyenv/versions/3.9.16/envs/backend/python
@@ -35,15 +39,15 @@ python -m research.action_based_transition
 ### Setup Supabase
 Pretty much a relevant summary of https://supabase.com/docs/guides/getting-started/local-development
 The configuration will live in `backend/supabase` (part of .gitignore).
- 
+
 ```shell
 supabase init
 # PLEASE do NOT store your DB password here - keep using chrome or Doppler.
 supabase link --project-ref kubtuncgxkefdlzdnnue
 # Get remote migrations
 supabase db remote commit
-# Start bunch of stuff (you will need Docker) 
-supabase start 
+# Start bunch of stuff (you will need Docker)
+supabase start
 ```
 
 ### Setup Other Requirements
@@ -57,7 +61,7 @@ Below is pretty much filtered https://supabase.com/docs/guides/getting-started/l
 ### Migrations
 There are a few ways, the best feels like:
 * Create a new table in Supabase UI: http://localhost:54323/project/default/editor
-* MAKE SURE it has RLS enabled. Note that if the policy is empty, then backend can still query it either via Service KEY or directly DB password. 
+* MAKE SURE it has RLS enabled. Note that if the policy is empty, then backend can still query it either via Service KEY or directly DB password.
 * Get the definition of it
 * Potentially add stuff (like multicolumn indexes)
 ```shell
@@ -67,7 +71,7 @@ supabase migration new create_prompt_log
 # copy paste that definition to the generated file
 supabase db reset  # weird name i know, this takes quite long :/
 # do some testing, then push to prod
-supabase db push 
+supabase db push
 ```
 
 ## Deployment

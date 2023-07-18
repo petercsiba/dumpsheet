@@ -1,20 +1,20 @@
-import boto3
 import os
 import time
 import traceback
-
-from bs4 import BeautifulSoup
 from email.header import decode_header
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.mime.application import MIMEApplication
 from email.utils import parseaddr
-from typing import Optional, List, Dict
+from typing import Dict, List, Optional
 
-from app.datashare import EmailParams, EmailLog
-from common.aws_utils import is_running_in_aws, get_dynamo_endpoint_url
-from common.config import DEBUG_RECIPIENTS, SUPPORT_EMAIL
+import boto3
+from bs4 import BeautifulSoup
+
+from app.datashare import EmailLog, EmailParams
 from app.dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
+from common.aws_utils import get_dynamo_endpoint_url, is_running_in_aws
+from common.config import DEBUG_RECIPIENTS, SUPPORT_EMAIL
 from common.storage_utils import pretty_filesize_path
 
 
@@ -22,9 +22,9 @@ def store_and_get_attachments_from_email(msg):
     # Process the attachments
     attachment_file_paths = []
     for part in msg.walk():
-        if part.get_content_maintype() == 'multipart':
+        if part.get_content_maintype() == "multipart":
             continue
-        if part.get('Content-Disposition') is None:
+        if part.get("Content-Disposition") is None:
             continue
 
         # Get the attachment's filename
@@ -36,8 +36,8 @@ def store_and_get_attachments_from_email(msg):
 
         # If there is an attachment, save it to a file
         file_name = f"{time.time()}-{orig_file_name}"
-        file_path = os.path.join('/tmp/', file_name)
-        with open(file_path, 'wb') as f:
+        file_path = os.path.join("/tmp/", file_name)
+        with open(file_path, "wb") as f:
             f.write(part.get_payload(decode=True))
 
         attachment_file_paths.append(file_path)
@@ -55,23 +55,25 @@ def decode_str(s):
             decoded_parts.append(part.decode(encoding))
         elif isinstance(part, bytes):
             # bytes in us-ascii encoding
-            decoded_parts.append(part.decode('us-ascii'))
+            decoded_parts.append(part.decode("us-ascii"))
         else:
             # already str in us-ascii encoding
             decoded_parts.append(part)
-    return ' '.join(decoded_parts)
+    return " ".join(decoded_parts)
 
 
 def get_email_params_for_reply(msg):
     # The variable naming is a bit confusing here, as `msg` refers to received email,
     # while all the returned Email params are for the reply (i.e. recipient = reply_to)
-    email_from = msg.get('From')
-    orig_to_address = msg.get('To')
-    orig_subject = msg.get('Subject')
+    email_from = msg.get("From")
+    orig_to_address = msg.get("To")
+    orig_subject = msg.get("Subject")
     # Parse the address
     sender_full_name, sender_email_addr = parseaddr(email_from)
-    sender_full_name = "Person" if sender_full_name is None else decode_str(sender_full_name)
-    reply_to_address = msg.get('Reply-To')
+    sender_full_name = (
+        "Person" if sender_full_name is None else decode_str(sender_full_name)
+    )
+    reply_to_address = msg.get("Reply-To")
     if reply_to_address is None or not isinstance(reply_to_address, str):
         print("No reply-to address provided, falling back to from_address")
         reply_to_address = sender_email_addr
@@ -94,31 +96,35 @@ def get_text_from_email(msg):
     parts = []
     if msg.is_multipart():
         for part in msg.walk():
-            if part.get_content_type() == 'text/plain':
+            if part.get_content_type() == "text/plain":
                 print("multipart: found a text/plain")
                 parts.append(part.get_payload(decode=True).decode())
-            elif part.get_content_type() == 'text/html':
+            elif part.get_content_type() == "text/html":
                 print("multipart: found a text/html")
-                soup = BeautifulSoup(part.get_payload(decode=True), 'html.parser')
+                soup = BeautifulSoup(part.get_payload(decode=True), "html.parser")
                 text = soup.get_text()
                 parts.append(text)
-    elif msg.get_content_type() == 'text/plain':
+    elif msg.get_content_type() == "text/plain":
         print("single-part: found a text/plain")
         parts.append(msg.get_payload(decode=True).decode())
-    elif msg.get_content_type() == 'text/html':
+    elif msg.get_content_type() == "text/html":
         print("single-part: found a text/html")
-        soup = BeautifulSoup(msg.get_payload(decode=True), 'html.parser')
+        soup = BeautifulSoup(msg.get_payload(decode=True), "html.parser")
         text = soup.get_text()
         parts.append(text)
 
     result = " ".join(parts)
-    print(f"get_text_from_email: total {len(parts)} found with {len(result.split())} tokens")
+    print(
+        f"get_text_from_email: total {len(parts)} found with {len(result.split())} tokens"
+    )
     return result
 
 
 def create_raw_email_with_attachments(params: EmailParams):
     if not isinstance(params.recipient, str):
-        print(f"email_address is NOT a string {params.recipient}, falling back to {DEBUG_RECIPIENTS}")
+        print(
+            f"email_address is NOT a string {params.recipient}, falling back to {DEBUG_RECIPIENTS}"
+        )
         params.recipient = DEBUG_RECIPIENTS[0]
     # Fill in sender name
     sender_name, sender_email = parseaddr(params.sender)
@@ -144,40 +150,48 @@ def create_raw_email_with_attachments(params: EmailParams):
     if params.body_html is None:
         if params.body_text is None:
             print("ERROR: One of body_html or body_text has to be set!")
-        params.body_html = """<html>
+        params.body_html = (
+            """<html>
         <head></head>
         <body>
-          """ + params.body_text + """
+          """
+            + params.body_text
+            + """
         </body>
         </html>
         """
+        )
 
     # Create a multipart/mixed parent container
-    msg = MIMEMultipart('mixed')
-    msg['Subject'] = params.subject
-    msg['From'] = params.sender
-    msg['To'] = params.recipient
-    msg['Reply-To'] = ", ".join(params.reply_to)
+    msg = MIMEMultipart("mixed")
+    msg["Subject"] = params.subject
+    msg["From"] = params.sender
+    msg["To"] = params.recipient
+    msg["Reply-To"] = ", ".join(params.reply_to)
     if params.bcc is not None:
-        msg['Bcc'] = ', '.join(params.bcc)
+        msg["Bcc"] = ", ".join(params.bcc)
 
-    print(f"Sending email from {msg['From']} to {msg['To']} (and bcc {msg['Bcc']}) with subject {msg['Subject']}")
+    print(
+        f"Sending email from {msg['From']} to {msg['To']} (and bcc {msg['Bcc']}) with subject {msg['Subject']}"
+    )
 
     # Create a multipart/alternative child container
-    msg_body = MIMEMultipart('alternative')
+    msg_body = MIMEMultipart("alternative")
 
     # Encode the text and add it to the child container
-    msg_body.attach(MIMEText(params.body_html, 'html'))
+    msg_body.attach(MIMEText(params.body_html, "html"))
 
     # Attach the multipart/alternative child container to the multipart/mixed parent container
     msg.attach(msg_body)
 
     # Add attachments
     for attachment_path in params.attachment_paths:
-        with open(attachment_path, 'rb') as file:
+        with open(attachment_path, "rb") as file:
             attachment = MIMEApplication(file.read())
         # Define the content ID
-        attachment.add_header('Content-Disposition', 'attachment', filename=attachment_path.split('/')[-1])
+        attachment.add_header(
+            "Content-Disposition", "attachment", filename=attachment_path.split("/")[-1]
+        )
         # Add the attachment to the parent container
         msg.attach(attachment)
 
@@ -185,7 +199,7 @@ def create_raw_email_with_attachments(params: EmailParams):
 
 
 def get_email_log_table():
-    dynamodb = boto3.resource('dynamodb', endpoint_url=get_dynamo_endpoint_url())
+    dynamodb = boto3.resource("dynamodb", endpoint_url=get_dynamo_endpoint_url())
     return dynamodb.Table(TABLE_NAME_EMAIL_LOG)
 
 
@@ -194,10 +208,15 @@ def check_if_already_sent(email_to: str, idempotency_key: Optional[str]):
         return False
 
     email_log_table = get_email_log_table()
-    previous_email: EmailLog = read_data_class(data_class_type=EmailLog, table=email_log_table, key={
-        'email_to': email_to,
-        'idempotency_key': idempotency_key,
-    }, print_not_found=True)
+    previous_email: EmailLog = read_data_class(
+        data_class_type=EmailLog,
+        table=email_log_table,
+        key={
+            "email_to": email_to,
+            "idempotency_key": idempotency_key,
+        },
+        print_not_found=True,
+    )
     return previous_email is not None
 
 
@@ -212,7 +231,7 @@ def log_email(email_params: EmailParams, idempotency_key: Optional[str]):
         params=email_params,
     )
     return write_data_class(table=email_log_table, data=item)
-    
+
 
 # TODO(P2): Gmail marks us as spam - no clear way around it. Some easy-ish ways:
 #     * [DONE] Use the same email sender address
@@ -226,14 +245,18 @@ def send_email(params: EmailParams, idempotency_key: Optional[str] = None) -> bo
     raw_email = create_raw_email_with_attachments(params)
 
     if check_if_already_sent(params.recipient, idempotency_key=idempotency_key):
-        print(f"SKIPPING email '{idempotency_key}' cause already sent for {params.recipient}")
+        print(
+            f"SKIPPING email '{idempotency_key}' cause already sent for {params.recipient}"
+        )
         return True
 
     if not is_running_in_aws():
         # TODO(P1, testing): Would be nice to pass in the local dynamodb for testing the cache - BUT then mostly
         #   relevant for prod.
         # TODO(P2, testing): Ideally we should also test the translation from params to raw email.
-        print(f"Skipping ses.send_raw_email cause NOT in AWS. Dumping the email {idempotency_key} contents {params}")
+        print(
+            f"Skipping ses.send_raw_email cause NOT in AWS. Dumping the email {idempotency_key} contents {params}"
+        )
         log_email(email_params=params, idempotency_key=idempotency_key)
         return True
     try:
@@ -242,13 +265,13 @@ def send_email(params: EmailParams, idempotency_key: Optional[str] = None) -> bo
             f"with attached files {params.attachment_paths}"
         )
 
-        ses = boto3.client('ses')
+        ses = boto3.client("ses")
         response = ses.send_raw_email(
             Source=params.sender,
             # TIL, list(str) returns characters, instead of having a single entry list [str]
             Destinations=[params.recipient] + params.bcc,
             RawMessage={
-                'Data': raw_email.as_string(),
+                "Data": raw_email.as_string(),
             },
             # TODO(P1, cx): We need DB for this too, as MessageDeduplicationId is for SQS (and this is SES).
             #   check_message_id_in_database, store_message_id_in_database (anyway would be nice to store all msgs)
@@ -256,12 +279,12 @@ def send_email(params: EmailParams, idempotency_key: Optional[str] = None) -> bo
         )
 
         message_id = response["MessageId"]
-        print(f'Email sent! Message ID: {message_id}, Subject: {params.subject}')
+        print(f"Email sent! Message ID: {message_id}, Subject: {params.subject}")
 
         log_email(email_params=params, idempotency_key=idempotency_key)
         return True
     except Exception as e:
-        print(f'Email with subject {params.subject} failed to send. {e}')
+        print(f"Email with subject {params.subject} failed to send. {e}")
         traceback.print_exc()
         return False
 
@@ -279,15 +302,25 @@ def add_signature():
 # We have attachment_paths separate, so the response email doesn't re-attach them.
 def send_confirmation(params: EmailParams, attachment_paths: List, dedup_prefix=None):
     if len(attachment_paths) == 0:
-        params.body_text = ("""
-            <h3>Yo """ + params.get_recipient_first_name() + """, did you forgot the attachment?</h3>
-        <p>Thanks for using voxana.ai - your personal networking assistant - 
+        params.body_text = (
+            """
+            <h3>Yo """
+            + params.get_recipient_first_name()
+            + """, did you forgot the attachment?</h3>
+        <p>Thanks for using voxana.ai - your personal networking assistant -
         aka the backoffice hero who takes care of the admin so that you can focus on what truly matters.</p>
-        <p>But yo boss, where is the attachment? ☕ I would love to brew you a coffee, but I ain't real, 
+        <p>But yo boss, where is the attachment? ☕ I would love to brew you a coffee, but I ain't real,
         so an emoji will have to do it: ☕</p>
         <p>Remember, any audio file would do, I can convert stuff myself! 🎧</p>
-        """ + add_signature())
-        send_email(params=params, idempotency_key=None if dedup_prefix is None else f"{dedup_prefix}-forgot-attachment")
+        """
+            + add_signature()
+        )
+        send_email(
+            params=params,
+            idempotency_key=None
+            if dedup_prefix is None
+            else f"{dedup_prefix}-forgot-attachment",
+        )
     else:
         file_list = []
         for file_path in attachment_paths:
@@ -296,27 +329,41 @@ def send_confirmation(params: EmailParams, attachment_paths: List, dedup_prefix=
         file_list_str = "\n".join(file_list)
 
         # subject = f"Hey {params.get_recipient_first_name()} - !"
-        params.body_text = ("""
-    <h3>Hello there """ + params.get_recipient_first_name() + """! 👋</h3>
-        <p>Thanks for using voxana.ai - your personal networking assistant - aka the backoffice guru who takes care 
+        params.body_text = (
+            """
+    <h3>Hello there """
+            + params.get_recipient_first_name()
+            + """! 👋</h3>
+        <p>Thanks for using voxana.ai - your personal networking assistant - aka the backoffice guru who takes care
             of the admin so that you can focus on what truly matters.</p>
     <h3>Rest assured, I got your recording and I am already crunching through it!</h3>
         <p>I've received the following files:</p>
-        <ul>""" + f"{file_list_str}" + """</ul>
+        <ul>"""
+            + f"{file_list_str}"
+            + """</ul>
     <h3>What's next?</h3>
         <ul>
             <li> Relax for about 2 to 10 minutes until I work through your brain-dump boss. ⏱️️</li>
-            <li> Be on a look-out for an email from """ + params.sender + """</li>
+            <li> Be on a look-out for an email from """
+            + params.sender
+            + """</li>
         </ul>
-        """ + add_signature())
-        send_email(params=params, idempotency_key=None if dedup_prefix is None else f"{dedup_prefix}-confirmation")
+        """
+            + add_signature()
+        )
+        send_email(
+            params=params,
+            idempotency_key=None
+            if dedup_prefix is None
+            else f"{dedup_prefix}-confirmation",
+        )
 
 
 def send_responses(
-        event_name: str,
-        email_params: EmailParams,
-        actions: Dict[str, str],
-        idempotency_key_prefix: Optional[str],
+    event_name: str,
+    email_params: EmailParams,
+    actions: Dict[str, str],
+    idempotency_key_prefix: Optional[str],
 ):
     i = 0
     for subject, body in actions.items():
