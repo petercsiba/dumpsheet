@@ -10,17 +10,9 @@ from boto3.dynamodb.conditions import Key
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-from app.datashare import (
-    GSI_NULL,
-    DataEntry,
-    User,
-    dataclass_to_json,
-    dict_to_dataclass,
-)
+from app.datashare import GSI_NULL, User, dataclass_to_json, dict_to_dataclass
 
-# TODO(P2, security): Ideally the Lambda should only have permissions to these tables
 # https://us-east-1.console.aws.amazon.com/iam/home#/roles/katka-ai-container-lambda-role-iadxzlko$createPolicy?step=edit
-TABLE_NAME_DATA_ENTRY = "KatkaAI_DataEntry"
 TABLE_NAME_EMAIL_LOG = "KatkaAI_EmailLog"  # To prevent double-sending
 TABLE_NAME_USER = "KatkaAI_User"
 
@@ -159,26 +151,7 @@ class DynamoDBManager:
         else:
             self.dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint_url)
         self.user_table = self.create_user_table_if_not_exists()
-        self.data_entry_table = self.create_data_entry_table_if_not_exists()
         self.email_log_table = self.create_email_log_table_if_not_exists()
-
-    def write_data_entry(self, data_entry: DataEntry):
-        return write_data_class(self.data_entry_table, data_entry)
-
-    def read_data_entry(self, user_id, event_name) -> Optional[DataEntry]:
-        return read_data_class(
-            DataEntry,
-            self.data_entry_table,
-            {"user_id": user_id, "event_name": event_name},
-        )
-
-    def get_all_data_entries_for_user(self, user_id) -> List[DataEntry]:
-        return read_all_data_class(
-            DataEntry,
-            self.data_entry_table,
-            partition_key_name="user_id",
-            partition_key_value=user_id,
-        )
 
     # TODO(P2, devx): dynamodb.update is safer but no-time.
 
@@ -260,17 +233,6 @@ class DynamoDBManager:
             return self.dynamodb.Table(table_name)
 
         return None
-
-    def create_data_entry_table_if_not_exists(self):
-        result = self.get_table_if_exists(TABLE_NAME_DATA_ENTRY)
-        if result is not None:
-            return result
-
-        return self.create_table_with_option(
-            table_name=TABLE_NAME_DATA_ENTRY,
-            pk_name="user_id",
-            sk_name="event_name",
-        )
 
     def create_email_log_table_if_not_exists(self):
         result = self.get_table_if_exists(TABLE_NAME_EMAIL_LOG)

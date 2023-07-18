@@ -143,6 +143,8 @@ def dump_to_lines(sth_like_a_string, sep="\n") -> str:
         return str(sth_like_a_string)
 
 
+# TODO(P0): Migrate this to the Task object, the Person should be inside task.context
+#   One day we will formalize it more.
 @dataclass
 # These are pre-merged snapshots of a person
 class PersonDataEntry:

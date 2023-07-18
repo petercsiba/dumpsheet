@@ -56,10 +56,10 @@ class BaseUsers(BaseModel):
         primary_key = False
 
 
-class BaseDataEntries(BaseModel):
+class BaseDataEntry(BaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     display_name = TextField()
-    id = UUIDField(primary_key=True)
+    id = UUIDField(constraints=[SQL("DEFAULT uuid_generate_v4()")], primary_key=True)
     idempotency_id = TextField(unique=True)
     input_type = TextField()
     input_uri = TextField(null=True)
@@ -71,7 +71,7 @@ class BaseDataEntries(BaseModel):
 
     class Meta:
         schema = "public"
-        table_name = "data_entries"
+        table_name = "data_entry"
 
 
 class BasePromptLog(BaseModel):
