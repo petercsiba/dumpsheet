@@ -4,6 +4,11 @@ import Image from 'next/image'
 import MicrophoneIcon from '../public/images/icons/microphone-icon.svg'
 import StopIcon from '../public/images/icons/stop-icon.svg'
 
+const UPLOAD_URL = 'http://api.voxana.ai/uploads/';
+const UPLOAD_TIMEOUT = 20000;
+const MIN_DURATION = Number(process.env.VOICE_RECORDER_MIN_DURATION_SECONDS) || 10;
+const SHORT_RECORDING_TIMEOUT = 2500;
+
 const formatDuration = (seconds) => {
 	const minutes = Math.floor(seconds / 60);
 	const remainingSeconds = Math.floor(seconds % 60);
@@ -67,68 +72,64 @@ export default function VoiceRecorder() {
 		}
 	}
 
+	const uploadRecording = async (audioBlob) => {
+		const formData = new FormData();
+		formData.append('audio', audioBlob);
+
+		const response = await Promise.race([
+			fetch(UPLOAD_URL, {
+				method: 'POST',
+				body: formData
+			}),
+			new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), UPLOAD_TIMEOUT))
+		]);
+
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}`);
+		}
+
+		return response;
+	}
+
 	const stopRecording = async () => {
 		if (!recording) {
-			return
+			return;
 		}
+
 		recording.stopRecording(async () => {
 			const audioBlob = recording.getBlob();
 			const audioURL = URL.createObjectURL(audioBlob);
-			const minDuration = 10
-			// More proper might be audio.onloadedmetadata, but somehow doesn't work.
-			console.log(`check recoding long enough ${recordingElapsedTime} >= ${minDuration}`)
-			if (recordingElapsedTime < minDuration) {
-				setUploadStatus('Recording needs to be longer than ' + minDuration + ' seconds, please try again.');
+
+			console.log(`check recording long enough ${recordingElapsedTime} >= ${MIN_DURATION}`);
+
+			if (recordingElapsedTime < MIN_DURATION) {
+				setUploadStatus(`Recording needs to be longer than ${MIN_DURATION} seconds, please try again.`);
+
 				setTimeout(() => {
-					// This block of code will be executed after a delay of 2.5 seconds
-					console.log(`recording short auto-refresh`)
-					setRecording(null)  // should also reset the elapsedTime
-					setUploadStatus(null)
-				}, 2500);
-				return
+					console.log('recording short auto-refresh');
+					setRecording(null);  // should also reset the elapsedTime
+					setUploadStatus(null);
+				}, SHORT_RECORDING_TIMEOUT);
+
+				return;
 			}
 
-			// This will also show the recording box
 			setAudioURL(audioURL);
-
-			// Upload to API
-			const formData = new FormData();
-			formData.append('audio', audioBlob);
-
 			setUploadStatus('Uploading...');
 
 			try {
-				const response = await Promise.race([
-					fetch('http://api.voxana.ai/uploads/', {
-						method: 'POST',
-						body: formData
-					}),
-					new Promise((_, reject) =>
-						setTimeout(() => reject(new Error('Timeout')), 20000)
-					)
-				]);
+				const response = await uploadRecording(audioBlob);
 
-				setUploadSuccess(response.status >= 200 && response.status < 300)
-
-				if (response.status >= 200 && response.status < 300) {
-					// Successful upload, you can handle it appropriately.
-					setUploadStatus('Uploaded successfully!');
-				} else if (response.status >= 400 && response.status < 500) {
-					// Handle frontend error, maybe set some state here
-					setUploadStatus('Uh-oh, something went wrong on our end (HTTP ' + response.status + '). Please try again.');
-				} else if (response.status >= 500 && response.status < 600) {
-					// Handle server error, maybe set some state here
-					setUploadStatus('Sorry, something went wrong on our servers (HTTP ' + response.status + '). Please contact support@voxana.ai');
-				} else {
-					// Handle other cases or throw an error if you want
-					setUploadStatus('Something went wrong. Please try again later. If the problem persists, contact support@voxana.ai');
-				}
+				setUploadSuccess(true);
+				setUploadStatus('Uploaded successfully!');
 			} catch (error) {
+				console.error("Failed to upload recording: ", error);
+				setUploadSuccess(false)
+
 				if (error.message === 'Timeout') {
 					setUploadStatus('Your request timed out. Please check your internet connection.');
 				} else {
-					console.error("Failed to upload recording: ", error)
-					setUploadStatus('Failed to upload the recording. Please try again or send this to support@voxana.ai: ' + error);
+					setUploadStatus(`Failed to upload the recording. Please try again or send this to support@voxana.ai: ${error}`);
 				}
 			} finally {
 				setRecording(null);
