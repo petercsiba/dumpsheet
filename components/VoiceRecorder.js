@@ -136,56 +136,69 @@ export default function VoiceRecorder() {
 			}
 		});
 	};
+	
+	const AudioPlayer = ({ audioURL, duration }) => (
+		<div>
+			<audio className="pl-8 pr-8" src={audioURL} controls />
+			<p className="flex justify-center">Duration: {formatDuration(duration)}</p>
+		</div>
+	);
 
+	const RecordingButton = ({ recordingElapsedTime }) => (
+		<div>
+			<div className="bg-white-500 p-2 inline-block">
+				<Image
+					priority
+					src={StopIcon}
+					alt="Stop and upload recording"
+					width={50}
+					height={50}
+				/>
+			</div>
+			<p>{formatDuration(recordingElapsedTime)}</p>
+		</div>
+	);
+
+	const StartRecordingButton = () => (
+		<div className="bg-gray-200 p-2 inline-block rounded-full border-2 border-black">
+			<Image
+				priority
+				src={MicrophoneIcon}
+				alt="Start your voice recording"
+				width={50}
+				height={50}
+			/>
+		</div>
+	);
+
+	const AlternativeUpload = ({ audioURL }) => (
+		<div className="bg-white-500 p-2 inline-block">
+			<p className="py-2">Alternatively, download and upload manually.</p>
+			<div className="flex justify-center">
+				<a href={audioURL} download className="px-4 py-2 bg-gray-200 rounded">Download</a>
+			</div>
+		</div>
+	);
+
+// In the main component...
 	return (
 		<div className="flex flex-col items-center p">
-			{audioURL && (
-				<div>
-					<audio className="pl-8 pr-8" src={audioURL} controls />
-					<p className="flex justify-center">Duration: {formatDuration(duration)}</p>
-				</div>
-			)}
+			{audioURL && <AudioPlayer audioURL={audioURL} duration={duration} />}
 			<br/>
 			<button
 				className="p-2 rounded"
 				onClick={recording ? stopRecording : startRecording}
 				disabled={Boolean(uploadStatus)}
 			>
-				{ Boolean(uploadStatus) ? uploadStatus
-					: recording ?
-				<div>
-					<div className="bg-white-500 p-2 inline-block">
-						<Image
-							priority
-							src={StopIcon}
-							alt="Stop and upload recording"
-							width={50}
-							height={50}
-						/>
-					</div>
-					<p>{formatDuration(recordingElapsedTime)}</p>
-				</div>
-					:
-				<div className="bg-gray-200 p-2 inline-block rounded-full border-2 border-black">
-						<Image
-						priority
-						src={MicrophoneIcon}
-						alt="Start your voice recording"
-						width={50}
-						height={50}
-					/>
-				</div>
+				{ Boolean(uploadStatus)
+					? uploadStatus
+					: recording
+						? <RecordingButton recordingElapsedTime={recordingElapsedTime} />
+						: <StartRecordingButton />
 				}
 
-				{uploadSuccess === false && (
-					<div className="bg-white-500 p-2 inline-block">
-						<p className="py-2">Alternatively, download and upload manually.</p>
-						<div className="flex justify-center">
-							<a href={audioURL} download className="px-4 py-2 bg-gray-200 rounded">Download</a>
-						</div>
-					</div>
-				)}
+				{uploadSuccess === false && <AlternativeUpload audioURL={audioURL} />}
 			</button>
 		</div>
-	)
+	);
 }
