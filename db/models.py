@@ -74,6 +74,30 @@ class BaseDataEntry(BaseModel):
         table_name = "data_entry"
 
 
+class BaseEmailLog(BaseModel):
+    attachment_paths = ArrayField(
+        constraints=[SQL("DEFAULT '{}'::text[]")], field_class=TextField
+    )
+    bcc = ArrayField(constraints=[SQL("DEFAULT '{}'::text[]")], field_class=TextField)
+    body_html = TextField(null=True)
+    body_text = TextField(null=True)
+    created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
+    id = BigAutoField()
+    idempotency_id = TextField(unique=True)
+    recipient = TextField()
+    recipient_full_name = TextField(null=True)
+    reply_to = TextField()
+    sender = TextField()
+    subject = TextField()
+    user = ForeignKeyField(
+        column_name="user_id", field="id", model=BaseUsers, null=True
+    )
+
+    class Meta:
+        schema = "public"
+        table_name = "email_log"
+
+
 class BasePromptLog(BaseModel):
     completion_tokens = BigIntegerField(constraints=[SQL("DEFAULT '0'::bigint")])
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
@@ -94,7 +118,9 @@ class BasePromptLog(BaseModel):
 class BaseUserProfile(BaseModel):
     full_name = TextField(null=True)
     id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
-    user = ForeignKeyField(column_name="user_id", field="id", model=BaseUsers)
+    user = ForeignKeyField(
+        column_name="user_id", field="id", model=BaseUsers, unique=True
+    )
 
     class Meta:
         schema = "public"

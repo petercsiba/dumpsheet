@@ -1,4 +1,3 @@
-import copy
 import datetime
 import traceback
 from email import message_from_bytes
@@ -11,6 +10,7 @@ from app.emails import (
     store_and_get_attachments_from_email,
 )
 from common.openai_client import OpenAiClient
+from db.email_log import EmailLog
 from db.models import BaseDataEntry
 from db.user import User
 from input.common import ffmpeg_convert_audio_to_mp4
@@ -69,15 +69,16 @@ def process_email_input(
     #   but for now we have lambda retries so shrug.
 
     try:
-        confirmation_email_params = copy.deepcopy(base_email_params)
+        # TODO(peter): Verify if the swap base_email_params for get_email_reply_params_for_user works.
+        confirmation_email_params = EmailLog.get_email_reply_params_for_user(
+            user, base_email_params.subject, result.idempotency_id
+        )
         # NOTE: We do NOT include the original attachments cause
         # botocore.exceptions.ClientError: An error occurred (InvalidParameterValue)
         # when calling the SendRawEmail operation: Message length is more than 10485760 bytes long: '24081986'.
         # confirmation_email_params.attachment_paths = attachment_file_paths
         send_confirmation(
-            params=confirmation_email_params,
-            attachment_paths=attachment_file_paths,
-            dedup_prefix=result.idempotency_id,
+            params=confirmation_email_params, attachment_paths=attachment_file_paths
         )
     except Exception as err:
         print(

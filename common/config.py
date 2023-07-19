@@ -8,13 +8,8 @@ load_dotenv()
 DEFAULT_REGION = "us-west-2"
 DYNAMO_URL_PROD = f"https://dynamodb.{DEFAULT_REGION}.amazonaws.com"
 
-OUTPUT_BUCKET_NAME = "katka-emails-response"  # !make sure different from the input!
-# STATIC_HOSTING_BUCKET_NAME = "katka-ai-static-pages"
-STATIC_HOSTING_BUCKET_NAME = "static.katka.ai"
-
-
 # EMAIL Stuff
-SENDER_EMAIL = "Katka.AI <assistant@katka.ai>"  # From:
+SENDER_EMAIL = "Your Sidekick Voxana <sidekick@voxana.ai>"  # From:
 SUPPORT_EMAIL = "Voxana.AI <support@voxana.ai>"
 DEBUG_RECIPIENTS = ["email-archive@voxana.ai"]
 

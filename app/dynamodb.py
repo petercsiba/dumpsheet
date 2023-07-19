@@ -12,9 +12,6 @@ from botocore.exceptions import ClientError
 
 from app.datashare import dataclass_to_json, dict_to_dataclass
 
-# https://us-east-1.console.aws.amazon.com/iam/home#/roles/katka-ai-container-lambda-role-iadxzlko$createPolicy?step=edit
-TABLE_NAME_EMAIL_LOG = "KatkaAI_EmailLog"  # To prevent double-sending
-
 # For local runs
 JAR_PATH = "DynamoDBLocal.jar"
 LIB_PATH = "./DynamoDBLocal_lib"
@@ -149,7 +146,6 @@ class DynamoDBManager:
             )
         else:
             self.dynamodb = boto3.resource("dynamodb", endpoint_url=endpoint_url)
-        self.email_log_table = self.create_email_log_table_if_not_exists()
 
     def get_table_if_exists(self, table_name):
         existing_tables = [t.name for t in self.dynamodb.tables.all()]
@@ -159,17 +155,6 @@ class DynamoDBManager:
             return self.dynamodb.Table(table_name)
 
         return None
-
-    def create_email_log_table_if_not_exists(self):
-        result = self.get_table_if_exists(TABLE_NAME_EMAIL_LOG)
-        if result is not None:
-            return result
-
-        return self.create_table_with_option(
-            table_name=TABLE_NAME_EMAIL_LOG,
-            pk_name="email_to",
-            sk_name="idempotency_key",
-        )
 
     # TODO(P1, utils): Currently we require primary_key (pk), sort_key (sk) and GSI attributes to be strings.
     def create_table_with_option(

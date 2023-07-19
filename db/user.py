@@ -4,9 +4,7 @@ from typing import Optional
 
 from gotrue import Session
 
-from app.datashare import EmailParams
 from common.aws_utils import is_running_in_aws
-from common.config import SENDER_EMAIL, SUPPORT_EMAIL
 from common.supabase_client import get_supabase_client
 from db.models import BaseUserProfile, BaseUsers
 
@@ -67,7 +65,9 @@ class User(BaseUsers):
 
         # For backend purposes, we really only care about the User object rather than the supabase session.
         res = User.get_by_email(email)
-        BaseUserProfile.insert(user_id=res.id, full_name=full_name).on_conflict_ignore()
+        BaseUserProfile.insert(
+            user_id=res.id, full_name=full_name
+        ).on_conflict_ignore().execute()
         return res
 
     # TODO(P0, onboarding): Users will need to set password / connect their SSO - find some Next.js code for it.
@@ -93,18 +93,3 @@ class User(BaseUsers):
         if self.email is not None or self.phone is None:
             return "email"
         return "sms"  # TODO(P2, ux): we likely want to distinguish between sms and call
-
-    def get_email_reply_params(self, subject):
-        try:
-            profile = BaseUserProfile.get(BaseUserProfile.user == self)
-            full_name = profile.full_name
-        except BaseUserProfile.DoesNotExist:
-            print(f"No profile exists for user {self.id}")
-            full_name = None
-        return EmailParams(
-            sender=SENDER_EMAIL,
-            recipient=self.email,
-            recipient_full_name=full_name,
-            subject=subject,
-            reply_to=SUPPORT_EMAIL,  # We skip the orig_to_address, as that would trigger another transcription.
-        )

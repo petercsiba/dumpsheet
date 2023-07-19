@@ -87,31 +87,6 @@ def json_to_dataclass(json_data, data_class_type: Type[Any]) -> dataclass:
     return dict_to_dataclass(dict_, data_class_type)
 
 
-@dataclass
-class EmailParams:
-    sender: str
-    # To keep things simple, we only support one recipient for now (although adding more is simple)
-    recipient: str
-    recipient_full_name: str
-    subject: str
-    body_text: str = None
-    body_html: str = None
-    reply_to: list[str] = None
-    bcc: list[str] = None
-    attachment_paths: list = None
-
-    def get_recipient_first_name(self):
-        return self.recipient_full_name.split()[0]
-
-
-@dataclass
-class EmailLog:
-    email_to: str  # same as params.recipient
-    idempotency_key: str
-
-    params: EmailParams
-
-
 @dataclass()
 class Draft:
     intent: str

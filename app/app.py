@@ -34,8 +34,6 @@
 #   * Doppler
 #   * Better stack
 #   * https://distoai.com/
-# TODO(P0, ux): For not-found websites have a nicer error.html (or redirect) in
-#   * https://s3.console.aws.amazon.com/s3/bucket/static.katka.ai/property/website/edit?region=us-west-2
 import datetime
 import os
 import re
@@ -54,6 +52,7 @@ from common.aws_utils import get_boto_s3_client, get_bucket_url, get_dynamo_endp
 from common.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
 from db.db import connect_to_postgres
+from db.email_log import EmailLog
 from db.models import BaseDataEntry
 from db.user import User
 from input.call import process_voice_recording_input
@@ -102,8 +101,10 @@ def process_transcript_from_data_entry(
                     break
 
     if user.contact_method() == "email":
-        email_params = user.get_email_reply_params(
-            subject=f"The summary from your event at {event_name_safe} is ready for your review!"
+        email_params = EmailLog.get_email_reply_params_for_user(
+            user=user,
+            idempotency_id=f"{data_entry.idempotency_id}-response",
+            subject=f"The summary from your event at {event_name_safe} is ready for your review!",
         )
         # Removed all_summaries_filepath for now
         email_params.attachment_paths = []
@@ -116,10 +117,8 @@ def process_transcript_from_data_entry(
         print(f"ALL ACTION SUBJECTS: {action_names}")
 
         send_responses(
-            event_name=event_name_safe,
-            email_params=email_params,
+            orig_email_params=email_params,
             actions=actions,
-            idempotency_key_prefix=f"{data_entry.idempotency_id}-response",
         )
 
     return people_entries
@@ -127,11 +126,8 @@ def process_transcript_from_data_entry(
 
 # TODO(P1, devx): Send email on failure via CloudWatch monitoring (ask GPT how to do it)
 #   * ALTERNATIVELY: Can catch exception(s) and send email from here.
-#   * BUT we catch some errors.
-#   * So maybe we need to migrate to logger?
-# TODO(P1, ux, infra): AWS auto-retries lambdas so it is our responsibility to make them idempotent.
-EMAIL_BUCKET = "katka-emails"
-PHONE_RECORDINGS_BUCKET = "katka-twillio-recordings"
+EMAIL_BUCKET = "draft-requests-from-ai-mail-voxana"
+PHONE_RECORDINGS_BUCKET = "katka-twillio-recordings"  # TODO(migrate)
 
 
 def lambda_handler(event, context):

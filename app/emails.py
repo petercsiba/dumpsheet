@@ -1,3 +1,4 @@
+import copy
 import os
 import time
 import traceback
@@ -6,16 +7,15 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import parseaddr
-from typing import Dict, List, Optional
+from typing import Dict
 
 import boto3
 from bs4 import BeautifulSoup
 
-from app.datashare import EmailLog, EmailParams
-from app.dynamodb import TABLE_NAME_EMAIL_LOG, read_data_class, write_data_class
-from common.aws_utils import get_dynamo_endpoint_url, is_running_in_aws
+from common.aws_utils import is_running_in_aws
 from common.config import DEBUG_RECIPIENTS, SUPPORT_EMAIL
 from common.storage_utils import pretty_filesize_path
+from db.email_log import EmailLog
 
 
 def store_and_get_attachments_from_email(msg):
@@ -81,7 +81,7 @@ def get_email_params_for_reply(msg):
         f"email from {sender_full_name} ({sender_email_addr}) reply-to {reply_to_address} "
         f"orig_to_address {orig_to_address}, orig_subject {orig_subject}"
     )
-    return EmailParams(
+    return EmailLog(
         sender=orig_to_address,
         recipient=reply_to_address,
         recipient_full_name=sender_full_name,
@@ -120,7 +120,7 @@ def get_text_from_email(msg):
     return result
 
 
-def create_raw_email_with_attachments(params: EmailParams):
+def create_raw_email_with_attachments(params: EmailLog):
     if not isinstance(params.recipient, str):
         print(
             f"email_address is NOT a string {params.recipient}, falling back to {DEBUG_RECIPIENTS}"
@@ -198,41 +198,6 @@ def create_raw_email_with_attachments(params: EmailParams):
     return msg
 
 
-def get_email_log_table():
-    dynamodb = boto3.resource("dynamodb", endpoint_url=get_dynamo_endpoint_url())
-    return dynamodb.Table(TABLE_NAME_EMAIL_LOG)
-
-
-def check_if_already_sent(email_to: str, idempotency_key: Optional[str]):
-    if idempotency_key is None:
-        return False
-
-    email_log_table = get_email_log_table()
-    previous_email: EmailLog = read_data_class(
-        data_class_type=EmailLog,
-        table=email_log_table,
-        key={
-            "email_to": email_to,
-            "idempotency_key": idempotency_key,
-        },
-        print_not_found=True,
-    )
-    return previous_email is not None
-
-
-def log_email(email_params: EmailParams, idempotency_key: Optional[str]):
-    if idempotency_key is None:
-        return None
-
-    email_log_table = get_email_log_table()
-    item = EmailLog(
-        email_to=email_params.recipient,
-        idempotency_key=idempotency_key,
-        params=email_params,
-    )
-    return write_data_class(table=email_log_table, data=item)
-
-
 # TODO(P2): Gmail marks us as spam - no clear way around it. Some easy-ish ways:
 #     * [DONE] Use the same email sender address
 #     * [DONE] Authenticate emails DKIM, DMARC, SPF
@@ -240,28 +205,26 @@ def log_email(email_params: EmailParams, idempotency_key: Optional[str]):
 #     * Add Unsubscribe button
 #     * Opt-in process (verify email)
 #     * Over-time, the higher the engagement with our emails the better.
-def send_email(params: EmailParams, idempotency_key: Optional[str] = None) -> bool:
+def send_email(params: EmailLog) -> bool:
     params.bcc = DEBUG_RECIPIENTS
     raw_email = create_raw_email_with_attachments(params)
 
-    if check_if_already_sent(params.recipient, idempotency_key=idempotency_key):
+    if params.check_if_already_sent():
         print(
-            f"SKIPPING email '{idempotency_key}' cause already sent for {params.recipient}"
+            f"SKIPPING email '{params.idempotency_id}' cause already sent for {params.user}"
         )
         return True
 
     if not is_running_in_aws():
-        # TODO(P1, testing): Would be nice to pass in the local dynamodb for testing the cache - BUT then mostly
-        #   relevant for prod.
         # TODO(P2, testing): Ideally we should also test the translation from params to raw email.
         print(
-            f"Skipping ses.send_raw_email cause NOT in AWS. Dumping the email {idempotency_key} contents {params}"
+            f"Skipping ses.send_raw_email cause NOT in AWS. Dumping the email {params.idempotency_id} contents {params}"
         )
-        log_email(email_params=params, idempotency_key=idempotency_key)
+        params.log_email()
         return True
     try:
         print(
-            f"Attempting to send email {idempotency_key} to {params.recipient}"
+            f"Attempting to send email {params.idempotency_id} to {params.recipient}"
             f"with attached files {params.attachment_paths}"
         )
 
@@ -281,7 +244,7 @@ def send_email(params: EmailParams, idempotency_key: Optional[str] = None) -> bo
         message_id = response["MessageId"]
         print(f"Email sent! Message ID: {message_id}, Subject: {params.subject}")
 
-        log_email(email_params=params, idempotency_key=idempotency_key)
+        params.log_email()
         return True
     except Exception as e:
         print(f"Email with subject {params.subject} failed to send. {e}")
@@ -300,7 +263,7 @@ def add_signature():
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
 #   * Yeah, we might want to centralize this into Hubspot Transactional email API.
 # We have attachment_paths separate, so the response email doesn't re-attach them.
-def send_confirmation(params: EmailParams, attachment_paths: List, dedup_prefix=None):
+def send_confirmation(params: EmailLog, attachment_paths):
     if len(attachment_paths) == 0:
         params.body_text = (
             """
@@ -315,12 +278,8 @@ def send_confirmation(params: EmailParams, attachment_paths: List, dedup_prefix=
         """
             + add_signature()
         )
-        send_email(
-            params=params,
-            idempotency_key=None
-            if dedup_prefix is None
-            else f"{dedup_prefix}-forgot-attachment",
-        )
+        params.idempotency_id = f"{params.idempotency_id}-forgot-attachment"
+        send_email(params=params)
     else:
         file_list = []
         for file_path in attachment_paths:
@@ -328,7 +287,7 @@ def send_confirmation(params: EmailParams, attachment_paths: List, dedup_prefix=
             file_list.append(f"<li>{os.path.basename(file_path)} ({file_size})</li>")
         file_list_str = "\n".join(file_list)
 
-        # subject = f"Hey {params.get_recipient_first_name()} - !"
+        # TODO: should this be body_html?
         params.body_text = (
             """
     <h3>Hello there """
@@ -351,23 +310,18 @@ def send_confirmation(params: EmailParams, attachment_paths: List, dedup_prefix=
         """
             + add_signature()
         )
-        send_email(
-            params=params,
-            idempotency_key=None
-            if dedup_prefix is None
-            else f"{dedup_prefix}-confirmation",
-        )
+        params.idempotency_id = f"{params.idempotency_id}-confirmation"
+        send_email(params=params)
 
 
 def send_responses(
-    event_name: str,
-    email_params: EmailParams,
+    orig_email_params: EmailLog,
     actions: Dict[str, str],
-    idempotency_key_prefix: Optional[str],
 ):
     i = 0
     for subject, body in actions.items():
         i += 1
+        email_params = copy.deepcopy(orig_email_params)
         email_params.subject = subject
         # TODO(P1, ux): The button seems to NOT render - investigate why.
         email_params.body_text = (
@@ -376,4 +330,5 @@ def send_responses(
             # TODO(P0, ux): Format this with bullet points
             f" <p>{body}</p>" + add_signature()
         )
-        send_email(params=email_params, idempotency_key=f"{idempotency_key_prefix}-{i}")
+        email_params.idempotency_id = f"{orig_email_params.idempotency_id}-{i}"
+        send_email(params=email_params)
