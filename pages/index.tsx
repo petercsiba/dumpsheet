@@ -1,7 +1,14 @@
+import dynamic from 'next/dynamic'
 import Head from 'next/head'
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
 import {Auth, ThemeSupa} from '@supabase/auth-ui-react'
 import TodoList from '@/components/TodoList'
+
+const VoiceRecorderWithNoSSR = dynamic(() => import('@/components/VoiceRecorder'), {
+    ssr: false
+})
+
+import VoiceRecorder from '@/components/VoiceRecorder'
 
 export default function Home() {
   const session = useSession()
@@ -10,16 +17,39 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Voxana AI - Task List</title>
+        <title>Voxana AI - Your Executive Sidekick</title>
         <meta name="description" content="Voxana AI - Your Voice, Turned into Action" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <div className="w-full h-full bg-gray-200">
+          <div className="min-w-full min-h-screen flex items-center justify-center">
+              <div className="w-full h-full flex justify-center items-center p-4">
+                  <div className="w-full h-full sm:h-auto sm:w-2/5 max-w-sm p-5 bg-white shadow flex flex-col text-base">
+                    <span className="font-sans font-normal text-3xl text-purple text-center pb-2 mb-1 border-b mx-4 align-center">
+                      Tell Voxana what to draft
+                    </span>
+                    <span className="font-sans font-light text-2xl text-left pb-2 mb-1 mx-4">
+                        Examples
+                    </span>
+                      <div className="pl-8">
+                        <ul className="list-disc">
+                            <li>Email replies you procrastinate on</li>
+                            <li>Follow ups from your recent encounters</li>
+                        </ul>
+                      </div>
+                      <div className="pt-4">
+                        <VoiceRecorderWithNoSSR />
+                      </div>
+                  </div>
+              </div>
+          </div>
+          {/*
         {!session ? (
           <div className="min-w-full min-h-screen flex items-center justify-center">
             <div className="w-full h-full flex justify-center items-center p-4">
               <div className="w-full h-full sm:h-auto sm:w-2/5 max-w-sm p-5 bg-white shadow flex flex-col text-base">
+                  {//TODO(p0, ux): Replace with Magic-link https://supabase.com/docs/guides/auth/auth-magic-link}
                 <span className="font-sans text-4xl text-center pb-2 mb-1 border-b mx-4 align-center">
                   Login
                 </span>
@@ -44,6 +74,7 @@ export default function Home() {
             </button>
           </div>
         )}
+                */}
       </div>
     </>
   )
