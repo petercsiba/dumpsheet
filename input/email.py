@@ -3,7 +3,6 @@ import traceback
 from email import message_from_bytes
 from email.utils import parsedate_to_datetime
 
-from app.dynamodb import DynamoDBManager
 from app.emails import (
     get_email_params_for_reply,
     send_confirmation,
@@ -17,7 +16,7 @@ from input.common import ffmpeg_convert_audio_to_mp4
 
 
 def process_email_input(
-    dynamodb: DynamoDBManager, gpt_client: OpenAiClient, raw_email, bucket_url=None
+    gpt_client: OpenAiClient, raw_email, bucket_url=None
 ) -> BaseDataEntry:
     # TODO(P1, migration): Refactor the email processing to another function which returns some custom object maybe
     print(f"Read raw_email body with {len(raw_email)} bytes")

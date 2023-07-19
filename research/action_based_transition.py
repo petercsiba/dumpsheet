@@ -85,7 +85,7 @@ def extract_transcript(json_string: str) -> str:
 
     def handle_entry(entry: Any) -> str:
         if isinstance(entry, dict):
-            # Hack for output_people_entries dynamodb
+            # Hack for output_people_entries dynamodb (legacy storage)
             if "M" in entry:
                 if "transcript" in entry["M"]:
                     person_transcript = entry["M"]["transcript"]
@@ -130,7 +130,6 @@ As my executive assistant reading my notes do:
     return "\n===============\n\n".join(parts)
 
 
-# DynamoDB is used for caching between local test runs, spares both time and money!
 open_ai_client = OpenAiClient()
 
 # Load the csv

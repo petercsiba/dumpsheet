@@ -2,7 +2,6 @@ import datetime
 import os
 from typing import Optional
 
-from app.dynamodb import DynamoDBManager
 from common.openai_client import OpenAiClient
 from common.storage_utils import pretty_filesize_int
 from common.twillio_client import TwilioClient
@@ -12,7 +11,6 @@ from input.common import ffmpeg_convert_audio_to_mp4
 
 
 def process_voice_recording_input(
-    dynamodb: DynamoDBManager,
     gpt_client: OpenAiClient,
     twilio_client: Optional[TwilioClient],
     bucket_url: Optional[str],  # for tracking purposes

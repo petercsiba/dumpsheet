@@ -1,6 +1,6 @@
 import datetime
 import json
-from dataclasses import asdict, dataclass, field, fields, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass
 from json import JSONEncoder
 from typing import Any, Dict, List, Type, get_args, get_origin
 
@@ -36,13 +36,6 @@ def datetime_decoder(dict_):
             except ValueError:
                 pass
     return dict_
-
-
-def dataclass_to_json(dataclass_obj: dataclass):
-    # Convert the data_entry object to a dictionary, and then json.dumps
-    # the complex objects to store them as strings in DynamoDB.
-    item_dict = asdict(dataclass_obj)
-    return json.dumps(item_dict, cls=DynamoEncoder)
 
 
 def dict_to_dataclass(dict_: dict, dataclass_type: Type[Any]) -> dataclass:

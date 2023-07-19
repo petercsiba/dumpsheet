@@ -47,7 +47,6 @@ search_box.clear()
 search_box.send_keys("Martin Stuebler BioFluff")
 search_box.submit()
 
-# DynamoDB is used for caching between local test runs, spares both time and money!
 open_ai_client = OpenAiClient()
 
 try:

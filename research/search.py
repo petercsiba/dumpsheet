@@ -9,7 +9,6 @@ import pandas as pd
 from openai.embeddings_utils import cosine_similarity
 
 from app.datashare import DataEntry, PersonDataEntry, dict_to_dataclass
-from app.dynamodb import parse_dynamodb_json
 from common.openai_client import OpenAiClient
 
 MIN_TEXT_CHAR_LENGTH = 100
@@ -34,6 +33,36 @@ MIN_TEXT_CHAR_LENGTH = 100
 # * Typesense, fast open source vector search
 # * Zilliz, data infrastructure, powered by Milvus
 # * https://github.com/pgvector/pgvector: SELECT * FROM items ORDER BY embedding <-> '[3,1,2]' LIMIT 5;
+
+
+def parse_dynamodb_json(dynamodb_json):
+    print(f"parse_dynamodb_json {dynamodb_json}")
+    # For dictionaries, recurse on each value
+    if isinstance(dynamodb_json, dict):
+        if len(dynamodb_json) == 1:
+            # If there's only one item, check for DynamoDB type descriptors and handle them
+            type_descriptor, value = next(iter(dynamodb_json.items()))
+            if type_descriptor == "S":
+                return value
+            elif type_descriptor == "NULL":
+                return None
+            elif type_descriptor == "L":
+                return [parse_dynamodb_json(item) for item in value]
+            elif type_descriptor == "N":
+                return float(value)
+            elif type_descriptor == "M":
+                return {key: parse_dynamodb_json(val) for key, val in value.items()}
+        else:
+            # If there are multiple items, just recurse on each one
+            return {
+                key: parse_dynamodb_json(value) for key, value in dynamodb_json.items()
+            }
+    elif isinstance(dynamodb_json, list):
+        # For list, just recurse on each item
+        return [parse_dynamodb_json(item) for item in dynamodb_json]
+    else:
+        # For anything else (e.g., a string, int, float), just return the value
+        return dynamodb_json
 
 
 def load_csv_to_dataclass(data_class_type: Type[Any], csv_filepath: str) -> List[Any]:

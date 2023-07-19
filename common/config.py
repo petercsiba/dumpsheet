@@ -6,7 +6,6 @@ load_dotenv()
 
 # AWS stuff
 DEFAULT_REGION = "us-west-2"
-DYNAMO_URL_PROD = f"https://dynamodb.{DEFAULT_REGION}.amazonaws.com"
 
 # EMAIL Stuff
 SENDER_EMAIL = "Your Sidekick Voxana <sidekick@voxana.ai>"  # From:

@@ -3,8 +3,5 @@ __pycache__*
 .idea
 buildx*
 chromedriver.log
-dynamodb_local_latest*
-DynamoDBLocal*
-shared-local-instance.db
 testdata
 

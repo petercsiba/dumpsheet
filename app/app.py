@@ -1,17 +1,4 @@
-# TODO(P0): PLAN MIGRATION TO VOXANA; Will just wing-it.
-#  * Add basic double-write for katka and peter (today)
-#    * For now just users and todos
-#  * Create a new branch (wednesday all day)
-#  * Strip the functionality:
-#    * NO HTML GEN
-#    * NO DYNAMO DB
-#    *   Figure out caching and idempotency.
-#    *   (P1, devx): Figure out some lightweight ORM?
-#    *     * SQLAlchemy can generate schemas out of describe, so we can supabase pull, apply, generate on-commit hook.
-#  * Move transactional emails to HubSpot (see my Notes)
-#  * Eventually migrate old data (TBD on triggers)
-#
-# TODO(P0): Prioritize all TODOs lol:
+# TODO(P0): (De)prioritize all TODOs lol:
 #   git grep '# TODO' | awk -F: '{print $2 " " $1 " " $3}' | sed -e 's/^[[:space:]]*//' | sort
 # TODO(_): General product extension ideas:
 #   * Custom Fields configuration
@@ -41,14 +28,12 @@ import time
 from typing import List, Optional
 from urllib.parse import unquote_plus
 
-import boto3
 from botocore.exceptions import NoCredentialsError
 
 from app.datashare import PersonDataEntry
-from app.dynamodb import DynamoDBManager, setup_dynamodb_local, teardown_dynamodb_local
 from app.emails import send_responses
 from app.networking_dump import extract_per_person_summaries, fill_in_draft_outreaches
-from common.aws_utils import get_boto_s3_client, get_bucket_url, get_dynamo_endpoint_url
+from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
 from db.db import connect_to_postgres
@@ -154,14 +139,6 @@ def lambda_handler(event, context):
 
     # Setup global deps
     with connect_to_postgres():
-        endpoint_url = get_dynamo_endpoint_url()
-        try:
-            dynamodb_client = DynamoDBManager(endpoint_url=endpoint_url)
-        except Exception as err:
-            print(f"ERROR: Could NOT connect DynamoDB to {endpoint_url} cause {err}")
-            # TODO(p3, devx): Make this a fatal error
-            dynamodb_client = None
-
         gpt_client = OpenAiClient()
         twilio_client = TwilioClient()
 
@@ -169,7 +146,6 @@ def lambda_handler(event, context):
         if bucket == EMAIL_BUCKET:
             raw_email = bucket_raw_data
             data_entry = process_email_input(
-                dynamodb=dynamodb_client,
                 gpt_client=gpt_client,
                 raw_email=raw_email,
                 bucket_url=bucket_url,
@@ -184,7 +160,6 @@ def lambda_handler(event, context):
             phone_number = object_metadata["phonenumber"]
             proper_name = object_metadata["propername"]
             data_entry = process_voice_recording_input(
-                dynamodb=dynamodb_client,
                 gpt_client=gpt_client,
                 twilio_client=twilio_client,
                 bucket_url=bucket_url,
@@ -216,14 +191,8 @@ if __name__ == "__main__":
     OUTPUT_BUCKET_NAME = None
 
     with connect_to_postgres():
-        process, local_dynamodb = setup_dynamodb_local()
-        # DynamoDB is used for caching between local test runs, spares both time and money!
         open_ai_client = OpenAiClient()
         # open_ai_client.run_prompt(f"test {time.time()}")
-
-        # For the cases when I mess up development.
-        # print(f"Deleting some tables")
-        ddb_client = boto3.client("dynamodb", endpoint_url=get_dynamo_endpoint_url())
 
         test_case = "email"  # FOR EASY TEST CASE SWITCHING
         orig_data_entry = None
@@ -233,7 +202,6 @@ if __name__ == "__main__":
                 file_contents = handle.read()
                 # Postgres is used for caching between local test runs, spares both time and money!
                 orig_data_entry = process_email_input(
-                    dynamodb=local_dynamodb,
                     gpt_client=open_ai_client,
                     raw_email=file_contents,
                 )
@@ -247,7 +215,6 @@ if __name__ == "__main__":
             with open(filepath, "rb") as handle:
                 file_contents = handle.read()
                 orig_data_entry = process_voice_recording_input(
-                    dynamodb=local_dynamodb,
                     gpt_client=open_ai_client,
                     # TODO(P1, testing): Support local testing
                     twilio_client=None,
@@ -268,5 +235,3 @@ if __name__ == "__main__":
             data_entry=orig_data_entry,
             twilio_client=None,
         )
-
-    teardown_dynamodb_local(process)

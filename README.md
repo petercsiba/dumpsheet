@@ -30,14 +30,6 @@ TLDR; The `backend` project is now installed as a module through `setup.py`, so 
 python -m research.action_based_transition
 ```
 
-### Setup DynamoDB Local (GPT generated)
-* Requires JAVA, verify with `java -version`
-* Download (DynamoDB Tar)[https://s3.us-west-2.amazonaws.com/dynamodb-local/dynamodb_local_latest.tar.gz]
-* OR just `curl -O https://dynamodb-local.s3.us-west-2.amazonaws.com/dynamodb_local_latest.tar.gz
-`
-* Unpack `tar -xvf dynamodb_local_latest.tar`
-* `app/app.py` starts it itself, if you need it you can start it with (default port is 8000): `java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb`
-
 ### Setup Supabase
 Pretty much a relevant summary of https://supabase.com/docs/guides/getting-started/local-development
 The configuration will live in `backend/supabase` (part of .gitignore).

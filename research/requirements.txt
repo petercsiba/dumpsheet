@@ -1,5 +1,4 @@
-linkedin_scraper
-numby
+numpy
 pandas
 selenium
 toml
