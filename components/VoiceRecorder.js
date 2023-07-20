@@ -1,4 +1,3 @@
-// TOOD(P0, privacy): DOUBLE-CHECK the microphone has stopped (when the StopRecording is called).
 // TODO(P1, browser-compatibility): Mobile Safari displays a weirdly small <audio> tag
 import { useEffect, useState } from 'react'
 import RecordRTC from 'recordrtc'
@@ -8,7 +7,7 @@ import StopIcon from '../public/images/icons/stop-icon.svg'
 
 const UPLOAD_URL = 'http://api.voxana.ai/uploads/';
 const UPLOAD_TIMEOUT = 20000;
-const MIN_DURATION = Number(process.env.VOICE_RECORDER_MIN_DURATION_SECONDS) || 10;
+const MIN_DURATION = Number(process.env.NEXT_PUBLIC_VOICE_RECORDER_MIN_DURATION_SECONDS) || 10;
 const SHORT_RECORDING_TIMEOUT = 2500;
 
 const formatDuration = (seconds) => {
@@ -18,6 +17,7 @@ const formatDuration = (seconds) => {
 };
 
 export default function VoiceRecorder() {
+	const [stream, setStream] = useState(null);
 	const [recording, setRecording] = useState(null)
 	const [audioURL, setAudioURL] = useState(null)
 	const [uploadStatus, setUploadStatus] = useState(null);
@@ -43,11 +43,25 @@ export default function VoiceRecorder() {
 		return () => clearInterval(interval);
 	}, [recording, recordingStartTime]);
 
+	// To fully release the media recording from the browser - as otherwise it shows a red mike "recording".
+	const fullyReleaseMike = () => {
+		console.log(`fullyReleaseMike for stream ${stream}`)
+		if (stream) {
+			stream.getTracks().forEach(track => track.stop());
+		}
+		setRecording(null)
+	};
+	// TODO: This might need more work through `useRef`
+	// useEffect(() => {
+	// 	return () => fullyReleaseMike()
+	// }, []);
+
 	const startRecording = async () => {
 		if (typeof window === 'undefined') {
 			console.error('Recording is not supported on the server.')
 			return
 		}
+		console.log(`startRecording`)
 		try {
 			const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
 			const recorder = new RecordRTC(stream, {
@@ -55,8 +69,9 @@ export default function VoiceRecorder() {
 				mimeType: 'audio/webm'
 			})
 
-			setRecordingStartTime(Date.now());
+			setStream(stream)
 			setRecording(recorder)
+			setRecordingStartTime(Date.now());
 			recorder.startRecording()
 		} catch (error) {
 			console.error("Failed to start recording: ", error)
@@ -66,6 +81,7 @@ export default function VoiceRecorder() {
 	const uploadRecording = async (audioBlob) => {
 		const formData = new FormData();
 		formData.append('audio', audioBlob);
+		console.log(`uploadRecording for ${audioBlob.byteLength}`)
 
 		const response = await Promise.race([
 			fetch(UPLOAD_URL, {
@@ -83,11 +99,14 @@ export default function VoiceRecorder() {
 	}
 
 	const stopRecording = async () => {
+		console.log(`stopRecording for ${recording}`)
 		if (!recording) {
 			return;
 		}
 
 		recording.stopRecording(async () => {
+			fullyReleaseMike()
+
 			const audioBlob = recording.getBlob();
 			const audioURL = URL.createObjectURL(audioBlob);
 
@@ -98,7 +117,6 @@ export default function VoiceRecorder() {
 
 				setTimeout(() => {
 					console.log('recording short auto-refresh');
-					setRecording(null);  // should also reset the elapsedTime
 					setUploadStatus(null);
 				}, SHORT_RECORDING_TIMEOUT);
 
