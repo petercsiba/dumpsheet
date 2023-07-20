@@ -1,3 +1,5 @@
+// TODO(P1, browser-compatibility): Mobile Safari displays a weirdly small <audio> tag
+//
 import { useEffect, useState } from 'react'
 import RecordRTC from 'recordrtc'
 import Image from 'next/image'
@@ -136,7 +138,7 @@ export default function VoiceRecorder() {
 			}
 		});
 	};
-	
+
 	const AudioPlayer = ({ audioURL, duration }) => (
 		<div>
 			<audio className="pl-8 pr-8" src={audioURL} controls />
@@ -171,14 +173,18 @@ export default function VoiceRecorder() {
 		</div>
 	);
 
-	const AlternativeUpload = ({ audioURL }) => (
-		<div className="bg-white-500 p-2 inline-block">
-			<p className="py-2">Alternatively, download and upload manually.</p>
-			<div className="flex justify-center">
-				<a href={audioURL} download className="px-4 py-2 bg-gray-200 rounded">Download</a>
+	const AlternativeUpload = ({ audioURL }) => {
+		const fileName = `voxana-audio-recording-${Date.now()}.webm`;
+
+		return (
+			<div className="bg-white-500 p-2 inline-block">
+				<p className="py-2">Alternatively, download and upload manually.</p>
+				<div className="flex justify-center">
+					<a href={audioURL} download={fileName} className="px-4 py-2 bg-gray-200 rounded">Download</a>
+				</div>
 			</div>
-		</div>
-	);
+		);
+	};
 
 // In the main component...
 	return (
