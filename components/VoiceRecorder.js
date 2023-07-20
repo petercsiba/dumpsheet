@@ -1,5 +1,5 @@
+// TOOD(P0, privacy): DOUBLE-CHECK the microphone has stopped (when the StopRecording is called).
 // TODO(P1, browser-compatibility): Mobile Safari displays a weirdly small <audio> tag
-//
 import { useEffect, useState } from 'react'
 import RecordRTC from 'recordrtc'
 import Image from 'next/image'
@@ -25,17 +25,6 @@ export default function VoiceRecorder() {
 	const [recordingStartTime, setRecordingStartTime] = useState(null);
 	const [recordingElapsedTime, setRecordingElapsedTime] = useState(0);
 	const [duration, setDuration] = useState(null);
-
-	// `duration` might be slightly redundant with recordingElapsedTime, but in theory more precise
-	// Leads to Infinity : NaN
-	// useEffect(() => {
-	// 	const audio = new Audio(audioURL);
-	//
-	// 	// Once the metadata has been loaded, get the duration
-	// 	audio.onloadedmetadata = function() {
-	// 		setDuration(audio.duration);
-	// 	};
-	// }, [audioURL]); // dependency array
 
 	useEffect(() => {
 		let interval = null;
@@ -146,18 +135,15 @@ export default function VoiceRecorder() {
 		</div>
 	);
 
-	const RecordingButton = ({ recordingElapsedTime }) => (
-		<div>
-			<div className="bg-white-500 p-2 inline-block">
-				<Image
-					priority
-					src={StopIcon}
-					alt="Stop and upload recording"
-					width={50}
-					height={50}
-				/>
-			</div>
-			<p>{formatDuration(recordingElapsedTime)}</p>
+	const RecordingButton = () => (
+		<div className="bg-white-500 p-2 inline-block">
+			<Image
+				priority
+				src={StopIcon}
+				alt="Stop and upload recording"
+				width={50}
+				height={50}
+			/>
 		</div>
 	);
 
@@ -196,12 +182,15 @@ export default function VoiceRecorder() {
 				onClick={recording ? stopRecording : startRecording}
 				disabled={Boolean(uploadStatus)}
 			>
+				<div>
 				{ Boolean(uploadStatus)
 					? uploadStatus
 					: recording
 						? <RecordingButton recordingElapsedTime={recordingElapsedTime} />
 						: <StartRecordingButton />
 				}
+				{recording && <p>{formatDuration(recordingElapsedTime)}</p>}
+				</div>
 
 				{uploadSuccess === false && <AlternativeUpload audioURL={audioURL} />}
 			</button>
