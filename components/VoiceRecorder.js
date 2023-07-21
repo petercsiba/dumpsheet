@@ -5,7 +5,7 @@ import Image from 'next/image'
 import MicrophoneIcon from '../public/images/icons/microphone-icon.svg'
 import StopIcon from '../public/images/icons/stop-icon.svg'
 
-const UPLOAD_URL = 'http://api.voxana.ai/uploads/';
+const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
 const UPLOAD_TIMEOUT = 20000;
 const MIN_DURATION = Number(process.env.NEXT_PUBLIC_VOICE_RECORDER_MIN_DURATION_SECONDS) || 10;
 const SHORT_RECORDING_TIMEOUT = 2500;
@@ -79,16 +79,20 @@ export default function VoiceRecorder() {
 	}
 
 	const uploadRecording = async (audioBlob) => {
-		const formData = new FormData();
-		formData.append('audio', audioBlob);
-		console.log(`uploadRecording for ${audioBlob.byteLength}`)
+		// First, get the presigned URL from your Lambda function
+		const presignedUrlResponse = await fetch(PRESIGNED_URL, { method: 'GET' });
+		const presignedUrl = await presignedUrlResponse.text();
 
+		// Then, upload the audio file to S3 using the presigned URL
 		const response = await Promise.race([
-			fetch(UPLOAD_URL, {
-				method: 'POST',
-				body: formData
+			fetch(presignedUrl, {
+				method: 'PUT',
+				body: audioBlob,
+				headers: {
+					'Content-Type': 'audio/webm'
+				}
 			}),
-			new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), UPLOAD_TIMEOUT))
+			new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), UPLOAD_TIMEOUT)),
 		]);
 
 		if (!response.ok) {
@@ -201,7 +205,9 @@ export default function VoiceRecorder() {
 				disabled={Boolean(uploadStatus)}
 			>
 				<div>
-				{ Boolean(uploadStatus)
+				{ // TODO(ux, P0): Currently the button is flashing, so we should restructure this.
+					// i.e. keep the button separate from everything else.
+					Boolean(uploadStatus)
 					? uploadStatus
 					: recording
 						? <RecordingButton recordingElapsedTime={recordingElapsedTime} />
