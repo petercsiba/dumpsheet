@@ -14,3 +14,4 @@ create table
     constraint prompt_log_prompt_model_key UNIQUE (prompt_hash, model)
   ) tablespace pg_default;
 
+ALTER TABLE public.prompt_log ENABLE ROW LEVEL SECURITY;

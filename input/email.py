@@ -9,9 +9,9 @@ from app.emails import (
     store_and_get_attachments_from_email,
 )
 from common.openai_client import OpenAiClient
+from db.account import Account
 from db.email_log import EmailLog
 from db.models import BaseDataEntry
-from db.user import User
 from input.common import ffmpeg_convert_audio_to_mp4
 
 
@@ -36,14 +36,15 @@ def process_email_input(
 
     attachment_file_paths = store_and_get_attachments_from_email(msg)
 
-    user = User.get_or_create_using_rest(
+    # In practice, they didn't yet sign up.
+    account = Account.get_or_onboard(
         email=base_email_params.recipient,
         full_name=base_email_params.recipient_full_name,
     )
 
     inserted_id = (
         BaseDataEntry.insert(
-            user_id=user.id,
+            account=account,
             display_name=email_datetime.strftime("%B %d, %H:%M"),
             idempotency_id=msg["Message-ID"],
             created_at=email_datetime,
@@ -54,7 +55,7 @@ def process_email_input(
             conflict_target=[BaseDataEntry.idempotency_id],
             # Postgres requires you to specify all fields to update explicitly.
             update={
-                BaseDataEntry.user_id: None,
+                BaseDataEntry.account_id: account.id,
                 BaseDataEntry.display_name: email_datetime.strftime("%B %d, %H:%M"),
                 BaseDataEntry.created_at: email_datetime,
                 BaseDataEntry.input_type: "email",
@@ -68,9 +69,9 @@ def process_email_input(
     #   but for now we have lambda retries so shrug.
 
     try:
-        # TODO(peter): Verify if the swap base_email_params for get_email_reply_params_for_user works.
-        confirmation_email_params = EmailLog.get_email_reply_params_for_user(
-            user, base_email_params.subject, result.idempotency_id
+        # TODO(peter): Verify if the swap base_email_params for get_email_reply_params_for_account_id works.
+        confirmation_email_params = EmailLog.get_email_reply_params_for_account_id(
+            account.id, base_email_params.subject, result.idempotency_id
         )
         # NOTE: We do NOT include the original attachments cause
         # botocore.exceptions.ClientError: An error occurred (InvalidParameterValue)

@@ -5,8 +5,8 @@ from typing import Optional
 from common.openai_client import OpenAiClient
 from common.storage_utils import pretty_filesize_int
 from common.twillio_client import TwilioClient
+from db.account import Account
 from db.models import BaseDataEntry
-from db.user import User
 from input.common import ffmpeg_convert_audio_to_mp4
 
 
@@ -35,8 +35,9 @@ def process_voice_recording_input(
     else:
         print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
 
-    user = User.get_or_create_using_rest(
-        email=None, phone=phone_number, full_name=full_name
+    account = Account.get_by_email_or_none(
+        # TODO(P2, features): Support onboarding by phone again
+        email=None,  # phone=phone_number, full_name=full_name
     )
     nice_ts = event_timestamp.strftime("%B %d, %H:%M")
     inserted_id = (
@@ -46,7 +47,7 @@ def process_voice_recording_input(
             idempotency_id=call_sid,
             input_type="call",
             input_uri=bucket_url,
-            user_id=user.id,
+            account_id=account.id,
         )
         .on_conflict(
             conflict_target=[BaseDataEntry.idempotency_id],
@@ -56,7 +57,7 @@ def process_voice_recording_input(
                 BaseDataEntry.display_name: f"Call from {nice_ts}",
                 BaseDataEntry.input_type: "call",
                 BaseDataEntry.input_uri: bucket_url,
-                BaseDataEntry.user_id: None,
+                BaseDataEntry.account_id: None,
             },
         )
         .execute()

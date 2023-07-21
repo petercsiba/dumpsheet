@@ -6,7 +6,7 @@ from gotrue import Session
 
 from common.aws_utils import is_running_in_aws
 from common.supabase_client import get_supabase_client
-from db.models import BaseUserProfile, BaseUsers
+from db.models import BaseAccount, BaseUsers
 
 
 def generate_temp_password(length=8):
@@ -65,7 +65,7 @@ class User(BaseUsers):
 
         # For backend purposes, we really only care about the User object rather than the supabase session.
         res = User.get_by_email(email)
-        BaseUserProfile.insert(
+        BaseAccount.insert(
             user_id=res.id, full_name=full_name
         ).on_conflict_ignore().execute()
         return res

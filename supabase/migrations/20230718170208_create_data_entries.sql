@@ -13,3 +13,5 @@ create table
     constraint data_entries_idempotency_id_key unique (idempotency_id),
     constraint data_entries_user_id_fkey foreign key (user_id) references auth.users (id)
   ) tablespace pg_default;
+
+ALTER TABLE public.data_entries ENABLE ROW LEVEL SECURITY;

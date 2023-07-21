@@ -14,37 +14,36 @@ class BaseModel(Model):
         database = database
 
 
+class BaseOnboarding(BaseModel):
+    email = TextField(null=True)
+    id = BigAutoField()
+    ip_address = TextField(null=True)
+    referer = TextField(null=True)
+    utm_source = TextField(null=True)
+
+    class Meta:
+        schema = "public"
+        table_name = "onboarding"
+
+
 class BaseUsers(BaseModel):
     aud = CharField(null=True)
-    banned_until = DateTimeField(null=True)
     confirmation_sent_at = DateTimeField(null=True)
     confirmation_token = CharField(null=True)
     confirmed_at = DateTimeField(null=True)
     created_at = DateTimeField(null=True)
-    deleted_at = DateTimeField(null=True)
     email = CharField(null=True)
     email_change = CharField(null=True)
-    email_change_confirm_status = SmallIntegerField(null=True)
     email_change_sent_at = DateTimeField(null=True)
-    email_change_token_current = CharField(null=True)
-    email_change_token_new = CharField(null=True)
-    email_confirmed_at = DateTimeField(null=True)
+    email_change_token = CharField(null=True)
     encrypted_password = CharField(null=True)
     id = UUIDField(null=True)
     instance_id = UUIDField(null=True)
     invited_at = DateTimeField(null=True)
-    is_sso_user = BooleanField(null=True)
     is_super_admin = BooleanField(null=True)
     last_sign_in_at = DateTimeField(null=True)
-    phone = TextField(null=True)
-    phone_change = TextField(null=True)
-    phone_change_sent_at = DateTimeField(null=True)
-    phone_change_token = CharField(null=True)
-    phone_confirmed_at = DateTimeField(null=True)
     raw_app_meta_data = BinaryJSONField(null=True)
     raw_user_meta_data = BinaryJSONField(null=True)
-    reauthentication_sent_at = DateTimeField(null=True)
-    reauthentication_token = CharField(null=True)
     recovery_sent_at = DateTimeField(null=True)
     recovery_token = CharField(null=True)
     role = CharField(null=True)
@@ -56,18 +55,34 @@ class BaseUsers(BaseModel):
         primary_key = False
 
 
+class BaseAccount(BaseModel):
+    created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
+    full_name = TextField(null=True)
+    id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
+    onboarding = ForeignKeyField(
+        column_name="onboarding_id", field="id", model=BaseOnboarding, unique=True
+    )
+    user = ForeignKeyField(
+        column_name="user_id", field="id", model=BaseUsers, null=True
+    )
+
+    class Meta:
+        schema = "public"
+        table_name = "account"
+
+
 class BaseDataEntry(BaseModel):
+    account = ForeignKeyField(
+        column_name="account_id", field="id", model=BaseAccount, null=True
+    )
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     display_name = TextField()
     id = UUIDField(constraints=[SQL("DEFAULT uuid_generate_v4()")], primary_key=True)
-    idempotency_id = TextField(unique=True)
+    idempotency_id = TextField()
     input_type = TextField()
     input_uri = TextField(null=True)
     output_transcript = TextField(null=True)
     processed_at = DateTimeField(null=True)
-    user = ForeignKeyField(
-        column_name="user_id", field="id", model=BaseUsers, null=True
-    )
 
     class Meta:
         schema = "public"
@@ -75,6 +90,9 @@ class BaseDataEntry(BaseModel):
 
 
 class BaseEmailLog(BaseModel):
+    account = ForeignKeyField(
+        column_name="account_id", field="id", model=BaseAccount, null=True
+    )
     attachment_paths = ArrayField(
         constraints=[SQL("DEFAULT '{}'::text[]")], field_class=TextField
     )
@@ -82,20 +100,19 @@ class BaseEmailLog(BaseModel):
     body_html = TextField(null=True)
     body_text = TextField(null=True)
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
+    email = TextField()
+    idempotency_id = TextField()
     id = BigAutoField()
-    idempotency_id = TextField(unique=True)
     recipient = TextField()
     recipient_full_name = TextField(null=True)
     reply_to = TextField()
     sender = TextField()
     subject = TextField()
-    user = ForeignKeyField(
-        column_name="user_id", field="id", model=BaseUsers, null=True
-    )
 
     class Meta:
         schema = "public"
         table_name = "email_log"
+        indexes = ((("email", "idempotency_id"), True),)
 
 
 class BasePromptLog(BaseModel):
@@ -113,15 +130,3 @@ class BasePromptLog(BaseModel):
         schema = "public"
         table_name = "prompt_log"
         indexes = ((("prompt_hash", "model"), True),)
-
-
-class BaseUserProfile(BaseModel):
-    full_name = TextField(null=True)
-    id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
-    user = ForeignKeyField(
-        column_name="user_id", field="id", model=BaseUsers, unique=True
-    )
-
-    class Meta:
-        schema = "public"
-        table_name = "user_profile"

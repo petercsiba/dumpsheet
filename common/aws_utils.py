@@ -4,7 +4,7 @@ from urllib.parse import quote_plus
 import boto3
 from botocore.config import Config
 
-from common.config import DEFAULT_REGION, DYNAMO_URL_PROD
+from common.config import DEFAULT_REGION
 
 
 def get_boto_s3_client():
@@ -29,10 +29,3 @@ def is_running_in_aws():
         return True
 
     return False
-
-
-def get_dynamo_endpoint_url(port=8000):
-    if is_running_in_aws():
-        return DYNAMO_URL_PROD
-    else:
-        return f"http://localhost:{port}"

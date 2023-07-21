@@ -4,7 +4,6 @@
 import datetime
 import os
 import re
-import time
 from typing import List, Optional
 from urllib.parse import unquote_plus
 
@@ -19,7 +18,6 @@ from common.twillio_client import TwilioClient
 from db.db import connect_to_postgres
 from db.email_log import EmailLog
 from db.models import BaseDataEntry
-from db.user import User
 from input.call import process_voice_recording_input
 from input.email import process_email_input
 
@@ -45,46 +43,46 @@ def process_transcript_from_data_entry(
     fill_in_draft_outreaches(gpt_client, people_entries)
     data_entry.save()  # This will only update the fields which have changed.
 
-    user = User.get_by_id(data_entry.user)
-    if user.contact_method() == "sms":
-        # TODO(P1, ux): Improve this message, might need an URL shortener
-        msg = "Your event summary is ready - check your email Inbox"
-        if not bool(twilio_client):
-            print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
-        else:
-            twilio_client.send_sms(to_phone=user.phone, body=msg)
-            # When onboarding through Voice call & SMS, there is a chance that the email gets updated at a wrong time.
-            # So lets keep refreshing it a few times to lower the chances.
-            for i in range(3):
-                print("Sleeping 1 minute to re-fetch the user - maybe we get the email")
-                time.sleep(60)
-                user = User.get_by_id(data_entry.user)
-                if user.contact_method() == "email":
-                    print(
-                        "Great success - email was updated and we can send them a nice confirmation too!"
-                    )
-                    break
+    # user = User.get_by_id(data_entry.user)
+    # if user.contact_method() == "sms":
+    #     # TODO(P1, ux): Improve this message, might need an URL shortener
+    #     msg = "Your event summary is ready - check your email Inbox"
+    #     if not bool(twilio_client):
+    #         print(f"SKIPPING send_sms cause no twilio_client would have sent {msg}")
+    #     else:
+    #         twilio_client.send_sms(to_phone=user.phone, body=msg)
+    #         # When onboarding through Voice call & SMS, there is a chance that the email gets updated at a wrong time.
+    #         # So lets keep refreshing it a few times to lower the chances.
+    #         for i in range(3):
+    #             print("Sleeping 1 minute to re-fetch the user - maybe we get the email")
+    #             time.sleep(60)
+    #             user = User.get_by_id(data_entry.user)
+    #             if user.contact_method() == "email":
+    #                 print(
+    #                     "Great success - email was updated and we can send them a nice confirmation too!"
+    #                 )
+    #                 break
 
-    if user.contact_method() == "email":
-        email_params = EmailLog.get_email_reply_params_for_user(
-            user=user,
-            idempotency_id=f"{data_entry.idempotency_id}-response",
-            subject=f"The summary from your event at {event_name_safe} is ready for your review!",
-        )
-        # Removed all_summaries_filepath for now
-        email_params.attachment_paths = []
-        actions = {}
-        for person in people_entries:
-            for draft in person.drafts:
-                actions[f"{person.name}: {draft.intent}"] = draft.message
+    # if user.contact_method() == "email":
+    email_params = EmailLog.get_email_reply_params_for_account_id(
+        account_id=data_entry.account_id,
+        idempotency_id=f"{data_entry.idempotency_id}-response",
+        subject=f"The summary from your event at {event_name_safe} is ready for your review!",
+    )
+    # Removed all_summaries_filepath for now
+    email_params.attachment_paths = []
+    actions = {}
+    for person in people_entries:
+        for draft in person.drafts:
+            actions[f"{person.name}: {draft.intent}"] = draft.message
 
-        action_names = "\n".join(actions.keys())
-        print(f"ALL ACTION SUBJECTS: {action_names}")
+    action_names = "\n".join(actions.keys())
+    print(f"ALL ACTION SUBJECTS: {action_names}")
 
-        send_responses(
-            orig_email_params=email_params,
-            actions=actions,
-        )
+    send_responses(
+        orig_email_params=email_params,
+        actions=actions,
+    )
 
     return people_entries
 

@@ -211,7 +211,7 @@ def send_email(params: EmailLog) -> bool:
 
     if params.check_if_already_sent():
         print(
-            f"SKIPPING email '{params.idempotency_id}' cause already sent for {params.user}"
+            f"SKIPPING email '{params.idempotency_id}' cause already sent for {params.account}"
         )
         return True
 
@@ -330,5 +330,4 @@ def send_responses(
             # TODO(P0, ux): Format this with bullet points
             f" <p>{body}</p>" + add_signature()
         )
-        email_params.idempotency_id = f"{orig_email_params.idempotency_id}-{i}"
         send_email(params=email_params)
