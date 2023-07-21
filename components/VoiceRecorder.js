@@ -5,7 +5,8 @@ import Image from 'next/image'
 import MicrophoneIcon from '../public/images/icons/microphone-icon.svg'
 import StopIcon from '../public/images/icons/stop-icon.svg'
 
-const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
+// const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
+const PRESIGNED_URL = 'https://xz067dkee6.execute-api.us-east-1.amazonaws.com/Prod/upload/voice'
 const UPLOAD_TIMEOUT = 20000;
 const MIN_DURATION = Number(process.env.NEXT_PUBLIC_VOICE_RECORDER_MIN_DURATION_SECONDS) || 10;
 const SHORT_RECORDING_TIMEOUT = 2500;
@@ -79,6 +80,11 @@ export default function VoiceRecorder() {
 	}
 
 	const uploadRecording = async (audioBlob) => {
+		// OMG, How hard this can be? Literally spent half a day setting up the full shabbang
+		// Made me HATE CORS
+		// Browser restrictions: Modern web browsers enforce CORS policy by default
+		// and don't provide an option to disable it. GREAT, especially when AWS API Gateway does not allow to ALLOW it.
+
 		// First, get the presigned URL from your Lambda function
 		const presignedUrlResponse = await fetch(PRESIGNED_URL, { method: 'GET' });
 		const presignedUrl = await presignedUrlResponse.text();
@@ -89,6 +95,7 @@ export default function VoiceRecorder() {
 				method: 'PUT',
 				body: audioBlob,
 				headers: {
+					// NOTE: This needs to remain same as the lambda in the backend
 					'Content-Type': 'audio/webm'
 				}
 			}),
