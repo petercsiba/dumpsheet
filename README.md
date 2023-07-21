@@ -94,7 +94,13 @@ docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-u
 docker push 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups:latest
 ```
 
-### Deploy Lambda
+### Deploy SAM
+First make sure you have the CLI:
+```shell
+pip install aws-sam-cli --no-build-isolation
+```
+
+### Deploy Lambda (manual)
 A few manual clicks in AWS console:
 * Go to Lambda
 * Click on deploy new image
