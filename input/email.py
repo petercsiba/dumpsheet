@@ -9,9 +9,9 @@ from app.emails import (
     store_and_get_attachments_from_email,
 )
 from common.openai_client import OpenAiClient
-from db.account import Account
-from db.email_log import EmailLog
-from db.models import BaseDataEntry
+from database.account import Account
+from database.email_log import EmailLog
+from database.models import BaseDataEntry
 from input.common import ffmpeg_convert_audio_to_mp4
 
 

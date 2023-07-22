@@ -2,8 +2,8 @@ import random
 import string
 from typing import Optional
 
-from db.models import BaseAccount, BaseOnboarding
-from db.user import User
+from database.models import BaseAccount, BaseOnboarding
+from database.user import User
 
 
 def generate_temp_password(length=8):
@@ -69,6 +69,23 @@ class Account(BaseAccount):
             )
             .on_conflict_ignore()
             .execute()
+        )
+        account = Account.get_by_id(account_id)
+        print(f"onboarded account {account}")
+        return account
+
+    @staticmethod
+    def get_or_onboard_for_ip(
+        ip_address: str,
+    ) -> "Account":
+        onboarding = BaseOnboarding.get_or_none(BaseOnboarding.ip_address == ip_address)
+        if bool(onboarding):
+            return Account.get(Account.onboarding == onboarding)
+
+        print(f"onboarding account for ip_address {ip_address}")
+        onboarding = BaseOnboarding.insert(ip_address=ip_address).execute()
+        account_id = (
+            BaseAccount.insert(onboarding=onboarding).on_conflict_ignore().execute()
         )
         account = Account.get_by_id(account_id)
         print(f"onboarded account {account}")

@@ -34,7 +34,7 @@ repos:
 #    -   id: mypy
 #        #  --explicit-package-bases for error: Source file found twice under different module names
 #        args: ["--namespace-package", "--explicit-package-bases"]
-#        exclude: ^db/models\.py$
+#        exclude: ^database/models\.py$
 # TODO(P2, Devx): There might be a better one, although these guys have 11.4k stars so probably works well!
 -   repo: https://github.com/awslabs/git-secrets
     # rev: 80230afa8c8bcd6b4aefebec422f8a0755e0e4b8

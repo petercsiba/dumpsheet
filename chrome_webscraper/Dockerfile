@@ -1,3 +1,9 @@
+# TODO(P1, devops): GREAT, after a half day sweating of this Dockerfile I have found that
+# AWS Lambda Layers might just get me this out-of-box. MAYBE that is why I could NOT find an example,
+# cause everyone is just using that feature :facepalm:
+# AWS Lambda Layers: Headless Chrome and Chromium with Puppeteer: These layers are useful for web scraping,
+# generating screenshots or PDFs from web pages, etc.
+
 # TOO MUCH CONTEXT HERE:
 # https://chat.openai.com/share/7208ab98-4f1a-436c-8d2f-0a101185f0ee
 # Use an official Debian runtime as a parent image

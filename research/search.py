@@ -1,4 +1,6 @@
 # TODO(P1, devx): Make it work
+# NOTE: There is an AWS Lambda Layer whic is an Optimized SciPy, NumPy and Pandas:
+# These layers can save you from the trouble of dealing with the complex binary dependencies of these libraries.
 import ast
 import json
 import os.path

@@ -9,8 +9,14 @@ with open(file_name, "r") as file:
 
 # Define the regex patterns and replacements
 old_line_pattern = r"database = PostgresqlDatabase\(.*?\)"
-new_line = "from db.db import database"
+new_line = (
+    "# NOTE: this file is fully generated, if you change something, it will go away\n"
+    "from database.client import postgres"
+)
 data = re.sub(old_line_pattern, new_line, data, flags=re.DOTALL)
+
+# For BaseModel.Meta.database
+data = data.replace("database = database", "database = postgres")
 
 # Rename all classes that inherit from BaseModel with 'Base', e.g.:
 # class ClassName(BaseModel):

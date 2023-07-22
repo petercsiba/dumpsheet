@@ -48,6 +48,10 @@ sam build --use-container
 # if not already, start url  https://d-90679cf568.awsapps.com/start/
 aws configure sso
 # for new IAM roles, you would need AdminAccess
+# STAY CALM - try to perform as little changes at a time as possible
+#   - as SAM would rollback everything even if it was partially successful.
+# ALSO, a LOT of things you would expect do NOT work here AND take more time.
+# Stackoverflow beats ChatGPT here by a LOT.
 sam deploy --profile PowerUserAccess-831154875375
 ```
 
@@ -66,7 +70,8 @@ Test a single function by invoking it directly with a test event. An event is a 
 Run functions locally and invoke them with the `sam local invoke` command.
 
 ```bash
-sam_app$ sam local invoke HelloWorldFunction --event events/event.json
+# TODO: This needs some Docker which I haven't yet tried.
+sam local invoke VoiceUploadsFunction --event events/upload-voice-event.json
 ```
 
 The SAM CLI can also emulate your application's API. Use the `sam local start-api` to run the API locally on port 3000.

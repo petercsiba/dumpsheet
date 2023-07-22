@@ -15,9 +15,9 @@ from app.networking_dump import extract_per_person_summaries, fill_in_draft_outr
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
-from db.db import connect_to_postgres
-from db.email_log import EmailLog
-from db.models import BaseDataEntry
+from database.client import connect_to_postgres
+from database.email_log import EmailLog
+from database.models import BaseDataEntry
 from input.call import process_voice_recording_input
 from input.email import process_email_input
 

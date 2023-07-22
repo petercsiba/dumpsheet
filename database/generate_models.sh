@@ -6,7 +6,7 @@ host="localhost"
 port="54322"
 username="postgres"
 database="postgres"
-MODEL_FILE=db/models.py
+MODEL_FILE=database/models.py
 
 # BEWARE: This is a terrible hack to coerce pwiz to create the auth.users model (which is linked so often).
 psql -h $host -p $port -U $username -d $database -c \
@@ -22,6 +22,13 @@ psql -h $host -p $port -U $username -d $database -c \
 # We run `black` twice, so the output is close what we are replacing.
 black $MODEL_FILE
 
-python db/generate_models.py $MODEL_FILE
+python database/generate_models.py $MODEL_FILE
 
 black $MODEL_FILE
+
+echo "copy models directory into the AWS Lambda Layers"
+cp -r database/*py sam_app/lambda_layers/database_client/python/database/
+
+# TODO(P1, devx): This ain't sufficient as we extend the models. Maybe the extensions should live separately?
+echo "copy models directory into the AWS Lambda Functions - Cause Layers I failed to setup"
+cp -r database/ sam_app/upload_voice/database/

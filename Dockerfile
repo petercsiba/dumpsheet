@@ -1,5 +1,6 @@
 # Hacked https://aws.amazon.com/blogs/aws/new-for-aws-lambda-container-image-support/
 # TODO(p0, devx): Move this to the app/ folder, restructure this project per lambda function / server.
+# TODO(P1, devops): AWS Lambda Layers support FFmpeg - might make my life simpler instead of a Docker image.
 
 # Define global args
 ARG FUNCTION_DIR="/home/app/"

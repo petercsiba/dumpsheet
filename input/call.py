@@ -5,8 +5,8 @@ from typing import Optional
 from common.openai_client import OpenAiClient
 from common.storage_utils import pretty_filesize_int
 from common.twillio_client import TwilioClient
-from db.account import Account
-from db.models import BaseDataEntry
+from database.account import Account
+from database.models import BaseDataEntry
 from input.common import ffmpeg_convert_audio_to_mp4
 
 

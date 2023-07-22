@@ -15,7 +15,7 @@ from bs4 import BeautifulSoup
 from common.aws_utils import is_running_in_aws
 from common.config import DEBUG_RECIPIENTS, SUPPORT_EMAIL
 from common.storage_utils import pretty_filesize_path
-from db.email_log import EmailLog
+from database.email_log import EmailLog
 
 
 def store_and_get_attachments_from_email(msg):

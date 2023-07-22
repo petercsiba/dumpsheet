@@ -18,5 +18,3 @@ OPEN_AI_API_KEY: str = os.environ.get("OPEN_AI_API_KEY")
 # SUPABASE STUFF
 SUPABASE_URL: str = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY: str = os.environ.get("SUPABASE_KEY")
-
-POSTGRES_LOGIN_URL: str = os.environ.get("POSTGRES_LOGIN_URL")

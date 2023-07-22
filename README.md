@@ -71,7 +71,7 @@ There are a few ways, the best feels like:
 ```shell
 supabase migration new create_prompt_log
 # generate new python models, add some functionality (might need chmod +x)
-./db/generate_models.sh
+./database/generate_models.sh
 # copy paste that definition to the generated file
 supabase db reset  # weird name i know, this takes quite long :/
 # do some testing, then push to prod
@@ -83,6 +83,9 @@ supabase db push
 ### Set up AWS config
 ```shell
 aws configure sso --profile voxana-prod
+# later for login you can use
+aws sso login --profile PowerUserAccess-831154875375
+# note for any IAM related stuff you would need Administrator access (or kick Peter to extend perms)
 ```
 More in https://www.notion.so/AWS-83f07c0ce85d4e2f8cffbc1bf3a8d700?pvs=4#f9c71df32f024c758e523ca99980dd72
 
@@ -99,6 +102,7 @@ First make sure you have the CLI:
 ```shell
 pip install aws-sam-cli --no-build-isolation
 ```
+the follow sam_app/README.md
 
 ### Deploy Lambda (manual)
 A few manual clicks in AWS console:

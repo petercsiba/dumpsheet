@@ -3,5 +3,8 @@ __pycache__*
 .idea
 buildx*
 chromedriver.log
+sam_app/.aws-sam
+sam_app/lambda_layers/database_client/python/database/*
+sam_app/upload_voice/database/*
 testdata
 

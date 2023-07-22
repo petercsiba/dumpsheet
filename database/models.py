@@ -1,7 +1,8 @@
 from peewee import *
 from playhouse.postgres_ext import *
 
-from db.db import database
+# NOTE: this file is fully generated, if you change something, it will go away
+from database.client import postgres
 
 
 class UnknownField(object):
@@ -11,11 +12,11 @@ class UnknownField(object):
 
 class BaseModel(Model):
     class Meta:
-        database = database
+        database = postgres
 
 
 class BaseOnboarding(BaseModel):
-    email = TextField(null=True)
+    email = TextField(null=True, unique=True)
     id = BigAutoField()
     ip_address = TextField(null=True)
     referer = TextField(null=True)
@@ -78,7 +79,7 @@ class BaseDataEntry(BaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     display_name = TextField()
     id = UUIDField(constraints=[SQL("DEFAULT uuid_generate_v4()")], primary_key=True)
-    idempotency_id = TextField()
+    idempotency_id = TextField(unique=True)
     input_type = TextField()
     input_uri = TextField(null=True)
     output_transcript = TextField(null=True)
@@ -100,9 +101,8 @@ class BaseEmailLog(BaseModel):
     body_html = TextField(null=True)
     body_text = TextField(null=True)
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
-    email = TextField()
-    idempotency_id = TextField()
     id = BigAutoField()
+    idempotency_id = TextField()
     recipient = TextField()
     recipient_full_name = TextField(null=True)
     reply_to = TextField()
@@ -112,7 +112,7 @@ class BaseEmailLog(BaseModel):
     class Meta:
         schema = "public"
         table_name = "email_log"
-        indexes = ((("email", "idempotency_id"), True),)
+        indexes = ((("recipient", "idempotency_id"), True),)
 
 
 class BasePromptLog(BaseModel):

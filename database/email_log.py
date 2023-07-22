@@ -1,8 +1,8 @@
 import uuid
 
 from common.config import SENDER_EMAIL, SUPPORT_EMAIL
-from db.account import Account
-from db.models import BaseEmailLog
+from database.account import Account
+from database.models import BaseEmailLog
 
 
 # The overarching logic is:

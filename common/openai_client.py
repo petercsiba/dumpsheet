@@ -21,7 +21,7 @@ from peewee import InterfaceError
 from common.config import OPEN_AI_API_KEY
 from common.storage_utils import get_fileinfo
 from common.utils import Timer
-from db.models import BasePromptLog
+from database.models import BasePromptLog
 
 # TODO(P1, specify organization id): Header OpenAI-Organization
 openai.api_key = OPEN_AI_API_KEY

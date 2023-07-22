@@ -1,12 +1,7 @@
 import random
 import string
-from typing import Optional
 
-from gotrue import Session
-
-from common.aws_utils import is_running_in_aws
-from common.supabase_client import get_supabase_client
-from db.models import BaseAccount, BaseUsers
+from database.models import BaseUsers
 
 
 def generate_temp_password(length=8):
@@ -32,6 +27,15 @@ class User(BaseUsers):
     def get_by_email(email: str):
         return User.get(User.email == email)
 
+    # TODO(P1, devx): Figure out enums like contact method
+    def contact_method(self) -> str:
+        if self.email is not None or self.phone is None:
+            return "email"
+        return "sms"  # TODO(P2, ux): we likely want to distinguish between sms and call
+
+
+# TODO(P0, devx): Move this out of database package
+"""
     @staticmethod
     def get_or_create_using_rest(
         email: Optional[str],
@@ -86,10 +90,4 @@ class User(BaseUsers):
             }
         )
         print(f"sign_in_with_otp for {email} yielded {response}")
-        return response
-
-    # TODO(P1, devx): Figure out enums like contact method
-    def contact_method(self) -> str:
-        if self.email is not None or self.phone is None:
-            return "email"
-        return "sms"  # TODO(P2, ux): we likely want to distinguish between sms and call
+        return response"""
