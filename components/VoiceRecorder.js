@@ -5,8 +5,7 @@ import Image from 'next/image'
 import MicrophoneIcon from '../public/images/icons/microphone-icon.svg'
 import StopIcon from '../public/images/icons/stop-icon.svg'
 
-// const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
-const PRESIGNED_URL = 'https://xz067dkee6.execute-api.us-east-1.amazonaws.com/Prod/upload/voice'
+const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
 const UPLOAD_TIMEOUT = 20000;
 const MIN_DURATION = Number(process.env.NEXT_PUBLIC_VOICE_RECORDER_MIN_DURATION_SECONDS) || 10;
 const SHORT_RECORDING_TIMEOUT = 2500;
@@ -17,7 +16,32 @@ const formatDuration = (seconds) => {
 	return `${minutes}m : ${remainingSeconds}s`;
 };
 
+const StopRecordingButton = () => (
+	<div className="bg-white-500 p-2 inline-block">
+		<Image
+			priority
+			src={StopIcon}
+			alt="Stop and upload recording"
+			width={50}
+			height={50}
+		/>
+	</div>
+);
+
+const StartRecordingButton = () => (
+	<div className="bg-gray-200 p-2 inline-block rounded-full border-2 border-black">
+		<Image
+			priority
+			src={MicrophoneIcon}
+			alt="Start your voice recording"
+			width={50}
+			height={50}
+		/>
+	</div>
+);
+
 export default function VoiceRecorder() {
+	// TODO(P1, devx): We should split this function up to the actual voice recorder and the subsequent screens logic.
 	const [stream, setStream] = useState(null);
 	const [recording, setRecording] = useState(null)
 	const [audioURL, setAudioURL] = useState(null)
@@ -26,6 +50,9 @@ export default function VoiceRecorder() {
 	const [recordingStartTime, setRecordingStartTime] = useState(null);
 	const [recordingElapsedTime, setRecordingElapsedTime] = useState(0);
 	const [duration, setDuration] = useState(null);
+	const [isNewAccount, setIsNewAccount] = useState(null);
+	const [accountId, setAccountId] = useState(null);
+
 
 	useEffect(() => {
 		let interval = null;
@@ -86,9 +113,15 @@ export default function VoiceRecorder() {
 		// and don't provide an option to disable it. GREAT, especially when AWS API Gateway does not allow to ALLOW it.
 
 		// First, get the presigned URL from your Lambda function
-		const presignedUrlResponse = await fetch(PRESIGNED_URL, { method: 'GET' });
-		const presignedUrl = await presignedUrlResponse.text();
+		const presigned_response = await fetch(PRESIGNED_URL, { method: 'GET' });
+		const data = await presigned_response.json(); // parse response to JSON
 
+		// set states
+		setIsNewAccount(data.is_new_account);
+		setAccountId(data.account_id);
+
+		// for presignedUrl use the same way you have used
+		const presignedUrl = data.presigned_url;
 		// Then, upload the audio file to S3 using the presigned URL
 		const response = await Promise.race([
 			fetch(presignedUrl, {
@@ -164,30 +197,6 @@ export default function VoiceRecorder() {
 		</div>
 	);
 
-	const RecordingButton = () => (
-		<div className="bg-white-500 p-2 inline-block">
-			<Image
-				priority
-				src={StopIcon}
-				alt="Stop and upload recording"
-				width={50}
-				height={50}
-			/>
-		</div>
-	);
-
-	const StartRecordingButton = () => (
-		<div className="bg-gray-200 p-2 inline-block rounded-full border-2 border-black">
-			<Image
-				priority
-				src={MicrophoneIcon}
-				alt="Start your voice recording"
-				width={50}
-				height={50}
-			/>
-		</div>
-	);
-
 	const AlternativeUpload = ({ audioURL }) => {
 		const fileName = `voxana-audio-recording-${Date.now()}.webm`;
 
@@ -206,25 +215,21 @@ export default function VoiceRecorder() {
 		<div className="flex flex-col items-center p">
 			{audioURL && <AudioPlayer audioURL={audioURL} duration={duration} />}
 			<br/>
-			<button
+			{!Boolean(uploadStatus) && <button
 				className="p-2 rounded"
 				onClick={recording ? stopRecording : startRecording}
 				disabled={Boolean(uploadStatus)}
 			>
-				<div>
-				{ // TODO(ux, P0): Currently the button is flashing, so we should restructure this.
-					// i.e. keep the button separate from everything else.
-					Boolean(uploadStatus)
-					? uploadStatus
-					: recording
-						? <RecordingButton recordingElapsedTime={recordingElapsedTime} />
+				{ recording
+						? <StopRecordingButton />
 						: <StartRecordingButton />
 				}
-				{recording && <p>{formatDuration(recordingElapsedTime)}</p>}
-				</div>
-
-				{uploadSuccess === false && <AlternativeUpload audioURL={audioURL} />}
 			</button>
+			}
+
+			{recording && <p>{formatDuration(recordingElapsedTime)}</p>}
+
+			{uploadSuccess === false && <AlternativeUpload audioURL={audioURL} />}
 		</div>
 	);
 }
