@@ -34,5 +34,5 @@ def test_lambda_handler(test_get_upload_voice):
     data = json.loads(ret["body"])
 
     assert "presigned_url" in data
-    assert "needs_email" in data
+    assert "email" in data
     assert "account_id" in data
