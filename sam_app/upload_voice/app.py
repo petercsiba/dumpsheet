@@ -109,7 +109,7 @@ def lambda_handler(event, context):
         # Works for API Gateway
         request_id = event["requestContext"]["requestId"]
         # We only want to collect the email address if not already associated with this IP address.
-        response["is_new_account"] = is_new
+        response["needs_email"] = is_new or acc.get_email() is None
         response["account_id"] = str(acc.id)  # maybe we should have a UUIDEncoder
 
         models.BaseDataEntry.insert(
