@@ -27,7 +27,6 @@ class User(BaseUsers):
     def get_by_email(email: str):
         return User.get(User.email == email)
 
-    # TODO(P1, devx): Figure out enums like contact method
     def contact_method(self) -> str:
         if self.email is not None or self.phone is None:
             return "email"

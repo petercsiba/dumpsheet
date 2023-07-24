@@ -15,7 +15,7 @@ from app.networking_dump import extract_per_person_summaries, fill_in_draft_outr
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
-from database.client import connect_to_postgres
+from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.email_log import EmailLog
 from database.models import BaseDataEntry
 from input.call import process_voice_recording_input
@@ -116,7 +116,7 @@ def lambda_handler(event, context):
     print(f"S3: Fetched object of size {len(bucket_raw_data)}")
 
     # Setup global deps
-    with connect_to_postgres():
+    with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
         gpt_client = OpenAiClient()
         twilio_client = TwilioClient()
 
@@ -168,7 +168,7 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     OUTPUT_BUCKET_NAME = None
 
-    with connect_to_postgres():
+    with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
         open_ai_client = OpenAiClient()
         # open_ai_client.run_prompt(f"test {time.time()}")
 

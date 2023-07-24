@@ -1,12 +1,17 @@
 import os
 from contextlib import contextmanager
 
-from peewee import OperationalError, PostgresqlDatabase
+from dotenv import load_dotenv
+from peewee import DatabaseProxy, OperationalError, PostgresqlDatabase
 
+# The DatabaseProxy simply defers the configuration of the database until a later time,
+# but all interaction with the database (like connecting) should be done via the actual Database instance.
+database_proxy = DatabaseProxy()
+
+load_dotenv()
 # NOTE: We try to keep the dependencies low here as we deploy these to AWS Lambda
-# from common.config import POSTGRES_LOGIN_URL
 # Also available in AWS Secrets Manager under prod/database/postgres-login-url
-POSTGRES_LOGIN_URL = os.environ.get("POSTGRES_LOGIN_URL")
+POSTGRES_LOGIN_URL_FROM_ENV = os.environ.get("POSTGRES_LOGIN_URL_FROM_ENV")
 
 
 def remove_postgres_scheme(postgres_login_url):
@@ -24,7 +29,10 @@ def remove_postgres_scheme(postgres_login_url):
     return url
 
 
-def get_postgres_kwargs(postgres_login_url: str = POSTGRES_LOGIN_URL):
+def get_postgres_kwargs(postgres_login_url):
+    if postgres_login_url is None:
+        raise ValueError("postgres_login_url is required, None given")
+
     # AWS Lambda only supports archaic package versions, also some passwords might contain wildcards like ? or &
     # parsed_url = urlparse(postgres_login_url)
     #
@@ -49,19 +57,18 @@ def get_postgres_kwargs(postgres_login_url: str = POSTGRES_LOGIN_URL):
         "host": host,
         "port": int(port),  # convert string to int
     }
-
-    # never dump password credentials in prod
-    print(
-        f"postgres login url parsed into {res['host']} port {res['port']} for db {res['database']}"
-    )
     return res
 
 
-postgres = PostgresqlDatabase(**get_postgres_kwargs())
-
-
 @contextmanager
-def connect_to_postgres():
+def connect_to_postgres(postgres_login_url: str):
+    kwargs = get_postgres_kwargs(postgres_login_url)
+    print(
+        f"postgres login url parsed into {kwargs['host']} port {kwargs['port']} for db {kwargs['database']}"
+    )
+
+    postgres = PostgresqlDatabase(**kwargs)
+    database_proxy.initialize(postgres)
     try:
         print("connecting to postgres")
         postgres.connect()

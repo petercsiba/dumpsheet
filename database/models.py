@@ -2,7 +2,7 @@ from peewee import *
 from playhouse.postgres_ext import *
 
 # NOTE: this file is fully generated, if you change something, it will go away
-from database.client import postgres
+from database.client import database_proxy
 
 
 class UnknownField(object):
@@ -12,7 +12,7 @@ class UnknownField(object):
 
 class BaseModel(Model):
     class Meta:
-        database = postgres
+        database = database_proxy
 
 
 class BaseOnboarding(BaseModel):
@@ -84,6 +84,7 @@ class BaseDataEntry(BaseModel):
     input_uri = TextField(null=True)
     output_transcript = TextField(null=True)
     processed_at = DateTimeField(null=True)
+    state = TextField(constraints=[SQL("DEFAULT 'upload_intent'::text")])
 
     class Meta:
         schema = "public"

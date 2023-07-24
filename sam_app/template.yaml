@@ -1,3 +1,5 @@
+# Think of this like Terraform, but more crap. Only attempt to use core and necessary features.
+# Given the fact his file is more comments and shitposting than logic, we gonna just make it a Server one day.
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
@@ -29,23 +31,23 @@ Globals:
     MemorySize: 128
 
 Resources:
-  DatabaseClientLayer:
-    Type: AWS::Serverless::LayerVersion
-    Metadata:
-      BuildMethod: python3.9
-      # TODO(P1, devx): I just couldn't make this work - so moving the logic to generate_models.sh
-      # To copy our database models to the Lambda layer, which can be then included.
-      # NOTE: This fails SILENTLY (great design) if the path is bad.
-      # To my best understanding this path is relative to sam_app/lambda_layers/database_client
-      # PreBuildCommands:
-      #  - echo "IS THIS COMMAND RUN?"
-      #  - cp -r ../../../../database ./python/database
-    Properties:
-      LayerName: DatabaseClientLayer
-      Description: DB Client Layer using peewee with our generated models
-      ContentUri: lambda_layers/database_client/
-      CompatibleRuntimes:
-        - python3.9
+#  DatabaseClientLayer:
+#    Type: AWS::Serverless::LayerVersion
+#    Metadata:
+#      BuildMethod: python3.9
+#      # TODO(P1, devx): I just couldn't make this work - so moving the logic to generate_models.sh
+#      # To copy our database models to the Lambda layer, which can be then included.
+#      # NOTE: This fails SILENTLY (great design) if the path is bad.
+#      # To my best understanding this path is relative to sam_app/lambda_layers/database_client
+#      # PreBuildCommands:
+#      #  - echo "IS THIS COMMAND RUN?"
+#      #  - cp -r ../../../../database ./python/database
+#    Properties:
+#      LayerName: DatabaseClientLayer
+#      Description: DB Client Layer using peewee with our generated models
+#      ContentUri: lambda_layers/database_client/
+#      CompatibleRuntimes:
+#        - python3.9
 
 # TODO(P0, devx): Just generalize this to handle multiple endpoints as its SO MUCH PITA to set this up infra-as-code.
   VoiceUploadsFunction:
@@ -54,8 +56,8 @@ Resources:
       CodeUri: upload_voice/
       Handler: app.lambda_handler
       Runtime: python3.9
-      Layers:
-        - !Ref DatabaseClientLayer  # TODO(P1, devx): Figure this out, currently we just bluntly copy the directory.
+#      Layers:
+#        - !Ref DatabaseClientLayer  # TODO(P1, devx): Figure this out, currently we just bluntly copy the directory.
       Architectures:
         - x86_64
       # TIL, these are DIFFERENT from the "Attach Policy" list. SAM has a custom policy list. Google wins over ChatGpt.
@@ -67,14 +69,15 @@ Resources:
         # https://stackoverflow.com/questions/65777261/how-to-add-policy-to-access-secret-with-lambda-function-aws-sam
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: 'arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/supabase/postgres_login_url-AvIn1c'
-        # Some alternatives how to provide the secrets access:
+        # Some alternatives how to provide the secrets access (which i have tried and maybe failed).
         # - arn:aws:iam::831154875375:policy/SecretsManagerReadAllSecretsInThisAccountInThisRegion
             # Resource: 'arn:aws:secretsmanager:*:*:secret:prod/supabase/postgres-login-url*'
       # We have to explicitly specify the ENV variables as doing so manually would lead to over-writes.
-      # Empirically verified that this seems to be NOT needed. TBH have no idea how it got there :/
+      # Empirically verified that this seems to be NOT needed?! Maybe yes actually after clean SAM build.
+      # Discussed more, seems like this is resolved at stack creation (build?).
       # Environment:
 #        Variables:
-#          POSTGRES_LOGIN_URL: !Sub '{{resolve:secretsmanager:prod/supabase/postgres-login-url:SecretString}}'
+#          POSTGRES_LOGIN_URL_FROM_ENV: !Sub '{{resolve:secretsmanager:prod/supabase/postgres-login-url:SecretString}}'
       Events:
         VoiceUploads:
           Type: Api

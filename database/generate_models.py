@@ -11,12 +11,12 @@ with open(file_name, "r") as file:
 old_line_pattern = r"database = PostgresqlDatabase\(.*?\)"
 new_line = (
     "# NOTE: this file is fully generated, if you change something, it will go away\n"
-    "from database.client import postgres"
+    "from database.client import database_proxy"
 )
 data = re.sub(old_line_pattern, new_line, data, flags=re.DOTALL)
 
 # For BaseModel.Meta.database
-data = data.replace("database = database", "database = postgres")
+data = data.replace("database = database", "database = database_proxy")
 
 # Rename all classes that inherit from BaseModel with 'Base', e.g.:
 # class ClassName(BaseModel):

@@ -4,3 +4,4 @@
 # aws-sam-cli
 black
 pre-commit
+pytest

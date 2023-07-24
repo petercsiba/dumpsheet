@@ -77,10 +77,10 @@ class Account(BaseAccount):
     @staticmethod
     def get_or_onboard_for_ip(
         ip_address: str,
-    ) -> "Account":
+    ) -> ("Account", bool):
         onboarding = BaseOnboarding.get_or_none(BaseOnboarding.ip_address == ip_address)
         if bool(onboarding):
-            return Account.get(Account.onboarding == onboarding)
+            return Account.get(Account.onboarding == onboarding), False
 
         print(f"onboarding account for ip_address {ip_address}")
         onboarding = BaseOnboarding.insert(ip_address=ip_address).execute()
@@ -89,4 +89,4 @@ class Account(BaseAccount):
         )
         account = Account.get_by_id(account_id)
         print(f"onboarded account {account}")
-        return account
+        return account, True

@@ -1,23 +1,26 @@
 #!/bin/bash
 
 # Define database connection parameters for local
-# We will replace it for prod with POSTGRES_LOGIN_URL
+# We will replace it for prod with POSTGRES_LOGIN_URL_FROM_ENV
 host="localhost"
 port="54322"
 username="postgres"
 database="postgres"
+password="postgres"
 MODEL_FILE=database/models.py
+
+# So all subsequent commands can use it
+export PGPASSWORD=$password;
 
 # BEWARE: This is a terrible hack to coerce pwiz to create the auth.users model (which is linked so often).
 psql -h $host -p $port -U $username -d $database -c \
 "CREATE TABLE public.users AS SELECT * FROM auth.users WHERE FALSE;"
 
 # Generate the models using pwiz,
-export PGPASSWORD=postgres; python -m pwiz -e postgresql -H $host -p $port -u $username $database > $MODEL_FILE
+python -m pwiz -e postgresql -H $host -p $port -u $username $database > $MODEL_FILE
 
 # BEWARE: Make sure this stays "public.users" and NOT "auth.users".
-psql -h $host -p $port -U $username -d $database -c \
-"DROP TABLE public.users;"
+psql -h $host -p $port -U $username -d $database -c "DROP TABLE public.users;"
 
 # We run `black` twice, so the output is close what we are replacing.
 black $MODEL_FILE

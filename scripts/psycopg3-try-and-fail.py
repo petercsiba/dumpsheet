@@ -7,16 +7,16 @@
 #   the data source name is not found, a transaction could not be processed,
 #   a memory allocation error occurred during processing, etc.
 #   https://www.psycopg.org/psycopg3/docs/api/errors.html#psycopg.OperationalError
-# with psycopg.connect(POSTGRES_LOGIN_URL) as conn:
+# with psycopg.connect(POSTGRES_LOGIN_URL_FROM_ENV) as conn:
 # with psycopg.connect("host=localhost dbname=postgres user=postgres password=postgres port=54322") as conn:
 
 """
-def connect_postgres(postgres_login_url: str = POSTGRES_LOGIN_URL) -> "psycopg.Connection[Any]":
+def connect_postgres(postgres_login_url: str = POSTGRES_LOGIN_URL_FROM_ENV) -> "psycopg.Connection[Any]":
     # Parse the database URL
     # https://stackoverflow.com/a/71138999/1040122
     conn_dict = psycopg.conninfo.conninfo_to_dict(postgres_login_url)
     print(conn_dict)
     return psycopg.connect(postgres_login_url)
     # return psycopg.connect(**conn_dict)
-# postgres = connect_postgres(POSTGRES_LOGIN_URL)
+# postgres = connect_postgres(POSTGRES_LOGIN_URL_FROM_ENV)
 """
