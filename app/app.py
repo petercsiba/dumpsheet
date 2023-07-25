@@ -7,21 +7,30 @@ import re
 from typing import List, Optional
 from urllib.parse import unquote_plus
 
-from botocore.exceptions import NoCredentialsError
-
 from app.datashare import PersonDataEntry
 from app.emails import send_responses
 from app.networking_dump import extract_per_person_summaries, fill_in_draft_outreaches
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
-from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
+from database.client import (
+    POSTGRES_LOGIN_URL_FROM_ENV,
+    connect_to_postgres,
+    connect_to_postgres_i_will_call_disconnect_i_promise,
+)
 from database.email_log import EmailLog
 from database.models import BaseDataEntry
 from input.call import process_voice_recording_input
 from input.email import process_email_input
 
 s3 = get_boto_s3_client()
+
+
+# TODO(P1, devx): Send email on failure via CloudWatch monitoring (ask GPT how to do it)
+#   * ALTERNATIVELY: Can catch exception(s) and send email from here.
+APP_UPLOADS_BUCKET = "requests-from-api-voxana"
+EMAIL_BUCKET = "draft-requests-from-ai-mail-voxana"
+PHONE_RECORDINGS_BUCKET = "katka-twillio-recordings"  # TODO(migrate)
 
 
 # Second lambda
@@ -87,79 +96,75 @@ def process_transcript_from_data_entry(
     return people_entries
 
 
-# TODO(P1, devx): Send email on failure via CloudWatch monitoring (ask GPT how to do it)
-#   * ALTERNATIVELY: Can catch exception(s) and send email from here.
-EMAIL_BUCKET = "draft-requests-from-ai-mail-voxana"
-PHONE_RECORDINGS_BUCKET = "katka-twillio-recordings"  # TODO(migrate)
+def process_app_uploads(gpt_client: OpenAiClient, audio_filepath: str) -> BaseDataEntry:
+    return BaseDataEntry.get()
 
 
 def lambda_handler(event, context):
-    print(f"Received Event: {event}")
     # Get the bucket name and file key from the event
-    bucket = event["Records"][0]["s3"]["bucket"]["name"]
+    try:
+        bucket = event["Records"][0]["s3"]["bucket"]["name"]
+    except Exception as e:
+        print("This Lambda currently only supports S3 based events")
+        raise e
+    print(f"Received Event From Bucket {bucket}")
+
     # https://stackoverflow.com/questions/37412267/key-given-by-lambda-s3-event-cannot-be-used-when-containing-non-ascii-characters
     key = unquote_plus(event["Records"][0]["s3"]["object"]["key"])
-    # Currently only used for tracking purposes
-    bucket_url = get_bucket_url(bucket, key)
-    print(f"Gonna get S3 object from bucket URL: {bucket_url}")
 
-    # Download the email from S3
-    try:
+    # Lambda execution context will take care of this promise. We use _ENV instead of secrets manager
+    # as was lazy to set up the permissions and code reuse for this lambda.
+    print("Initializing globals")
+    connect_to_postgres_i_will_call_disconnect_i_promise(POSTGRES_LOGIN_URL_FROM_ENV)
+    gpt_client = OpenAiClient()
+    twilio_client = TwilioClient()
+
+    # First Lambda
+    if bucket == APP_UPLOADS_BUCKET:
+        download_path = "/tmp/{}".format(os.path.basename(key))
+        s3.download_file(bucket, key, download_path)
+        data_entry = process_app_uploads(
+            gpt_client=gpt_client,
+            audio_filepath=download_path,
+        )
+    elif bucket == EMAIL_BUCKET:
+        raw_email = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
+        data_entry = process_email_input(
+            gpt_client=gpt_client,
+            raw_email=raw_email,
+            bucket_url=get_bucket_url(bucket, key),
+        )
+    elif bucket == PHONE_RECORDINGS_BUCKET:
+        head_object = s3.head_object(Bucket=bucket, Key=key)
         s3_get_object_response = s3.get_object(Bucket=bucket, Key=key)
-    except NoCredentialsError as e:
-        print(f"No creds for S3 cause {e}")
-        return "Execution failed"
-    except Exception as e:
-        print(f"Failed to fetch S3 object due to {e}")
-        return "Execution failed"
-    bucket_raw_data = s3_get_object_response["Body"].read()
-    print(f"S3: Fetched object of size {len(bucket_raw_data)}")
-
-    # Setup global deps
-    with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
-        gpt_client = OpenAiClient()
-        twilio_client = TwilioClient()
-
-        # First Lambda
-        if bucket == EMAIL_BUCKET:
-            raw_email = bucket_raw_data
-            data_entry = process_email_input(
-                gpt_client=gpt_client,
-                raw_email=raw_email,
-                bucket_url=bucket_url,
-            )
-        elif bucket == PHONE_RECORDINGS_BUCKET:
-            voice_file_data = bucket_raw_data
-            head_object = s3.head_object(Bucket=bucket, Key=key)
-            object_metadata = s3_get_object_response["Metadata"]
-            # Get the phone number and proper name from the metadata
-            # NOTE: the metadata names are case-insensitive, but Amazon S3 returns them in lowercase.
-            call_sid = object_metadata["callsid"]
-            phone_number = object_metadata["phonenumber"]
-            proper_name = object_metadata["propername"]
-            data_entry = process_voice_recording_input(
-                gpt_client=gpt_client,
-                twilio_client=twilio_client,
-                bucket_url=bucket_url,
-                voice_file_data=voice_file_data,
-                call_sid=call_sid,
-                phone_number=phone_number,
-                full_name=proper_name,
-                event_timestamp=head_object["LastModified"],
-            )
-        else:
-            data_entry = None
-            print(
-                f"ERROR: Un-recognized bucket name {bucket_url} please add the mapping in your lambda"
-            )
-
-        # Second Lambda
-        # NOTE: When we actually separate them - be careful about re-tries to clear the output.
-        process_transcript_from_data_entry(
+        object_metadata = s3_get_object_response["Metadata"]
+        # Get the phone number and proper name from the metadata
+        # NOTE: the metadata names are case-insensitive, but Amazon S3 returns them in lowercase.
+        call_sid = object_metadata["callsid"]
+        phone_number = object_metadata["phonenumber"]
+        proper_name = object_metadata["propername"]
+        data_entry = process_voice_recording_input(
             gpt_client=gpt_client,
             twilio_client=twilio_client,
-            data_entry=data_entry,
+            bucket_url=get_bucket_url(bucket, key),
+            voice_file_data=s3_get_object_response["Body"].read(),
+            call_sid=call_sid,
+            phone_number=phone_number,
+            full_name=proper_name,
+            event_timestamp=head_object["LastModified"],
         )
+    else:
+        raise ValueError(
+            f"Un-recognized bucket name {bucket} - please add the mapping in your lambda"
+        )
+
+    # Second Lambda
+    # NOTE: When we actually separate them - be careful about re-tries to clear the output.
+    process_transcript_from_data_entry(
+        gpt_client=gpt_client,
+        twilio_client=twilio_client,
+        data_entry=data_entry,
+    )
 
 
 # For local testing without emails or S3, great for bigger refactors.

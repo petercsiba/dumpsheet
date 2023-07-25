@@ -92,10 +92,20 @@ More in https://www.notion.so/AWS-83f07c0ce85d4e2f8cffbc1bf3a8d700?pvs=4#f9c71df
 ### Push New Image
 Yeah hardcoded stuff - but it works!
 ```shell
-aws ecr get-login-password --region us-east-1 --profile voxana-prod | docker login --username AWS --password-stdin 831154875375.dkr.ecr.us-east-1.amazonaws.com
+aws aws ecr get-login-password --region us-east-1 --profile PowerUserAccess-831154875375 | docker login --username AWS --password-stdin 831154875375.dkr.ecr.us-east-1.amazonaws.com
 docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups .
 docker push 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups:latest
 ```
+then you will need to deploy Lambda (below).
+
+### Deploy Lambda (manual)
+A few manual clicks in AWS console:
+* Go to Lambda
+* Click on deploy new image
+* First time, make sure you build the same architecture as you deploy (M1+ is `arm`)
+`docker inspect --format '{{.Architecture}}' 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups`
+* Click through to find the newest
+* You can re-run it by re-uploading to S3 some of the previous files.
 
 ### Deploy SAM
 First make sure you have the CLI:
@@ -103,13 +113,6 @@ First make sure you have the CLI:
 pip install aws-sam-cli --no-build-isolation
 ```
 the follow sam_app/README.md
-
-### Deploy Lambda (manual)
-A few manual clicks in AWS console:
-* Go to Lambda
-* Click on deploy new image
-* Click through to find the newest
-* You can re-run it by re-uploading to S3 some of the previous files.
 
 # Oncall
 * Usage https://platform.openai.com/account/usage

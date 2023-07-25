@@ -37,6 +37,7 @@ def process_email_input(
     attachment_file_paths = store_and_get_attachments_from_email(msg)
 
     # In practice, they didn't yet sign up.
+    # TODO(P0, ux): Test if this works after refactoring.
     account = Account.get_or_onboard_for_email(
         email=base_email_params.recipient,
         full_name=base_email_params.recipient_full_name,
@@ -70,6 +71,7 @@ def process_email_input(
 
     try:
         # TODO(peter): Verify if the swap base_email_params for get_email_reply_params_for_account_id works.
+        #  -- also we might want to just drop this email.
         confirmation_email_params = EmailLog.get_email_reply_params_for_account_id(
             account.id, base_email_params.subject, result.idempotency_id
         )
