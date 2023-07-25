@@ -175,7 +175,10 @@ def lambda_handler(event, context):
         env_var_name="POSTGRES_LOGIN_URL_FROM_ENV",
     )
     with client.connect_to_postgres(postgres_login_url):
-        if http_method == "GET":
+        if http_method == "OPTIONS":
+            # AWS API Gateway requires a non-empty response body for OPTIONS requests
+            response = craft_response(200, {})
+        elif http_method == "GET":
             response = handle_get_request_for_presigned_url(event)
         elif http_method == "POST":
             response = handle_post_request_for_update_email(event)
@@ -189,7 +192,9 @@ def lambda_handler(event, context):
     # Set the allowed origin in the response to the origin of the request if it's in the list of allowed origins
     allowed_origin = origin if origin in ALLOWED_ORIGINS else "unknown"
     response["headers"] = {
-        "Access-Control-Allow-Origin": allowed_origin,
         "Access-Control-Allow-Credentials": True,
+        "Access-Control-Allow-Headers": "Content-Type",  # mostly for OPTIONS
+        "Access-Control-Allow-Methods": "GET,POST",  # mostly for OPTIONS
+        "Access-Control-Allow-Origin": allowed_origin,
     }
     return response

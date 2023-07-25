@@ -75,7 +75,7 @@ def connect_to_postgres_i_will_call_disconnect_i_promise(
     global _postgres
     if _is_database_connected():
         print("database connection already initialized, skipping")
-        return
+        return _postgres
 
     kwargs = _get_postgres_kwargs(postgres_login_url)
     print(

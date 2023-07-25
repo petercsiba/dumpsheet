@@ -80,6 +80,12 @@ Resources:
 #        Variables:
 #          POSTGRES_LOGIN_URL_FROM_ENV: !Sub '{{resolve:secretsmanager:prod/supabase/postgres-login-url:SecretString}}'
       Events:
+        # Handle OPTIONS (and pre-flight) by Lambda, as API Gateway is too opinionated / restrictive.
+        VoiceUploadsOptions:
+          Type: Api
+          Properties:
+            Path: /upload/voice
+            Method: options
         VoiceUploadsGet:
           Type: Api
           Properties:
