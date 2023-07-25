@@ -15,35 +15,49 @@ from botocore.exceptions import NoCredentialsError
 # NOTE: There are a few copies of the "database" module around this repo.
 # for IDE, doing ".database" would point to "backend/sam_app/upload_voice/database",
 # while "database" points to "backend/database".
-from database import account, client, data_entry, models
+from database import account, data_entry, models
+from database.client import connect_to_postgres_i_will_call_disconnect_i_promise
 
 s3 = boto3.client("s3")
 
 ALLOWED_ORIGINS = ["https://app.voxana.ai", "http://localhost:3000"]
 
+# AWS Lambda Execution Context feature - this should save about 1 second on subsequent invocations.
+secrets_cache = {}
 
-# TODO(sev, P1): Have a safer way so we don't accidentally connect to Prod DB while running pytest locally.
+
 def get_secret(secret_id, env_var_name):
+    if secret_id in secrets_cache:
+        print(f"Using cached secret for {secret_id}")
+        return secrets_cache[secret_id]
+
     try:
         # Try to get secret from environment variable
-        secret = os.environ[env_var_name]
-        print(f"Using {env_var_name} for secret")
+        secret = os.environ.get(env_var_name)
+        if secret is not None:
+            print(f"Using environment secret {env_var_name} for {secret_id}")
+            return secret
     except KeyError:
-        # If not found in environment, fetch from Secrets Manager
-        session = boto3.session.Session()
-        secretsmanager_client = session.client(
-            service_name="secretsmanager", region_name="us-east-1"
-        )
+        pass
 
-        get_secret_value_response = secretsmanager_client.get_secret_value(
-            SecretId=secret_id
-        )
-        print(f"Using secrets manager for secret {secret_id}")
+    # If not found in environment or cache, fetch from Secrets Manager
+    session = boto3.session.Session()
+    secretsmanager_client = session.client(
+        service_name="secretsmanager", region_name="us-east-1"
+    )
 
-        if "SecretString" in get_secret_value_response:
-            secret = get_secret_value_response["SecretString"]
-        else:
-            raise ValueError(f"Secret not found (or no perms) for {secret_id}")
+    get_secret_value_response = secretsmanager_client.get_secret_value(
+        SecretId=secret_id
+    )
+
+    print(f"Using secrets manager for secret {secret_id}")
+
+    if "SecretString" in get_secret_value_response:
+        secret = get_secret_value_response["SecretString"]
+        # Cache the retrieved secret for future use
+        secrets_cache[secret_id] = secret
+    else:
+        raise ValueError(f"Secret not found (or no perms) for {secret_id}")
 
     return secret
 
@@ -174,16 +188,20 @@ def lambda_handler(event, context):
         secret_id="arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/supabase/postgres_login_url-AvIn1c",
         env_var_name="POSTGRES_LOGIN_URL_FROM_ENV",
     )
-    with client.connect_to_postgres(postgres_login_url):
-        if http_method == "OPTIONS":
-            # AWS API Gateway requires a non-empty response body for OPTIONS requests
-            response = craft_response(200, {})
-        elif http_method == "GET":
-            response = handle_get_request_for_presigned_url(event)
-        elif http_method == "POST":
-            response = handle_post_request_for_update_email(event)
-        else:
-            raise ValueError(f"Invalid HTTP method: {http_method}")
+    # with client.connect_to_postgres(postgres_login_url):
+    # Indeed, in AWS Lambda, it is generally recommended not to explicitly close database connections
+    # at the end of each function invocation. Lambda execution context will freeze and thaw it.
+    connect_to_postgres_i_will_call_disconnect_i_promise(postgres_login_url)  # lies
+
+    if http_method == "OPTIONS":
+        # AWS API Gateway requires a non-empty response body for OPTIONS requests
+        response = craft_response(200, {})
+    elif http_method == "GET":
+        response = handle_get_request_for_presigned_url(event)
+    elif http_method == "POST":
+        response = handle_post_request_for_update_email(event)
+    else:
+        raise ValueError(f"Invalid HTTP method: {http_method}")
 
     # Add the CORS stuff here, as I couldn't figure out it in template.yaml nor API Gateway conf.
     # Extract the origin from the request headers
