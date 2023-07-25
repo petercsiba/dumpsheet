@@ -123,7 +123,7 @@ def handle_get_request_for_presigned_url(event) -> Dict:
         # output_transcript, processed_at are None
     ).execute()
     print(f"inserted data entries {inserted}")
-    return craft_response(200, response)
+    return craft_response(201, response)
 
 
 # curl -X POST -d '{email: "petherz+curl@gmail.com", account_id: "f11a156d-2dd1-44a4-83de-3dca117765b8"}' https://api.voxana.ai/upload/voice  # noqa
@@ -163,7 +163,7 @@ def handle_post_request_for_update_email(event: Dict) -> Dict:
     existing_onboarding = existing_account.onboarding
     existing_onboarding.email = email
     existing_onboarding.save()
-    return craft_info(201, "account email updated")
+    return craft_info(200, "account email updated")
 
 
 def lambda_handler(event, context):

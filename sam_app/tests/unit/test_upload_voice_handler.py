@@ -72,7 +72,7 @@ def get_event_for_post_upload_voice(account_id: UUID):
 
 def test_lambda_handler_get_upload_voice(db_connection, test_get_upload_voice):
     ret = app.lambda_handler(test_get_upload_voice, "")
-    assert ret["statusCode"] == 200
+    assert ret["statusCode"] == 201
 
     data = json.loads(ret["body"])
 
@@ -85,7 +85,7 @@ def test_lambda_handler_post_upload_voice(db_connection):
     orig_account = Account.get_or_onboard_for_ip("127.0.0.1")
 
     ret = app.lambda_handler(get_event_for_post_upload_voice(orig_account.id), "")
-    assert ret["statusCode"] == 201
+    assert ret["statusCode"] == 200
 
     updated_onboarding = BaseOnboarding.get_by_id(orig_account.onboarding)
     expected_email = "petherz+test1@gmail.com"
