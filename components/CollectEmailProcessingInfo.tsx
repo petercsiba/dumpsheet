@@ -76,7 +76,7 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
                     </div>
                 ) : (
                     <p>
-                        I will be sending the result to your email {email ?? existingEmail} in a few minutes
+                        I will be sending the result to your email {existingEmail ?? email} in a few minutes
                     </p>
                 )
             )}
