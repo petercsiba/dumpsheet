@@ -27,8 +27,9 @@ export default function Home() {
               <div className="w-full h-full flex justify-center items-center p-4">
                   <div className="w-full h-full sm:h-auto sm:w-2/5 max-w-sm p-5 bg-white shadow flex flex-col text-base">
                     <span className="font-sans font-normal text-3xl text-purple text-center pb-2 mb-1 border-b mx-4 align-center">
-                      Tell Voxana what to draft
+                      Tell me what to draft
                     </span>
+                      {/*
                     <span className="font-sans font-light text-2xl text-left pb-2 mb-1 mx-4">
                         Examples
                     </span>
@@ -38,6 +39,7 @@ export default function Home() {
                             <li>Follow ups from your recent encounters</li>
                         </ul>
                       </div>
+                      */}
                       <div className="pt-4">
                         <VoiceRecorderWithNoSSR />
                       </div>

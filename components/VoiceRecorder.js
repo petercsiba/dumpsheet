@@ -4,11 +4,13 @@ import RecordRTC from 'recordrtc'
 import Image from 'next/image'
 import MicrophoneIcon from '../public/images/icons/microphone-icon.svg'
 import StopIcon from '../public/images/icons/stop-icon.svg'
+import CollectEmailProcessingInfo from "@/components/CollectEmailProcessingInfo";
 
 const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
 const UPLOAD_TIMEOUT = 20000;
 const MIN_DURATION = Number(process.env.NEXT_PUBLIC_VOICE_RECORDER_MIN_DURATION_SECONDS) || 10;
 const SHORT_RECORDING_TIMEOUT = 2500;
+
 
 const formatDuration = (seconds) => {
 	const minutes = Math.floor(seconds / 60);
@@ -50,8 +52,10 @@ export default function VoiceRecorder() {
 	const [recordingStartTime, setRecordingStartTime] = useState(null);
 	const [recordingElapsedTime, setRecordingElapsedTime] = useState(0);
 	const [duration, setDuration] = useState(null);
-	const [isNewAccount, setIsNewAccount] = useState(null);
+	const [collectEmail, setCollectEmail] = useState(null);
+	const [existingEmail, setExistingEmail] = useState(null);
 	const [accountId, setAccountId] = useState(null);
+	const [processing, setProcessing] = useState(null)
 
 
 	useEffect(() => {
@@ -107,6 +111,7 @@ export default function VoiceRecorder() {
 	}
 
 	const uploadRecording = async (audioBlob) => {
+		console.log("uploadRecording")
 		// OMG, How hard this can be? Literally spent half a day setting up the full shabbang
 		// Made me HATE CORS
 		// Browser restrictions: Modern web browsers enforce CORS policy by default
@@ -117,7 +122,8 @@ export default function VoiceRecorder() {
 		const data = await presigned_response.json(); // parse response to JSON
 
 		// set states
-		setIsNewAccount(data.is_new_account);
+		setExistingEmail(data.email);
+		setCollectEmail(!Boolean(data.email))
 		setAccountId(data.account_id);
 
 		// for presignedUrl use the same way you have used
@@ -171,10 +177,11 @@ export default function VoiceRecorder() {
 			setUploadStatus('Uploading...');
 
 			try {
-				const response = await uploadRecording(audioBlob);
+				await uploadRecording(audioBlob);
 
 				setUploadSuccess(true);
 				setUploadStatus('Uploaded successfully!');
+				setProcessing(true)
 			} catch (error) {
 				console.error("Failed to upload recording: ", error);
 				setUploadSuccess(false)
@@ -213,8 +220,7 @@ export default function VoiceRecorder() {
 // In the main component...
 	return (
 		<div className="flex flex-col items-center p">
-			{audioURL && <AudioPlayer audioURL={audioURL} duration={duration} />}
-			<br/>
+			{ /* audioURL && <AudioPlayer audioURL={audioURL} duration={duration} /> <br/> */}
 			{!Boolean(uploadStatus) && <button
 				className="p-2 rounded"
 				onClick={recording ? stopRecording : startRecording}
@@ -226,10 +232,15 @@ export default function VoiceRecorder() {
 				}
 			</button>
 			}
-
 			{recording && <p>{formatDuration(recordingElapsedTime)}</p>}
 
+			{Boolean(uploadStatus) && <p>{uploadStatus}</p>}
+
 			{uploadSuccess === false && <AlternativeUpload audioURL={audioURL} />}
+
+			{
+				processing === true && <CollectEmailProcessingInfo collectEmail={collectEmail} existingEmail={existingEmail} accountId={accountId} />
+			}
 		</div>
 	);
 }
