@@ -1,3 +1,6 @@
+# TODO(P1, ux): Setup Supabase SMTP to use the same as other (Amazon SES)
+# SMTP Settings: You can use your own SMTP server instead of the built-in email service.
+# https://app.supabase.com/project/kubtuncgxkefdlzdnnue/settings/auth
 import copy
 import os
 import time

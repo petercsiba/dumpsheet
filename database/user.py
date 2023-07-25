@@ -15,6 +15,8 @@ def generate_temp_password(length=8):
     return password
 
 
+# TODO(P1, devx): At some point we have to setup auth locally:
+# https://supabase.com/docs/guides/cli/local-development#use-auth-locally
 class User(BaseUsers):
     class Meta:
         db_table = "users"

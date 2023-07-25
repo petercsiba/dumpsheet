@@ -116,6 +116,31 @@ A few manual clicks in AWS console:
 
 # Tough problems with setup
 
+### Supabase auth.users weird schema
+Can propagate through many `BaseUser` fields suddenly missing after `./database/generate_models.sh`,
+and later propagated through `email_change_token` field to be unknown.
+Although it feels like supabase problem, the `auth` tables are managed by GoTrue,
+and the `gotrue` server would be running locally after `supabase start`.
+
+The problem can be:
+* GoTrue version changes (unlikely)
+* Local Supabase stack weird state
+For the second, do `docker ps`, you might see that `Restarting` in some services:
+```shell
+4f8074daf143   public.ecr.aws/supabase/gotrue:v2.62.1            "gotrue"                 6 days ago   Restarting (1) 6 seconds ago
+```
+when you inspect the logs
+```shell
+{"level":"fatal","msg":"running db migrations: Migrator: problem creating schema migrations: couldn't start a new transaction: could not create new transaction: failed to connect to `host=supabase_db_backend user=supabase_auth_admin database=postgres`: hostname resolving error (lookup supabase_db_backend on 127.0.0.11:53: no such host)","time":"2023-07-24T22:57:28Z"}
+```
+
+Unsure why this happens, but I ended up nuking local Docker and rebuilding it:
+```shell
+docker stop $(docker ps -a -q)
+docker rm $(docker ps -a -q)
+docker system prune -a # especially in case you running out of storage
+```
+
 ### Runing x86_64 (i.e. amd64) containers locally on M1/M2
 The core problem is that some tools force our base image for deployment, e.g.:
 * AWS Lambda only supports non-mainstream Linux (either python-alpine or amazon-linux)

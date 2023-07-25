@@ -7,7 +7,7 @@ Description: >
 
 # Would be nice to set up Gateway Responses
 Globals:
-  Api:
+  # Api:
     # This seem to NOT work, you still need to go Resource -> Endpoint -> Enable CORS manually.
     # https://us-east-1.console.aws.amazon.com/apigateway/home?region=us-east-1#/apis/xz067dkee6/resources/9l1jo7/enable-cors
     # TODO(P2, learning): Nice to learn more about CORS, getting annoying vibes from my friends.
@@ -17,15 +17,16 @@ Globals:
     # This allows a server to indicate any other origins (domain, scheme, or port) than its own from which a browser
     # should permit loading of resources.
     #
-    # When a proxy integration is used, the server (e.g., a Lambda function) behind it *must return*
+    # When a proxy integration is used (aws_proxy), the server (e.g., a Lambda function) behind it *must return*
     # the Access-Control-Allow-Origin header (and other Access-Control-* headers as needed) in the response.
     # The AWS API Gateway will not add these headers for you in a proxy integration,
     # as it passes the response from the backend service through to the client directly.
-    # This differs from non-proxy integrations, where you can add these headers in the API Gateway response itself.
-    Cors:
-      AllowOrigin: "'https://app.voxana.ai,http://localhost:3000'"
-      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-      AllowMethods: "'GET,POST,OPTIONS'"
+    # We *currently* use a non-proxy integration, so these would be applied.
+    # BUT we can also do this in the Python code, where we have much more leeway (like to support multiple origins).
+    # Cors:
+    #  AllowOrigin: "'https://app.voxana.ai,http://localhost:3000'"
+    #  AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+    #  AllowMethods: "'GET,POST,OPTIONS'"
   Function:
     Timeout: 3
     MemorySize: 128
@@ -79,11 +80,16 @@ Resources:
 #        Variables:
 #          POSTGRES_LOGIN_URL_FROM_ENV: !Sub '{{resolve:secretsmanager:prod/supabase/postgres-login-url:SecretString}}'
       Events:
-        VoiceUploads:
+        VoiceUploadsGet:
           Type: Api
           Properties:
             Path: /upload/voice
             Method: get
+        VoiceUploadsPost:
+          Type: Api
+          Properties:
+            Path: /upload/voice
+            Method: post
 #            RestApiId:
 #              Ref: VoxanaApi
 

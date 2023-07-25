@@ -37,7 +37,7 @@ def process_email_input(
     attachment_file_paths = store_and_get_attachments_from_email(msg)
 
     # In practice, they didn't yet sign up.
-    account = Account.get_or_onboard(
+    account = Account.get_or_onboard_for_email(
         email=base_email_params.recipient,
         full_name=base_email_params.recipient_full_name,
     )

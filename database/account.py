@@ -30,7 +30,7 @@ class Account(BaseAccount):
         return None
 
     @staticmethod
-    def get_by_email_or_none(email):
+    def get_by_email_or_none(email) -> Optional["Account"]:
         # For accounts which have already explicitly signed up
         user = User.get_or_none(User.email == email)
         if bool(user):
@@ -44,7 +44,7 @@ class Account(BaseAccount):
         return None
 
     @staticmethod
-    def get_or_onboard(
+    def get_or_onboard_for_email(
         email: str,
         # TODO(P1, features): Actually support sign up by phone
         # phone: Optional[str] = None,
@@ -77,10 +77,10 @@ class Account(BaseAccount):
     @staticmethod
     def get_or_onboard_for_ip(
         ip_address: str,
-    ) -> ("Account", bool):
+    ) -> "Account":
         onboarding = BaseOnboarding.get_or_none(BaseOnboarding.ip_address == ip_address)
         if bool(onboarding):
-            return Account.get(Account.onboarding == onboarding), False
+            return Account.get(Account.onboarding == onboarding)
 
         print(f"onboarding account for ip_address {ip_address}")
         onboarding = BaseOnboarding.insert(ip_address=ip_address).execute()
@@ -89,4 +89,4 @@ class Account(BaseAccount):
         )
         account = Account.get_by_id(account_id)
         print(f"onboarded account {account}")
-        return account, True
+        return account
