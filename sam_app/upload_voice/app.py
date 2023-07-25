@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+import re
 from typing import Dict
 
 import boto3
@@ -88,16 +89,26 @@ def craft_info(status_code: int, info_message) -> Dict:
     return craft_response(status_code, {"info": info_message})
 
 
+def format_user_agent(user_agent_str: str):
+    s = re.sub(r"[ /_]", "-", user_agent_str)
+    return re.sub(r"[^a-zA-Z0-9-.]", "", s)
+
+
 def handle_get_request_for_presigned_url(event) -> Dict:
-    # Extract the source IP address
+    print(event)
+    # Extract some identifiers - these should NOT be use for auth - but good enough for a demo.
     source_ip = event["requestContext"]["identity"].get("sourceIp", "unknown")
+    user_agent = format_user_agent(
+        event["requestContext"]["identity"].get("userAgent", "")
+    )
+    anonymous_identifier = f"{source_ip}-{user_agent}"
 
     # Specify the S3 bucket and file name
     bucket_name = "requests-from-api-voxana"
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     file_name = f"{source_ip}/{timestamp}"
     print(
-        f"received request from {source_ip} generating upload permissions for {file_name}"
+        f"received request from {anonymous_identifier} generating upload permissions for {file_name}"
     )
     # We should get this from the request
     content_type = "audio/webm"
@@ -120,7 +131,10 @@ def handle_get_request_for_presigned_url(event) -> Dict:
 
     # Add referer, utm_source, user_agent here
     # https://chat.openai.com/share/b866f3da-145c-4c48-8a34-53cf85a7eb19
-    acc = account.Account.get_or_onboard_for_ip(ip_address=source_ip)
+    acc = account.Account.get_or_onboard_for_ip(ip_address=anonymous_identifier)
+    if bool(acc.user):
+        # TODO(P0, auth): Support authed sessions somehow.
+        return craft_error(401, "please sign in")
     # Works for API Gateway
     request_id = event["requestContext"]["requestId"]
     # We only want to collect the email address if not already associated with this IP address.
