@@ -40,10 +40,10 @@ def named_entity_recognition(gpt_client: OpenAiClient, full_transcript: str) -> 
     #   is for GPT to call other APIs. But they mention `extract_people_data` from a Wikipedia article
     # https://openai.com/blog/function-calling-and-other-api-updates
     query_people = """
-    Find all the people mentioned in the following note,
-    be sure to only mention a person once even if I referring to the by full name, first name or he/she,
-    please output a valid json list of strings
-    each element being a name or a short unique descriptive identifier of the person".
+    Find all the people mentioned in my note, be careful that I might be referring to the same person
+     differently usually in the order of full name, first name and he/she.
+    For all those people, please output a valid json list of strings
+    where each element contains a name or a short unique descriptive identifier of that person".
     My note: {}
         """.format(
         full_transcript
