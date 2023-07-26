@@ -214,24 +214,30 @@ def generate_draft(gpt_client: OpenAiClient, person: PersonDataEntry) -> Optiona
     items_str = "\n* ".join(items)
 
     # TODO(P1): Personalize the messages to my overall transcript vibes (here its more per-note).
+    message_type = "email"
+    style = "casual witty professional person"
     prompt_drafts = """
-From my notes on {},
-please draft a short to the point message written in style of
-a "casual friendly yet professional person",
-further adjusted to the talking style from my note. Tone it down a bit.
+Being my personal executive assistant,
+based on my attached notes,
+please draft a brief {message_type} to {name} written in style of
+a "{style}", adjusted to the talking style from my note.
+Keep it on topic, without too many superlatives.
 
-These actions have to be addressed in the note:
-* {}
+These are items to address in the {message_type}:
+* {items_str}
 
 Please make sure that:
 * to mention what I enjoyed OR appreciated in the conversation
 * include a fact / a hobby / an interest from our conversation
-* omit, i.e. do not include any sensitive information, especially money, race, religion, sex or politics
+* omit, i.e. do not include any sensitive information like money
+* only use facts provided in the note, don't make up things
 
-Only output the resulting message - do not use double quotes at all.
-
-My note {}""".format(
-        person.name, items_str, person.transcript
+My note {note}""".format(
+        message_type=message_type,
+        name=person.name,
+        style=style,
+        items_str=items_str,
+        note=person.transcript,
     )
     raw_response = gpt_client.run_prompt(prompt_drafts)
 

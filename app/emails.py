@@ -258,28 +258,29 @@ def send_email(params: EmailLog) -> bool:
 
 def add_signature():
     return """
-    <h3>Got any questions?</h3>
-        <p>Just hit reply. My supervisors are here to assist you with anything you need. 📞👩‍💼👨‍💼</p>
-        <p>Your team at https://www.voxana.ai</p>
-    """
+        <p>Got any questions?</p>
+        <p>Just hit reply - my supervisors are here to assist you with anything you need.</p>
+        <p>You can contact us: {}</p>
+        <p>Thank you for using voxana.ai - your personal executive assistant</p>
+    """.format(
+        SUPPORT_EMAIL
+    )
 
 
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
 #   * Yeah, we might want to centralize this into Hubspot Transactional email API.
 # We have attachment_paths separate, so the response email doesn't re-attach them.
 def send_confirmation(params: EmailLog, attachment_paths):
+    first_name = params.get_recipient_first_name()
     if len(attachment_paths) == 0:
-        params.body_text = (
+        params.body_html = (
             """
-            <h3>Yo """
-            + params.get_recipient_first_name()
-            + """, did you forgot the attachment?</h3>
-        <p>Thanks for using voxana.ai - your personal networking assistant -
-        aka the backoffice hero who takes care of the admin so that you can focus on what truly matters.</p>
-        <p>But yo boss, where is the attachment? ☕ I would love to brew you a coffee, but I ain't real,
-        so an emoji will have to do it: ☕</p>
-        <p>Remember, any audio file would do, I can convert stuff myself! 🎧</p>
-        """
+        <p>Yo {}, did you forgot to attach your voice memo in your email?
+        ☕ I would love to brew you a coffee, but I ain't real, so an emoji will have to do it: ☕</p>
+        <p>Remember, any audio file would do, I can convert from any known audio file by myself!</p>
+        """.format(
+                first_name
+            )
             + add_signature()
         )
         params.idempotency_id = f"{params.idempotency_id}-forgot-attachment"
@@ -291,27 +292,14 @@ def send_confirmation(params: EmailLog, attachment_paths):
             file_list.append(f"<li>{os.path.basename(file_path)} ({file_size})</li>")
         file_list_str = "\n".join(file_list)
 
-        # TODO: should this be body_html?
-        params.body_text = (
+        params.body_html = (
             """
-    <h3>Hello there """
-            + params.get_recipient_first_name()
-            + """! 👋</h3>
-        <p>Thanks for using voxana.ai - your personal networking assistant - aka the backoffice guru who takes care
-            of the admin so that you can focus on what truly matters.</p>
-    <h3>Rest assured, I got your recording and I am already crunching through it!</h3>
+        <p>Hi {}, </p>
+        <p>I am confirming receipt of your voice memo upload(s), it will take me a few minutes to get back to you.</p>
         <p>I've received the following files:</p>
-        <ul>"""
-            + f"{file_list_str}"
-            + """</ul>
-    <h3>What's next?</h3>
-        <ul>
-            <li> Relax for about 2 to 10 minutes until I work through your brain-dump boss. ⏱️️</li>
-            <li> Be on a look-out for an email from """
-            + params.sender
-            + """</li>
-        </ul>
-        """
+        <p><ul>{}</ul></p>""".format(
+                first_name, file_list_str
+            )
             + add_signature()
         )
         params.idempotency_id = f"{params.idempotency_id}-confirmation"
@@ -346,7 +334,7 @@ def send_result(account_id: UUID, idempotency_id_prefix: str, person: PersonData
 <p>{}</p>
 ----------------------------
 """.format(
-            person.next_draft
+            person.next_draft.replace("\n", "<br />")
         )
 
     email_params = EmailLog.get_email_reply_params_for_account_id(
@@ -366,7 +354,7 @@ def send_result(account_id: UUID, idempotency_id_prefix: str, person: PersonData
     }
     summary_list = []
     for key, value in summary_fields.items():
-        if len(str(value)) > 1:
+        if len(str(value)) <= 1:
             continue
 
         if isinstance(value, str):

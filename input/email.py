@@ -68,15 +68,12 @@ def process_email_input(
     result: BaseDataEntry = BaseDataEntry.get(BaseDataEntry.id == inserted_id)
 
     try:
-        # TODO(peter): Verify if the swap base_email_params for get_email_reply_params_for_account_id works.
-        #  -- also we might want to just drop this email.
         confirmation_email_params = EmailLog.get_email_reply_params_for_account_id(
-            account.id, base_email_params.subject, result.idempotency_id
+            account_id=account.id,
+            idempotency_id=result.idempotency_id,
+            subject=f"Re: {base_email_params.subject}",
+            # NOTE: We do NOT include the original attachments cause in the reply
         )
-        # NOTE: We do NOT include the original attachments cause
-        # botocore.exceptions.ClientError: An error occurred (InvalidParameterValue)
-        # when calling the SendRawEmail operation: Message length is more than 10485760 bytes long: '24081986'.
-        # confirmation_email_params.attachment_paths = attachment_file_paths
         send_confirmation(
             params=confirmation_email_params, attachment_paths=attachment_file_paths
         )
