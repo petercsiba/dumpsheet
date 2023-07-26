@@ -8,7 +8,7 @@ from typing import List, Optional
 from urllib.parse import unquote_plus
 
 from app.datashare import PersonDataEntry
-from app.emails import send_responses
+from app.emails import send_result
 from app.networking_dump import run_executive_assistant_to_get_drafts
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.openai_client import OpenAiClient
@@ -79,7 +79,7 @@ def process_transcript_from_data_entry(
             )
             return people_entries
         # if user.contact_method() == "email":
-        send_responses(
+        send_result(
             account_id=data_entry.account_id,
             idempotency_id_prefix=data_entry.idempotency_id,
             person=person,

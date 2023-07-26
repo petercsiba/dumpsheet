@@ -8,7 +8,7 @@ load_dotenv()
 DEFAULT_REGION = "us-west-2"
 
 # EMAIL Stuff
-SENDER_EMAIL = "Your Sidekick Voxana <sidekick@voxana.ai>"  # From:
+SENDER_EMAIL = "Voxana Assistant <assistant@mail.voxana.ai>"  # From:
 SUPPORT_EMAIL = "Voxana.AI <support@voxana.ai>"
 DEBUG_RECIPIENTS = ["email-archive@voxana.ai"]
 

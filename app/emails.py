@@ -17,7 +17,7 @@ from bs4 import BeautifulSoup
 
 from app.datashare import PersonDataEntry
 from common.aws_utils import is_running_in_aws
-from common.config import DEBUG_RECIPIENTS, SUPPORT_EMAIL
+from common.config import DEBUG_RECIPIENTS, SENDER_EMAIL, SUPPORT_EMAIL
 from common.storage_utils import pretty_filesize_path
 from database.email_log import EmailLog
 
@@ -133,7 +133,7 @@ def create_raw_email_with_attachments(params: EmailLog):
     # Fill in sender name
     sender_name, sender_email = parseaddr(params.sender)
     if sender_name == "":
-        params.sender = f"voxana.AI Assistant <{sender_email}>"
+        params.sender = SENDER_EMAIL
 
     if params.reply_to is None:
         params.reply_to = [params.sender]
@@ -330,9 +330,7 @@ def safe_none_or_empty(x) -> bool:
     return len(str(x)) == 0
 
 
-def send_responses(
-    account_id: UUID, idempotency_id_prefix: str, person: PersonDataEntry
-):
+def send_result(account_id: UUID, idempotency_id_prefix: str, person: PersonDataEntry):
     person_name_safe = re.sub(r"\W", "-", person.name).lower()
     # TODO(P0, ux): Improve this logic
     if safe_none_or_empty(person.items_to_follow_up) or safe_none_or_empty(
