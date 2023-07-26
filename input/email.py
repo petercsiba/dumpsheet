@@ -36,7 +36,7 @@ def process_email_input(
 
     attachment_file_paths = store_and_get_attachments_from_email(msg)
 
-    # In practice, they didn't yet sign up.
+    # To speak the truth, by sending an email they didn't yet signed up.
     # TODO(P0, ux): Test if this works after refactoring.
     account = Account.get_or_onboard_for_email(
         email=base_email_params.recipient,
@@ -65,9 +65,7 @@ def process_email_input(
         )
         .execute()
     )
-    result = BaseDataEntry.get(BaseDataEntry.id == inserted_id)
-    # TODO(P2, reliability): We should save the object *even earlier* in case of failures,
-    #   but for now we have lambda retries so shrug.
+    result: BaseDataEntry = BaseDataEntry.get(BaseDataEntry.id == inserted_id)
 
     try:
         # TODO(peter): Verify if the swap base_email_params for get_email_reply_params_for_account_id works.
@@ -100,5 +98,5 @@ def process_email_input(
                 gpt_client.transcribe_audio(audio_filepath=audio_filepath)
             )
     result.output_transcript = "\n\n".join(input_transcripts)
-
+    result.save()
     return result

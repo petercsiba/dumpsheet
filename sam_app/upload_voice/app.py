@@ -2,20 +2,16 @@ import datetime
 import json
 import os
 import re
+import uuid
 from typing import Dict
 
 import boto3
 import peewee  # noqa
 from botocore.exceptions import NoCredentialsError
 
-# Lambda extracts the layer contents into the /opt directory
-# in the function execution environment.
-# Lambda extracts the layers in the order that you added them to the function.
-# import sys
-# sys.path.insert(0, "/opt")
 # NOTE: There are a few copies of the "database" module around this repo.
-# for IDE, doing ".database" would point to "backend/sam_app/upload_voice/database",
-# while "database" points to "backend/database".
+# for IDE, doing ".database" would point to "backend/sam_app/upload_voice/database".
+# Ideally, we would set up an AWS Lambda Layer, but I failed to achieve this.
 from database import account, data_entry, models
 from database.client import connect_to_postgres_i_will_call_disconnect_i_promise
 
@@ -105,8 +101,8 @@ def handle_get_request_for_presigned_url(event) -> Dict:
 
     # Specify the S3 bucket and file name
     bucket_name = "requests-from-api-voxana"
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-    file_name = f"{source_ip}/{timestamp}"
+    data_entry_id = uuid.uuid4()
+    file_name = f"{source_ip}/{data_entry_id}"
     print(
         f"received request from {anonymous_identifier} generating upload permissions for {file_name}"
     )
@@ -118,6 +114,7 @@ def handle_get_request_for_presigned_url(event) -> Dict:
         # Generate a presigned S3 PUT URL
         response["presigned_url"] = s3.generate_presigned_url(
             "put_object",
+            # Ideally, we would include `data_entry_id` as Metadata.
             Params={
                 "Bucket": bucket_name,
                 "Key": file_name,
@@ -142,6 +139,7 @@ def handle_get_request_for_presigned_url(event) -> Dict:
     response["account_id"] = str(acc.id)  # maybe we should have a UUIDEncoder
 
     inserted = models.BaseDataEntry.insert(
+        id=data_entry_id,
         account=acc,
         display_name=f"Voice recording from {(datetime.datetime.now().strftime('%B %d, %H:%M'))}",
         idempotency_id=request_id,

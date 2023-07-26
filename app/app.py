@@ -4,6 +4,7 @@
 import datetime
 import os
 import re
+import time
 from typing import List, Optional
 from urllib.parse import unquote_plus
 
@@ -13,6 +14,7 @@ from app.networking_dump import extract_per_person_summaries, fill_in_draft_outr
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
+from database.account import Account
 from database.client import (
     POSTGRES_LOGIN_URL_FROM_ENV,
     connect_to_postgres,
@@ -20,6 +22,7 @@ from database.client import (
 )
 from database.email_log import EmailLog
 from database.models import BaseDataEntry
+from input.app_upload import process_app_upload
 from input.call import process_voice_recording_input
 from input.email import process_email_input
 
@@ -96,10 +99,6 @@ def process_transcript_from_data_entry(
     return people_entries
 
 
-def process_app_uploads(gpt_client: OpenAiClient, audio_filepath: str) -> BaseDataEntry:
-    return BaseDataEntry.get()
-
-
 def lambda_handler(event, context):
     # Get the bucket name and file key from the event
     try:
@@ -123,9 +122,10 @@ def lambda_handler(event, context):
     if bucket == APP_UPLOADS_BUCKET:
         download_path = "/tmp/{}".format(os.path.basename(key))
         s3.download_file(bucket, key, download_path)
-        data_entry = process_app_uploads(
+        data_entry = process_app_upload(
             gpt_client=gpt_client,
             audio_filepath=download_path,
+            data_entry_id_str=key,
         )
     elif bucket == EMAIL_BUCKET:
         raw_email = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
@@ -177,13 +177,25 @@ if __name__ == "__main__":
         open_ai_client = OpenAiClient()
         # open_ai_client.run_prompt(f"test {time.time()}")
 
-        test_case = "email"  # FOR EASY TEST CASE SWITCHING
+        test_case = "app"  # FOR EASY TEST CASE SWITCHING
         orig_data_entry = None
+        if test_case == "app":
+            app_account = Account.get_or_onboard_for_email("test@voxana.ai")
+            app_data_entry_id = BaseDataEntry.insert(
+                account=app_account,
+                display_name="test_display_name",
+                idempotency_id=f"message-id-{time.time()}",
+                input_type="app_upload",
+            ).execute()
+            orig_data_entry = process_app_upload(
+                gpt_client=open_ai_client,
+                audio_filepath="testdata/app-silent-audio.webm",
+                data_entry_id_str=str(app_data_entry_id),
+            )
         if test_case == "email":
             with open("testdata/email-short-audio", "rb") as handle:
                 # with open("test/chris-json-backticks", "rb") as handle:
                 file_contents = handle.read()
-                # Postgres is used for caching between local test runs, spares both time and money!
                 orig_data_entry = process_email_input(
                     gpt_client=open_ai_client,
                     raw_email=file_contents,
