@@ -4,7 +4,6 @@ from typing import Any, List
 
 import pandas as pd
 
-from app.networking_dump import summarize_transcripts_to_person_data_entries
 from common.openai_client import OpenAiClient
 
 
@@ -149,11 +148,11 @@ for transcript in df["input_transcripts"]:
         exit(0)
 
     # TODO(P1, reliability/quality): Try to simplify this with some Entity extraction process.
-    pde = summarize_transcripts_to_person_data_entries(
-        open_ai_client, person_to_transcript={"": transcript}
-    )[0]
-    # ["Great to meet you, let me know if I can ever do anything for you!"]
-    # print(transcript)
-    drafted_email = draft_email(open_ai_client, transcript, pde.follow_ups)
-    print(drafted_email)
-    print("\n\n")
+    # pde = summarize_note_to_person_data_entry(
+    #     open_ai_client, person_to_transcript={"": transcript}
+    # )
+    # # ["Great to meet you, let me know if I can ever do anything for you!"]
+    # # print(transcript)
+    # drafted_email = draft_email(open_ai_client, transcript, pde.follow_ups)
+    # print(drafted_email)
+    # print("\n\n")

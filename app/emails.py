@@ -1,8 +1,8 @@
 # TODO(P1, ux): Setup Supabase SMTP to use the same as other (Amazon SES)
 # SMTP Settings: You can use your own SMTP server instead of the built-in email service.
 # https://app.supabase.com/project/kubtuncgxkefdlzdnnue/settings/auth
-import copy
 import os
+import re
 import time
 import traceback
 from email.header import decode_header
@@ -10,11 +10,12 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import parseaddr
-from typing import Dict
+from uuid import UUID
 
 import boto3
 from bs4 import BeautifulSoup
 
+from app.datashare import PersonDataEntry
 from common.aws_utils import is_running_in_aws
 from common.config import DEBUG_RECIPIENTS, SUPPORT_EMAIL
 from common.storage_utils import pretty_filesize_path
@@ -317,20 +318,81 @@ def send_confirmation(params: EmailLog, attachment_paths):
         send_email(params=params)
 
 
+def safe_none_or_empty(x) -> bool:
+    if x is None:
+        return True
+    if isinstance(x, list):
+        return len(x) == 0
+    if isinstance(x, dict):
+        return len(x) == 0
+    if isinstance(x, str):
+        return x == "unknown" or len(x) == 0
+    return len(str(x)) == 0
+
+
 def send_responses(
-    orig_email_params: EmailLog,
-    actions: Dict[str, str],
+    account_id: UUID, idempotency_id_prefix: str, person: PersonDataEntry
 ):
-    i = 0
-    for subject, body in actions.items():
-        i += 1
-        email_params = copy.deepcopy(orig_email_params)
-        email_params.subject = subject
-        # TODO(P1, ux): The button seems to NOT render - investigate why.
-        email_params.body_text = (
-            f"  <h3>{subject}</h3>"
-            "  <p>I have crunched through your brain dump and for this action I propose the following draft</p>"
-            # TODO(P0, ux): Format this with bullet points
-            f" <p>{body}</p>" + add_signature()
+    person_name_safe = re.sub(r"\W", "-", person.name).lower()
+    # TODO(P0, ux): Improve this logic
+    if safe_none_or_empty(person.items_to_follow_up) or safe_none_or_empty(
+        person.next_draft
+    ):
+        # template = "takeaways"
+        subject = "Takeaways from"
+        next_draft_html = ""  # nothing to draft, just to research / act on
+    else:
+        # template = "draft"
+        subject = "Drafted Response for"
+        next_draft_html = """
+<p>{}</p>
+----------------------------
+""".format(
+            person.next_draft
         )
-        send_email(params=email_params)
+
+    email_params = EmailLog.get_email_reply_params_for_account_id(
+        account_id=account_id,
+        idempotency_id=f"{idempotency_id_prefix}-{person_name_safe}",
+        subject=f"{subject} {person.name}",
+    )
+
+    summary_fields = {
+        "Name": person.name,
+        "Role": person.role,
+        "Industry": person.industry,
+        "Their Needs": person.their_needs,
+        "My Takeaways": person.my_takeaways,
+        "Suggested Revisit": person.suggested_revisit,
+        "Items to follow up (drafted above)": person.items_to_follow_up,
+    }
+    summary_list = []
+    for key, value in summary_fields.items():
+        if len(str(value)) > 1:
+            continue
+
+        if isinstance(value, str):
+            summary_list.append(f"<strong>{key}</strong>: {value}")
+        elif isinstance(value, list):
+            li_items = "".join(f"<li>{item}</li>" for item in value)
+            summary_list.append(f"<strong>{key}</strong>: <ul>{li_items}</ul>")
+        elif isinstance(value, dict):
+            li_items = "".join(
+                f"<li><strong>{item_key}</strong>: {item_value}</li>"
+                for item_key, item_value in value.items()
+            )
+            summary_list.append(f"<strong>{key}</strong>: <ul>{li_items}</ul>")
+
+    # Join the list items into a single string
+    summary_html = (
+        "<ul>" + "\n  ".join([f"<li>{s}</li>" for s in summary_list]) + "</ul>"
+    )
+    email_params.body_text = """
+{}
+<p>{}</p>
+----------------------------
+<p>{}</p>
+""".format(
+        next_draft_html, summary_html, add_signature()
+    )
+    send_email(params=email_params)

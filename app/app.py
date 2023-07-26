@@ -3,14 +3,13 @@
 
 import datetime
 import os
-import re
 import time
 from typing import List, Optional
 from urllib.parse import unquote_plus
 
 from app.datashare import PersonDataEntry
 from app.emails import send_responses
-from app.networking_dump import extract_per_person_summaries, fill_in_draft_outreaches
+from app.networking_dump import run_executive_assistant_to_get_drafts
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
@@ -20,7 +19,6 @@ from database.client import (
     connect_to_postgres,
     connect_to_postgres_i_will_call_disconnect_i_promise,
 )
-from database.email_log import EmailLog
 from database.models import BaseDataEntry
 from input.app_upload import process_app_upload
 from input.call import process_voice_recording_input
@@ -34,27 +32,12 @@ s3 = get_boto_s3_client()
 APP_UPLOADS_BUCKET = "requests-from-api-voxana"
 EMAIL_BUCKET = "draft-requests-from-ai-mail-voxana"
 PHONE_RECORDINGS_BUCKET = "katka-twillio-recordings"  # TODO(migrate)
+RESPONSE_EMAILS_MAX_PER_DATA_ENTRY = 3
+RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS = 30
 
 
-# Second lambda
-def process_transcript_from_data_entry(
-    gpt_client: OpenAiClient,
-    twilio_client: Optional[TwilioClient],
-    data_entry: BaseDataEntry,
-) -> List[PersonDataEntry]:
-    # ===== Actually perform black magic
-    # TODO(P0, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
-    people_entries = extract_per_person_summaries(
-        gpt_client, raw_transcript=data_entry.output_transcript
-    )
-    event_name_safe = re.sub(
-        r"\W", "-", data_entry.display_name
-    )  # replace all non-alphanum with dashes
-
-    # This mutates the underlying data_entry.
-    fill_in_draft_outreaches(gpt_client, people_entries)
-    data_entry.save()  # This will only update the fields which have changed.
-
+def wait_for_sms_email_update():
+    raise NotImplementedError("wait_for_sms_email_update")
     # user = User.get_by_id(data_entry.user)
     # if user.contact_method() == "sms":
     #     # TODO(P1, ux): Improve this message, might need an URL shortener
@@ -75,26 +58,33 @@ def process_transcript_from_data_entry(
     #                 )
     #                 break
 
-    # if user.contact_method() == "email":
-    email_params = EmailLog.get_email_reply_params_for_account_id(
-        account_id=data_entry.account_id,
-        idempotency_id=f"{data_entry.idempotency_id}-response",
-        subject=f"The summary from your event at {event_name_safe} is ready for your review!",
-    )
-    # Removed all_summaries_filepath for now
-    email_params.attachment_paths = []
-    actions = {}
-    for person in people_entries:
-        for draft in person.drafts:
-            actions[f"{person.name}: {draft.intent}"] = draft.message
 
-    action_names = "\n".join(actions.keys())
-    print(f"ALL ACTION SUBJECTS: {action_names}")
-
-    send_responses(
-        orig_email_params=email_params,
-        actions=actions,
+# Second lambda
+def process_transcript_from_data_entry(
+    gpt_client: OpenAiClient,
+    twilio_client: Optional[TwilioClient],
+    data_entry: BaseDataEntry,
+) -> List[PersonDataEntry]:
+    # ===== Actually perform black magic
+    # TODO(P1, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
+    people_entries = run_executive_assistant_to_get_drafts(
+        gpt_client, full_transcript=data_entry.output_transcript
     )
+
+    for i, person in enumerate(people_entries):
+        if i >= RESPONSE_EMAILS_MAX_PER_DATA_ENTRY:
+            # TODO(P0, ux): Here we should batch everything into one email
+            print(
+                f"Reached maximum emails per data-entry {RESPONSE_EMAILS_MAX_PER_DATA_ENTRY}, done"
+            )
+            return people_entries
+        # if user.contact_method() == "email":
+        send_responses(
+            account_id=data_entry.account_id,
+            idempotency_id_prefix=data_entry.idempotency_id,
+            person=person,
+        )
+        time.sleep(RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS)
 
     return people_entries
 
@@ -177,7 +167,7 @@ if __name__ == "__main__":
         open_ai_client = OpenAiClient()
         # open_ai_client.run_prompt(f"test {time.time()}")
 
-        test_case = "app"  # FOR EASY TEST CASE SWITCHING
+        test_case = "email"  # FOR EASY TEST CASE SWITCHING
         orig_data_entry = None
         if test_case == "app":
             app_account = Account.get_or_onboard_for_email("test@voxana.ai")
@@ -193,7 +183,7 @@ if __name__ == "__main__":
                 data_entry_id_str=str(app_data_entry_id),
             )
         if test_case == "email":
-            with open("testdata/email-short-audio", "rb") as handle:
+            with open("testdata/katka-new-draft-test", "rb") as handle:
                 # with open("test/chris-json-backticks", "rb") as handle:
                 file_contents = handle.read()
                 orig_data_entry = process_email_input(

@@ -2,7 +2,7 @@ import datetime
 import json
 from dataclasses import dataclass, field, fields, is_dataclass
 from json import JSONEncoder
-from typing import Any, Dict, List, Type, get_args, get_origin
+from typing import Any, Dict, List, Optional, Type, get_args, get_origin
 
 
 def check_required_str(name, s):
@@ -80,12 +80,6 @@ def json_to_dataclass(json_data, data_class_type: Type[Any]) -> dataclass:
     return dict_to_dataclass(dict_, data_class_type)
 
 
-@dataclass()
-class Draft:
-    intent: str
-    message: str
-
-
 def dump_to_lines(sth_like_a_string, sep="\n") -> str:
     if sth_like_a_string is None:
         return ""
@@ -112,43 +106,37 @@ class PersonDataEntry:
     # INPUTS
     # All text mentioning them joined into one string
     # TODO(P1, devx): This seems to actually by List[str]
-    transcript: str = None
+    transcript: str = None  # TODO: Deprecate in favor of `note`
 
-    # OUTPUTS
+    # OUTPUTS (TODO: Make it a separate model (or json column) so it can be persisted.
     # Additional structured  items
-    mnemonic: str = None
-    mnemonic_explanation: str = None
-    vibes: str = None
+    # mnemonic: str = None
+    # mnemonic_explanation: str = None
+    vibes: str = None  # TODO: Deprecated
+    impressions: str = None
     role: str = None
     industry: str = None
-    priority: str = None
+    batch_into_one_email: bool = True  # TODO: we might want to make it a derived field (like P2(later) implies it)
+    priority: str = None  # TODO: Deprecated
+    suggested_revisit: str = "P2(later)"
     # Explicitly mentioned actions to take
-    follow_ups: List[str] = field(default_factory=list)
+    follow_ups: List[str] = field(default_factory=list)  # TODO: Deprecated for below
+    items_to_follow_up: List[str] = field(default_factory=list)
+    my_takeaways: List[str] = field(default_factory=list)
     # Future-looking feature
-    needs: List[str] = field(default_factory=list)
+    needs: List[str] = field(default_factory=list)  # TODO: Deprecated
+    their_needs: List[str] = field(default_factory=list)
     # For everything else interesting, their children names, where are they from, what they like
     additional_metadata: Dict[str, any] = field(default_factory=dict)
 
     # These are actual copy-paste-able drafts from the mentioned follow-ups, hard coded list and such
-    drafts: List[Draft] = field(default_factory=list)
+    # drafts: List[Draft] = field(default_factory=list)  # TODO: Deprecated, we only generate one draft now
+    next_draft: Optional[str] = None
 
     parsing_error: str = None
 
-    # Katka really wants text priorities
-    PRIORITIES_MAPPING = {
-        5: "P0 - DO IT ASAP!",
-        4: "P1 - High: This is important & needed",
-        3: "P2 - Medium: Nice to have",
-        2: "P3 - Unsure: Check if you have time",
-        1: "P4 - Low: Just don't bother",
-    }
-
-    def get_transcript_text(self, separator="\n") -> str:
+    def get_transcript_text(self, separator="\n") -> str:  # TODO: Deprecated with GPT-4
         return dump_to_lines(self.transcript, separator)
 
     def sort_key(self):
-        # Sort by priority ascending, and transcript length descending.
-        # TODO(P1, debug): Why priority can still be None?
-        return self.priority or "", 0 if self.transcript is None else -len(
-            str(self.transcript)
-        )
+        return -len(str(self.transcript))

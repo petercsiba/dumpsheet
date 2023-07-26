@@ -264,6 +264,8 @@ class OpenAiClient:
     # Nepali, Norwegian, Persian, Polish, Portuguese, Romanian, Russian, Serbian, Slovak, Slovenian, Spanish, Swahili,
     # Swedish, Tagalog, Tamil, Thai, Turkish, Ukrainian, Urdu, Vietnamese, and Welsh.
     # TODO(P1, devx): Maybe better place in openai_utils
+    # TODO(P0, testing): Cache this from audio_filepath => response (similar to prompt_log).
+    #  That also leads to stronger idempotency needs (maybe just shovel a separate).
     def transcribe_audio(self, audio_filepath):
         if test_transcript is not None:
             return test_transcript
@@ -271,7 +273,7 @@ class OpenAiClient:
         prompt_hint = "these are notes from an event I attended describing the people I met, my impressions and actions"
 
         # (2023, May): File uploads are currently limited to 25 MB and the following input file types are supported:
-        #   mp3, mp4, mpeg, mpga, m4a, wav, and webm (MAYBE fake news)
+        #   mp3, mp4, mpeg, mpga, m4a, wav, and webm (MAYBE fake news). Confirmed that webm and ffmpeg mp4 work.
         # TODO(P2, feature); For longer inputs, we can use pydub to chunk it up
         #   https://platform.openai.com/docs/guides/speech-to-text/longer-inputs
         with open(audio_filepath, "rb") as audio_file:
@@ -291,7 +293,7 @@ class OpenAiClient:
                     # language="en",  # only for openai.Audio.transcribe
                     prompt=prompt_hint,
                     # If set to 0, the model will use log probability to automatically increase the temperature
-                    #   until certain thresholds are hit.
+                    #   until certain thresholds are hit (i.e. it can take longer).
                     temperatue=0,
                 )
                 result = transcript["text"]
@@ -396,7 +398,7 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
     #     print(f"converted {orig_response}\n\nto\n\n{raw_response}")
     try:
         # The model might have just crafted a valid json object
-        result = json.loads(raw_response)
+        res = json.loads(raw_response)
     except json.decoder.JSONDecodeError as orig_err:
         # In case there is something before the actual json output like "Output:", "Here you go:", "Sure ..".
         start_index = _get_first_occurrence(raw_response, ["{", "["])
@@ -411,7 +413,7 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
             )
             return _try_decode_non_json(raw_response)
         try:
-            result = json.loads(raw_json)
+            res = json.loads(raw_json)
         except json.decoder.JSONDecodeError as sub_err:
             if debug:
                 print(
@@ -419,7 +421,24 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
                     f"(note does a bunch of replaces) {raw_json}. ORIGINAL ERROR: {orig_err}"
                 )
             return None
-    return result
+    return res
+
+
+def gpt_response_to_json_list(raw_response) -> List:
+    response = gpt_response_to_json(raw_response)
+    # Solves TypeError: unhashable type: 'slice'
+    if isinstance(response, dict):
+        print(
+            f"WARNING: expected response to be a list, got a dict for {str(response[:100])}"
+        )
+        res = [f"{key}: {value}" for key, value in response.items()]
+    elif isinstance(response, list):
+        # Sometimes it's a list of dicts, so convert each person object to just a plain string.
+        res = [gpt_response_to_plaintext(str(person)) for person in response]
+    else:
+        print(f"ERROR response got un-expected type {type(response)}: {response}")
+        return []
+    return res
 
 
 # When you expect a string, but you don't quite get it such from chat-gpt.
@@ -441,12 +460,14 @@ def gpt_response_to_plaintext(raw_response) -> str:
                 items.append(f"{key}: {value}")
             return " ".join([str(x) for x in items])
         # TODO(P2): Implement more fancy cases, nested objects and such.
-    except Exception:
+    except Exception as e:
+        print(f"WARNING: gpt_response_to_plaintext encountered an error {e}")
         pass
 
     return str(raw_response)
 
 
+# TODO(P1, test): I used to have a set of weird GPT "json"-like responses, we should add tests for them.
 if __name__ == "__main__":
     test_json_with_extra_output = """Output:
     {
@@ -462,5 +483,5 @@ if __name__ == "__main__":
             "None mentioned."
         ]
     }"""
-    result = gpt_response_to_json(test_json_with_extra_output)
-    assert result["name"] == "Marco"
+    res = gpt_response_to_json(test_json_with_extra_output)
+    assert res["name"] == "Marco"
