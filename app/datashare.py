@@ -4,8 +4,6 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from json import JSONEncoder
 from typing import Any, Dict, List, Optional, Type, get_args, get_origin
 
-from common.utils import safe_none_or_empty
-
 
 def check_required_str(name, s):
     if s is None or len(s) == 0:
@@ -144,7 +142,7 @@ class PersonDataEntry:
         return 0 if self.should_show() else 1, -len(str(self.transcript))
 
     def should_draft(self):
-        return self.should_show() and safe_none_or_empty(self.items_to_follow_up)
+        return self.should_show()  # and safe_none_or_empty(self.items_to_follow_up)
 
     def should_show(self):
         return not bool(self.parsing_error)

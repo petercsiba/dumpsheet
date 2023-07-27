@@ -67,6 +67,11 @@ def _is_database_connected():
     return _postgres is not None and not _postgres.is_closed()
 
 
+def set_statement_timeout(db):
+    print("NOTE: Setting postgres client-side timeout for this session to 1 minute")
+    db.execute_sql("SET statement_timeout TO 60000")  # 60000 milliseconds = 1 minute
+
+
 # Prefer using `with connect_to_postgres` when you can.
 # Only use the return value if you know what you are doing.
 def connect_to_postgres_i_will_call_disconnect_i_promise(
@@ -84,8 +89,13 @@ def connect_to_postgres_i_will_call_disconnect_i_promise(
 
     print("connecting to postgres")
     _postgres = PostgresqlDatabase(**kwargs)
+    # TODO(P2, reliability): Attach the function as a hook for when a connection is acquired (or when we re-connect)
+    # _postgres.set_hooks({
+    #  'after_connect': set_statement_timeout,
+    # })
     _postgres.connect()
     _postgres.execute_sql("SELECT 1")
+    set_statement_timeout(_postgres)
     database_proxy.initialize(_postgres)
     return _postgres
 

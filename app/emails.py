@@ -9,6 +9,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import parseaddr
+from typing import List
 from uuid import UUID
 
 import boto3
@@ -57,6 +58,10 @@ def store_and_get_attachments_from_email(msg, file_name_prefix: str):
             f.write(part.get_payload(decode=True))
 
         attachment_file_paths.append(file_path)
+
+    print(
+        f"store_and_get_attachments_from_email got {len(attachment_file_paths)} total attachments"
+    )
     return attachment_file_paths
 
 
@@ -230,7 +235,9 @@ def send_email(params: EmailLog) -> bool:
         print(
             f"Skipping ses.send_raw_email cause NOT in AWS. Dumping the email {params.idempotency_id} contents {params}"
         )
-        params.log_email()  # to test db queries too
+        if not params.check_if_already_sent():
+            # TODO(P1, devx): Ideally, this would update the row, currently fails on the unique constraint.
+            params.log_email()  # to test db queries too
         return True
 
     if params.check_if_already_sent():
@@ -270,13 +277,9 @@ def send_email(params: EmailLog) -> bool:
 
 def add_signature():
     return """
-        <p>Got any questions?</p>
-        <p>Just hit reply - my supervisors are here to assist you with anything you need.</p>
-        <p>You can contact us: {}</p>
-        <p>Thank you for using voxana.ai - your personal executive assistant</p>
-    """.format(
-        SUPPORT_EMAIL
-    )
+        <p>Thank you for using <a href="http://voxana.ai/">Voxana.ai</a> - your executive assistant</p>
+        <p>Got any questions? Just hit reply - my human supervisors respond to all emails within 24 hours.
+    """
 
 
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
@@ -385,12 +388,12 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
             f"<p>This is what I got {person.transcript}</p>"
         )
     res_body = """
-{}
-<p>{}</p>
+{draft_html}
+<p>{summary_html}</p>
 ----------------------------
-<p>{}</p>
+<p>{signature}</p>
 """.format(
-        next_draft_html, summary_html, add_signature()
+        draft_html=next_draft_html, summary_html=summary_html, signature=add_signature()
     )
     return subject_prefix, res_body
 
@@ -407,5 +410,29 @@ def send_result(
         subject=f"{subject_prefix} {person.name}",
     )
     email_params.body_text = body_text
+
+    return send_email(params=email_params)
+
+
+def send_result_rest_of_the_crowd(
+    account_id: UUID, idempotency_id_prefix: str, people: List[PersonDataEntry]
+) -> bool:
+    email_params = EmailLog.get_email_reply_params_for_account_id(
+        account_id=account_id,
+        idempotency_id=f"{idempotency_id_prefix}-rest-of-the-crowd",
+        subject=f"You also mentioned these {len(people)} folks",
+    )
+    rows = []
+    for person in people:
+        rows.append(_summary_table_row(person.name, person.transcript))
+
+    email_params.body_text = """
+    <p>These folks you mentioned, but unfortunately I didn't get enough context
+    from your note to confidently draft a response or summarize their profile. </p>
+    <p>Remember, you can always fill me in with a new recording."</p>
+    <p><table>{rows_html}</table></p><p>{signature}</p>
+    """.format(
+        rows_html="".join(rows), signature=add_signature()
+    )
 
     return send_email(params=email_params)

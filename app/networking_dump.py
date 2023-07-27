@@ -193,14 +193,19 @@ My notes: {}"""
 def generate_draft(gpt_client: OpenAiClient, person: PersonDataEntry) -> Optional[str]:
     print(f"generate_draft for {person}")
     # TODO(P0, ux): From the initial transcript we can get people I talked with (we currently do "people mentioned").
-    # default_items_to_follow_up = ["To say: great to meet you, let me know if I can ever do anything for you!"]
-    default_items_to_follow_up = []
+    message_type = "email"
+    default_items_to_follow_up = [
+        "[assumed] Follow up with brief great to meet you, let me know if I can ever do anything for you!"
+    ]
+    # default_items_to_follow_up = []
     if person.items_to_follow_up is None:
         # TODO(P1, feature): Items will become sub-tasks for AUTO-GPT like features
         items = default_items_to_follow_up
+        message_type = "sms"
     elif isinstance(person.items_to_follow_up, list):
         if len(person.items_to_follow_up) == 0:
             items = default_items_to_follow_up
+            message_type = "sms"
         else:
             items = person.items_to_follow_up
     else:
@@ -215,7 +220,6 @@ def generate_draft(gpt_client: OpenAiClient, person: PersonDataEntry) -> Optiona
     items_str = "\n* ".join(items)
 
     # TODO(P1): Personalize the messages to my overall transcript vibes (here its more per-note).
-    message_type = "email"
     style = "casual, calm, yet professional person"
     prompt_drafts = """
 Being my personal executive assistant,

@@ -8,7 +8,7 @@ from typing import List, Optional
 from urllib.parse import unquote_plus
 
 from app.datashare import PersonDataEntry
-from app.emails import send_result
+from app.emails import send_result, send_result_rest_of_the_crowd
 from app.networking_dump import run_executive_assistant_to_get_drafts
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.config import RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS
@@ -33,7 +33,7 @@ s3 = get_boto_s3_client()
 APP_UPLOADS_BUCKET = "requests-from-api-voxana"
 EMAIL_BUCKET = "draft-requests-from-ai-mail-voxana"
 PHONE_RECORDINGS_BUCKET = "requests-from-twilio"
-RESPONSE_EMAILS_MAX_PER_DATA_ENTRY = 3
+# RESPONSE_EMAILS_MAX_PER_DATA_ENTRY = 3
 
 
 def wait_for_sms_email_update():
@@ -71,13 +71,11 @@ def process_transcript_from_data_entry(
         gpt_client, full_transcript=data_entry.output_transcript
     )
 
+    rest_of_the_crowd = []
     for i, person in enumerate(people_entries):
-        if i >= RESPONSE_EMAILS_MAX_PER_DATA_ENTRY:
-            # TODO(P0, ux): Here we should batch everything into one email
-            print(
-                f"Reached maximum emails per data-entry {RESPONSE_EMAILS_MAX_PER_DATA_ENTRY}, done"
-            )
-            return people_entries
+        if not person.should_show():
+            rest_of_the_crowd.append(person)
+            continue
         # if user.contact_method() == "email":
         send_result(
             account_id=data_entry.account_id,
@@ -85,6 +83,13 @@ def process_transcript_from_data_entry(
             person=person,
         )
         time.sleep(RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS)
+
+    if len(rest_of_the_crowd) > 0:
+        send_result_rest_of_the_crowd(
+            account_id=data_entry.account_id,
+            idempotency_id_prefix=data_entry.idempotency_id,
+            people=rest_of_the_crowd,
+        )
 
     return people_entries
 
@@ -183,7 +188,8 @@ if __name__ == "__main__":
                 data_entry_id_str=str(app_data_entry_id),
             )
         if test_case == "email":
-            with open("testdata/katka-new-draft-test", "rb") as handle:
+            # with open("testdata/katka-new-draft-test", "rb") as handle:
+            with open("testdata/katka-middle-1", "rb") as handle:
                 file_contents = handle.read()
                 orig_data_entry = process_email_input(
                     gpt_client=open_ai_client,
