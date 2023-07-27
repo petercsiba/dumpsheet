@@ -318,11 +318,18 @@ def send_confirmation(params: EmailLog, attachment_paths):
         send_email(params=params)
 
 
-def send_result(account_id: UUID, idempotency_id_prefix: str, person: PersonDataEntry):
-    person_name_safe = re.sub(r"\W", "-", person.name).lower()
+def _summary_table_row(key: str, value: str) -> str:
+    return (
+        f"<tr><td style='background-color: #f0f0f0; padding: 5px 2px;'><strong>{key}</strong></td>"
+        f"<td style='padding: 2px 5px;'>{value}</td></tr>\n"
+    )
+
+
+def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
     # TODO(P0, ux): Improve this logic
+    next_draft_html = ""
     should_takeaways = True
-    subject = "Notes on "
+    subject_prefix = "Notes on "
     if person.should_draft():
         if person.next_draft is None:
             print(
@@ -331,7 +338,7 @@ def send_result(account_id: UUID, idempotency_id_prefix: str, person: PersonData
         else:
             should_takeaways = False
             # template = "draft"
-            subject = "Drafted Response for"
+            subject_prefix = "Drafted Response for"
             next_draft_html = """
     <p>{}</p>
     ----------------------------
@@ -340,14 +347,8 @@ def send_result(account_id: UUID, idempotency_id_prefix: str, person: PersonData
             )
     if should_takeaways:
         # template = "takeaways"
-        subject = "Takeaways from"
+        subject_prefix = "Takeaways from"
         next_draft_html = ""  # nothing to draft, just to research / act on
-
-    email_params = EmailLog.get_email_reply_params_for_account_id(
-        account_id=account_id,
-        idempotency_id=f"{idempotency_id_prefix}-{person_name_safe}",
-        subject=f"{subject} {person.name}",
-    )
 
     summary_fields = {
         "Name": person.name,
@@ -356,36 +357,34 @@ def send_result(account_id: UUID, idempotency_id_prefix: str, person: PersonData
         "Their Needs": person.their_needs,
         "My Takeaways": person.my_takeaways,
         "Suggested Revisit": person.suggested_revisit,
-        "Items to follow up (drafted above)": person.items_to_follow_up,
+        "Items to follow up": person.items_to_follow_up,
     }
-    summary_list = []
+    summary_rows = []
     for key, value in summary_fields.items():
         if len(str(value)) <= 1:
             continue
 
         if isinstance(value, str):
-            summary_list.append(f"<strong>{key}</strong>: {value}")
+            summary_rows.append(_summary_table_row(key, value))
         elif isinstance(value, list):
             li_items = "".join(f"<li>{item}</li>" for item in value)
-            summary_list.append(f"<strong>{key}</strong>: <ul>{li_items}</ul>")
+            summary_rows.append(_summary_table_row(key, f"<ul>{li_items}</ul>"))
         elif isinstance(value, dict):
             li_items = "".join(
                 f"<li><strong>{item_key}</strong>: {item_value}</li>"
                 for item_key, item_value in value.items()
             )
-            summary_list.append(f"<strong>{key}</strong>: <ul>{li_items}</ul>")
+            summary_rows.append(_summary_table_row(key, f"<ul>{li_items}</ul>"))
 
     # Join the list items into a single string
     if person.should_show():
-        summary_html = (
-            "<ul>" + "\n  ".join([f"<li>{s}</li>" for s in summary_list]) + "</ul>"
-        )
+        summary_html = "<table>" + "".join(summary_rows) + "</table>"
     else:
         summary_html = (
             f"<p>Please talk more about {person.name}, I have too little context to confidently summarize.</p>"
             f"<p>This is what I got {person.transcript}</p>"
         )
-    email_params.body_text = """
+    res_body = """
 {}
 <p>{}</p>
 ----------------------------
@@ -393,4 +392,20 @@ def send_result(account_id: UUID, idempotency_id_prefix: str, person: PersonData
 """.format(
         next_draft_html, summary_html, add_signature()
     )
-    send_email(params=email_params)
+    return subject_prefix, res_body
+
+
+def send_result(
+    account_id: UUID, idempotency_id_prefix: str, person: PersonDataEntry
+) -> bool:
+    person_name_safe = re.sub(r"\W", "-", person.name).lower()
+    subject_prefix, body_text = _craft_result_email_body(person)
+
+    email_params = EmailLog.get_email_reply_params_for_account_id(
+        account_id=account_id,
+        idempotency_id=f"{idempotency_id_prefix}-{person_name_safe}",
+        subject=f"{subject_prefix} {person.name}",
+    )
+    email_params.body_text = body_text
+
+    return send_email(params=email_params)
