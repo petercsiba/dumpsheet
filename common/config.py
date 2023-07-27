@@ -11,6 +11,9 @@ DEFAULT_REGION = "us-west-2"
 SENDER_EMAIL = "Voxana Assistant <assistant@mail.voxana.ai>"  # From:
 SUPPORT_EMAIL = "Voxana.AI <support@voxana.ai>"
 DEBUG_RECIPIENTS = ["email-archive@voxana.ai"]
+RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS = int(
+    os.environ.get("RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS", 30)
+)
 
 # OPENAI STUFF
 OPEN_AI_API_KEY: str = os.environ.get("OPEN_AI_API_KEY")

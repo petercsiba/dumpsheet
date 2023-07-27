@@ -11,6 +11,7 @@ from app.datashare import PersonDataEntry
 from app.emails import send_result
 from app.networking_dump import run_executive_assistant_to_get_drafts
 from common.aws_utils import get_boto_s3_client, get_bucket_url
+from common.config import RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS
 from common.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
 from database.account import Account
@@ -33,7 +34,6 @@ APP_UPLOADS_BUCKET = "requests-from-api-voxana"
 EMAIL_BUCKET = "draft-requests-from-ai-mail-voxana"
 PHONE_RECORDINGS_BUCKET = "katka-twillio-recordings"  # TODO(migrate)
 RESPONSE_EMAILS_MAX_PER_DATA_ENTRY = 3
-RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS = 30
 
 
 def wait_for_sms_email_update():
@@ -184,7 +184,6 @@ if __name__ == "__main__":
             )
         if test_case == "email":
             with open("testdata/katka-new-draft-test", "rb") as handle:
-                # with open("test/chris-json-backticks", "rb") as handle:
                 file_contents = handle.read()
                 orig_data_entry = process_email_input(
                     gpt_client=open_ai_client,

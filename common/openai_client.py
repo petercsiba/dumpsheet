@@ -18,6 +18,7 @@ import openai
 import tiktoken
 from peewee import InterfaceError
 
+from common.aws_utils import is_running_in_aws
 from common.config import OPEN_AI_API_KEY
 from common.storage_utils import get_fileinfo
 from common.utils import Timer
@@ -31,7 +32,6 @@ DEFAULT_MODEL = "gpt-4-0613"  # Thanks Vishal
 BACKUP_MODEL = "gpt-3.5-turbo"
 BACKUP_MODEL_AFTER_NUM_RETRIES = 3
 # DEFAULT_MODEL = "gpt-3.5-turbo-0613"
-test_transcript = None
 
 
 def truncate_string(input_string):
@@ -71,6 +71,7 @@ class PromptStats:
         )
 
 
+# NOTE: This somewhat evolved from text-based GPT prompts to also include other API calls
 class PromptLog(BasePromptLog):
     class Meta:
         # db_table = BasePromptLog.Meta.table_name
@@ -79,6 +80,8 @@ class PromptLog(BasePromptLog):
         db_table = "prompt_log"
 
     def total_tokens(self) -> int:
+        if self.prompt_tokens is None or self.completion_tokens is None:
+            return 0
         return self.prompt_tokens + self.completion_tokens
 
     @staticmethod
@@ -93,7 +96,9 @@ class PromptLog(BasePromptLog):
                 PromptLog.prompt_hash == prompt_hash, PromptLog.model == model
             )
         except PromptLog.DoesNotExist:
-            return PromptLog(prompt=prompt, prompt_hash=prompt_hash, model=model)
+            return PromptLog(
+                prompt=prompt, prompt_hash=prompt_hash, model=model, result=None
+            )
         except InterfaceError:
             print("DB NOT connected, NOT using gpt prompt caching")
             return PromptLog(prompt=prompt, prompt_hash=prompt_hash, model=model)
@@ -101,11 +106,50 @@ class PromptLog(BasePromptLog):
     def write_cache(self) -> List:
         try:
             res = self.save()
-            print(f"cached_prompt: written to cache {self.prompt_hash}")
+            print(f"prompt_log: written to cache {self.model}:{self.prompt_hash}")
             return res
         except InterfaceError:
             print("DB NOT connected, NOT using gpt prompt caching")
             return []
+
+
+class PromptCache:
+    def __init__(self, cache_key: str, model: str, print_prompt: bool):
+        self.cache_key = cache_key
+        self.model = model
+        self.print_prompt: bool = print_prompt
+        self.prompt_log: Optional[PromptLog] = None
+        self.cache_hit: bool = False
+        self.start_time: Optional[float] = None
+
+    def __enter__(self):
+        if self.print_prompt:
+            loggable_prompt = self.cache_key.replace("\n", " ")
+            print(f"Asking {self.model} for: {loggable_prompt}")
+
+        self.prompt_log = PromptLog.get_or_create_from_cache(self.cache_key, self.model)
+        if bool(self.prompt_log.result):
+            self.cache_hit = True
+            print(
+                f"prompt_log: serving from cache {self.model}:{self.prompt_log.prompt_hash}"
+            )
+            if self.prompt_log.prompt != self.cache_key:
+                print(
+                    f"ERROR: hash collision for {self.prompt_log.prompt_hash} for prompt {self.cache_key}"
+                )
+
+        self.start_time = time.time()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.prompt_log.request_time_ms = int(1000 * (time.time() - self.start_time))
+        if self.print_prompt:
+            print(
+                f"{self.model}: { self.prompt_log.request_time_ms / 1000} seconds used {self.prompt_log.total_tokens()}"
+            )
+
+        if self.prompt_log.result is not None and not self.cache_hit:
+            self.prompt_log.write_cache()
 
 
 class OpenAiClient:
@@ -194,47 +238,25 @@ class OpenAiClient:
     # TODO(P1, devx): We should templatize the prompt into "function body" and "parameters";
     #   then we can re-use the "body" to "fine-tune" a model and have faster responses.
     def run_prompt(self, prompt: str, model=DEFAULT_MODEL, print_prompt=True):
-        if print_prompt:
-            loggable_prompt = prompt.replace("\n", " ")
-            print(f"Asking {model} for: {loggable_prompt}")
+        with PromptCache(
+            cache_key=prompt, model=model, print_prompt=print_prompt
+        ) as pcm:
+            if pcm.cache_hit:
+                return pcm.prompt_log.result
 
-        prompt_log = PromptLog.get_or_create_from_cache(prompt, model)
-        if bool(prompt_log.result):
-            print("cached_prompt: serving out of cache")
-            if prompt_log.prompt != prompt:
-                print(
-                    f"ERROR: hash collision for {prompt_log.prompt_hash} for prompt {prompt}"
-                )
-            else:
-                self.prompt_stats.append(prompt_log)
-                return prompt_log.result
+            response = self._run_prompt(prompt, model)
+            if response is None:
+                return None
 
-        start_time = time.time()
-        # ====== ACTUAL LOGIC, everything else is monitoring, caching and analytics.
-        response = self._run_prompt(prompt, model)
+            gpt_result = response.choices[0].message.content.strip()
+            token_usage = response["usage"]
+            pcm.prompt_log.result = gpt_result
+            pcm.prompt_log.prompt_tokens = token_usage.get("prompt_tokens", 0)
+            pcm.prompt_log.completion_tokens = token_usage.get("completion_tokens", 0)
+            self.prompt_stats.append(pcm.prompt_log)
+            # `pcm.__exit__` will update the database
 
-        prompt_log.request_time_ms = int(1000 * (time.time() - start_time))
-        if print_prompt:
-            print(
-                f"ChatCompletion: { prompt_log.request_time_ms / 1000} seconds"
-            )  # Note, includes retry time.
-
-        if response is None:
-            return None
-        # TODO(P2, test): There used to be new-line replacement, imho more confusing than useful.
-        gpt_result = response.choices[0].message.content.strip()
-
-        token_usage = response["usage"]
-        prompt_log.result = gpt_result
-        prompt_log.prompt_tokens = token_usage.get("prompt_tokens", 0)
-        prompt_log.completion_tokens = token_usage.get("completion_tokens", 0)
-        self.prompt_stats.append(prompt_log)
-        if print_prompt:
-            print(f"Token usage {json.dumps(token_usage)}")
-
-        # Log and cache the result
-        prompt_log.write_cache()
-        return gpt_result
+            return gpt_result
 
     # They claim to return 1536 dimension of normalized to 1 (cosine or euclid returns same)
     # TODO(P1, research): There are a LOT of unknowns here for me:
@@ -263,31 +285,32 @@ class OpenAiClient:
     # Indonesian, Italian, Japanese, Kannada, Kazakh, Korean, Latvian, Lithuanian, Macedonian, Malay, Marathi, Maori,
     # Nepali, Norwegian, Persian, Polish, Portuguese, Romanian, Russian, Serbian, Slovak, Slovenian, Spanish, Swahili,
     # Swedish, Tagalog, Tamil, Thai, Turkish, Ukrainian, Urdu, Vietnamese, and Welsh.
-    # TODO(P1, devx): Maybe better place in openai_utils
-    # TODO(P0, testing): Cache this from audio_filepath => response (similar to prompt_log).
-    #  That also leads to stronger idempotency needs (maybe just shovel a separate).
-    def transcribe_audio(self, audio_filepath):
-        if test_transcript is not None:
-            return test_transcript
+    # NOTE: I verified that for English there is no difference between "transcribe" and "translate",
+    # by changing it locally and seeing the translate is "cached_prompt: serving out of cache".
+    def transcribe_audio(self, audio_filepath, model="whisper-1"):
+        prompt_hint = "notes on my discussion from an in-person meeting or conference"
 
-        prompt_hint = "these are notes from an event I attended describing the people I met, my impressions and actions"
+        # We mainly do caching
+        with PromptCache(
+            cache_key=audio_filepath, model=model, print_prompt=True
+        ) as pcm:
+            # We only use the cache for local runs to further speed up development (and reduce cost)
+            if pcm.cache_hit and not is_running_in_aws():
+                return pcm.prompt_log.result
 
-        # (2023, May): File uploads are currently limited to 25 MB and the following input file types are supported:
-        #   mp3, mp4, mpeg, mpga, m4a, wav, and webm (MAYBE fake news). Confirmed that webm and ffmpeg mp4 work.
-        # TODO(P2, feature); For longer inputs, we can use pydub to chunk it up
-        #   https://platform.openai.com/docs/guides/speech-to-text/longer-inputs
-        with open(audio_filepath, "rb") as audio_file:
-            print(
-                f"Transcribing (and translating) {get_fileinfo(file_handle=audio_file)}"
-            )
-            # Data submitted through the API is no longer used for service improvements (including model training)
-            #   unless the organization opts in
-            # https://openai.com/blog/introducing-chatgpt-and-whisper-apis
-            with Timer("Audio transcribe (and maybe translate)"):
-                # NOTE: Verified that for English there is no difference between "transcribe" and "translate",
-                # by changing it locally and seeing the translate is "cached_prompt: serving out of cache".
-                transcript = openai.Audio.translate(
-                    model="whisper-1",
+            with open(audio_filepath, "rb") as audio_file:
+                print(
+                    f"Transcribing (and translating) {get_fileinfo(file_handle=audio_file)}"
+                )
+                # Data submitted through the API is no longer used for service improvements (including model training)
+                #   unless the organization opts in
+                # https://openai.com/blog/introducing-chatgpt-and-whisper-apis
+                # (2023, May): File uploads are currently limited to 25 MB and the these file types are supported:
+                #   mp3, mp4, mpeg, mpga, m4a, wav, and webm (MAYBE fake news). Confirmed that webm and ffmpeg mp4 work.
+                # TODO(P2, feature); For longer inputs, we can use pydub to chunk it up
+                #   https://platform.openai.com/docs/guides/speech-to-text/longer-inputs
+                res = openai.Audio.translate(
+                    model=model,
                     file=audio_file,
                     response_format="json",
                     # language="en",  # only for openai.Audio.transcribe
@@ -296,9 +319,11 @@ class OpenAiClient:
                     #   until certain thresholds are hit (i.e. it can take longer).
                     temperatue=0,
                 )
-                result = transcript["text"]
-                print(f"Transcript: {result}")
-                return result
+                transcript = res["text"]
+                print(f"audio transcript: {res}")
+                pcm.prompt_log.result = transcript
+                # `pcm.__exit__` will update the database
+                return transcript
 
 
 def _get_first_occurrence(s: str, list_of_chars: list):

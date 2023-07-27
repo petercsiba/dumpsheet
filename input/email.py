@@ -34,7 +34,9 @@ def process_email_input(
         )
         email_datetime = datetime.datetime.now()
 
-    attachment_file_paths = store_and_get_attachments_from_email(msg)
+    attachment_file_paths = store_and_get_attachments_from_email(
+        msg, file_name_prefix=str(email_datetime)
+    )
 
     # To speak the truth, by sending an email they didn't yet signed up.
     # TODO(P0, ux): Test if this works after refactoring.
@@ -89,6 +91,7 @@ def process_email_input(
         print(
             f"Processing attachment {attachment_num} out of {len(attachment_file_paths)}"
         )
+        # TODO(ux, P1): Make sure the attachment_file_path is globally unique
         audio_filepath = ffmpeg_convert_audio_to_mp4(attachment_file_path)
         if bool(audio_filepath):
             input_transcripts.append(

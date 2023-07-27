@@ -10,7 +10,7 @@ from common.config import DEFAULT_REGION
 def get_boto_s3_client():
     return boto3.client(
         "s3",
-        region_name="us-west-2",
+        region_name="us-east-1",
         config=Config(read_timeout=30, retries={"max_attempts": 1}),
     )
 

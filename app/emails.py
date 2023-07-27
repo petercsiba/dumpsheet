@@ -3,7 +3,6 @@
 # https://app.supabase.com/project/kubtuncgxkefdlzdnnue/settings/auth
 import os
 import re
-import time
 import traceback
 from email.header import decode_header
 from email.mime.application import MIMEApplication
@@ -22,7 +21,20 @@ from common.storage_utils import pretty_filesize_path
 from database.email_log import EmailLog
 
 
-def store_and_get_attachments_from_email(msg):
+def sanitize_filename(filename: str) -> str:
+    # Replace spaces with underscores
+    filename = filename.replace(" ", "_")
+
+    # Remove invalid characters
+    filename = re.sub(r"[^\w_.-]", "", filename)
+
+    # Avoid using leading period
+    if filename and filename[0] == ".":
+        filename = filename[1:]
+    return filename
+
+
+def store_and_get_attachments_from_email(msg, file_name_prefix: str):
     # Process the attachments
     attachment_file_paths = []
     for part in msg.walk():
@@ -39,7 +51,7 @@ def store_and_get_attachments_from_email(msg):
             continue
 
         # If there is an attachment, save it to a file
-        file_name = f"{time.time()}-{orig_file_name}"
+        file_name = sanitize_filename(f"{file_name_prefix}-{orig_file_name}")
         file_path = os.path.join("/tmp/", file_name)
         with open(file_path, "wb") as f:
             f.write(part.get_payload(decode=True))

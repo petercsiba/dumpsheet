@@ -215,7 +215,7 @@ def generate_draft(gpt_client: OpenAiClient, person: PersonDataEntry) -> Optiona
 
     # TODO(P1): Personalize the messages to my overall transcript vibes (here its more per-note).
     message_type = "email"
-    style = "casual witty professional person"
+    style = "casual, calm, yet professional person"
     prompt_drafts = """
 Being my personal executive assistant,
 based on my attached notes,
