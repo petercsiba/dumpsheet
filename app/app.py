@@ -8,7 +8,11 @@ from typing import List, Optional
 from urllib.parse import unquote_plus
 
 from app.datashare import PersonDataEntry
-from app.emails import send_result, send_result_rest_of_the_crowd
+from app.emails import (
+    send_result,
+    send_result_no_people_found,
+    send_result_rest_of_the_crowd,
+)
 from app.networking_dump import run_executive_assistant_to_get_drafts
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.config import RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS
@@ -89,6 +93,14 @@ def process_transcript_from_data_entry(
             account_id=data_entry.account_id,
             idempotency_id_prefix=data_entry.idempotency_id,
             people=rest_of_the_crowd,
+        )
+
+    if len(people_entries) == 0:
+        # If this is sent, this should be the only email sent for this data_entry
+        send_result_no_people_found(
+            account_id=data_entry.account_id,
+            idempotency_id_prefix=data_entry.idempotency_id,
+            full_transcript=data_entry.output_transcript,
         )
 
     return people_entries

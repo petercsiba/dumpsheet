@@ -11,7 +11,9 @@ from common.openai_client import (
     num_tokens_from_string,
 )
 
-MIN_TRANSCRIPT_LENGTH = 80  # characters, can prevent some "hallucinations"
+# Min transcript size somewhat trims down on "hallucinations"
+MIN_FULL_TRANSCRIPT_CHAR_LENGTH = 100
+MIN_PERSON_TRANSCRIPT_CHAR_LENGTH = 80
 # TODO(P1, features): Go bi-model with Claude which can handle 100k tokens for longer dumps
 #  https://www.anthropic.com/index/claude-2
 MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
@@ -25,6 +27,9 @@ MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
 def named_entity_recognition(gpt_client: OpenAiClient, full_transcript: str) -> List:
     # NOTE: We shorten the string by words cause easier, but we better estimate the token count by OpenAI counter.
     token_count = num_tokens_from_string(full_transcript)
+    # TODO(P1, ux): Transcript has 1 words
+    #   GPT: Since your note is empty, there are no names to extract.
+    #        Please provide a note with the names you want me to process.
     print(f"Transcript has {token_count} words")
 
     # Make sure to include the whole string without gaps.
@@ -150,9 +155,10 @@ My notes: {}"""
     print(f"Getting a summary for {person.name}")
     # NOTE: transcript might be a list of strings.
     len_transcript = len(str(note))
-    if len_transcript < MIN_TRANSCRIPT_LENGTH:
+    if len_transcript < MIN_PERSON_TRANSCRIPT_CHAR_LENGTH:
         print(
-            f"Skipping summary for {name} as transcript too short: {len_transcript} < {MIN_TRANSCRIPT_LENGTH}"
+            f"Skipping summary for {name} as transcript too short: "
+            f"{len_transcript} < {MIN_PERSON_TRANSCRIPT_CHAR_LENGTH}"
         )
         raw_summary = None
         raw_response = f"Thanks for mentioning {name}! Unfortunately there is too little info to summarize from."
@@ -265,10 +271,17 @@ My note {note}""".format(
 def run_executive_assistant_to_get_drafts(
     gpt_client: OpenAiClient, full_transcript: str
 ) -> List[PersonDataEntry]:
+    if len(full_transcript) < MIN_FULL_TRANSCRIPT_CHAR_LENGTH:
+        print(
+            f"WARNING: full_transcript length too short {MIN_FULL_TRANSCRIPT_CHAR_LENGTH}"
+        )
+
     token_count = num_tokens_from_string(full_transcript)
     print(f"extract_context_per_person on raw_transcript of {token_count} token count")
 
     people = named_entity_recognition(gpt_client, full_transcript)
+    if len(people) == 0:
+        return []
 
     person_to_transcript = extract_context_per_person(
         gpt_client, full_transcript, people

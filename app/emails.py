@@ -436,3 +436,23 @@ def send_result_rest_of_the_crowd(
     )
 
     return send_email(params=email_params)
+
+
+def send_result_no_people_found(
+    account_id: UUID, idempotency_id_prefix: str, full_transcript: str
+) -> bool:
+    email_params = EmailLog.get_email_reply_params_for_account_id(
+        account_id=account_id,
+        idempotency_id=f"{idempotency_id_prefix}-no-people-found",
+        subject="Unfortunately, I did not found people in your recent voice note",
+    )
+
+    email_params.body_text = """
+    <p>I tried my best, but I couldn't figure out who you talked about in your note. This is what I understood:</p>
+    <p>{full_transcript}</p>
+    <p>{signature}</p>
+    """.format(
+        full_transcript=full_transcript, signature=add_signature()
+    )
+
+    return send_email(params=email_params)
