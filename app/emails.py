@@ -225,18 +225,18 @@ def send_email(params: EmailLog) -> bool:
     params.bcc = DEBUG_RECIPIENTS
     raw_email = create_raw_email_with_attachments(params)
 
-    if params.check_if_already_sent():
-        print(
-            f"SKIPPING email '{params.idempotency_id}' cause already sent for {params.account}"
-        )
-        return True
-
     if not is_running_in_aws():
         # TODO(P2, testing): Ideally we should also test the translation from params to raw email.
         print(
             f"Skipping ses.send_raw_email cause NOT in AWS. Dumping the email {params.idempotency_id} contents {params}"
         )
-        params.log_email()
+        params.log_email()  # to test db queries too
+        return True
+
+    if params.check_if_already_sent():
+        print(
+            f"SKIPPING email '{params.idempotency_id}' cause already sent for {params.account}"
+        )
         return True
     try:
         print(
@@ -318,36 +318,30 @@ def send_confirmation(params: EmailLog, attachment_paths):
         send_email(params=params)
 
 
-def safe_none_or_empty(x) -> bool:
-    if x is None:
-        return True
-    if isinstance(x, list):
-        return len(x) == 0
-    if isinstance(x, dict):
-        return len(x) == 0
-    if isinstance(x, str):
-        return x == "unknown" or len(x) == 0
-    return len(str(x)) == 0
-
-
 def send_result(account_id: UUID, idempotency_id_prefix: str, person: PersonDataEntry):
     person_name_safe = re.sub(r"\W", "-", person.name).lower()
     # TODO(P0, ux): Improve this logic
-    if safe_none_or_empty(person.items_to_follow_up) or safe_none_or_empty(
-        person.next_draft
-    ):
+    should_takeaways = True
+    subject = "Notes on "
+    if person.should_draft():
+        if person.next_draft is None:
+            print(
+                f"WARNING: Somehow should_draft is true and next_draft is None for {person.name}"
+            )
+        else:
+            should_takeaways = False
+            # template = "draft"
+            subject = "Drafted Response for"
+            next_draft_html = """
+    <p>{}</p>
+    ----------------------------
+    """.format(
+                person.next_draft.replace("\n", "<br />")
+            )
+    if should_takeaways:
         # template = "takeaways"
         subject = "Takeaways from"
         next_draft_html = ""  # nothing to draft, just to research / act on
-    else:
-        # template = "draft"
-        subject = "Drafted Response for"
-        next_draft_html = """
-<p>{}</p>
-----------------------------
-""".format(
-            person.next_draft.replace("\n", "<br />")
-        )
 
     email_params = EmailLog.get_email_reply_params_for_account_id(
         account_id=account_id,
@@ -382,9 +376,15 @@ def send_result(account_id: UUID, idempotency_id_prefix: str, person: PersonData
             summary_list.append(f"<strong>{key}</strong>: <ul>{li_items}</ul>")
 
     # Join the list items into a single string
-    summary_html = (
-        "<ul>" + "\n  ".join([f"<li>{s}</li>" for s in summary_list]) + "</ul>"
-    )
+    if person.should_show():
+        summary_html = (
+            "<ul>" + "\n  ".join([f"<li>{s}</li>" for s in summary_list]) + "</ul>"
+        )
+    else:
+        summary_html = (
+            f"<p>Please talk more about {person.name}, I have too little context to confidently summarize.</p>"
+            f"<p>This is what I got {person.transcript}</p>"
+        )
     email_params.body_text = """
 {}
 <p>{}</p>

@@ -39,9 +39,10 @@ def named_entity_recognition(gpt_client: OpenAiClient, full_transcript: str) -> 
     # TODO(P1, research): Understand if GPT function calling can help us. From first read it seems that the use case
     #   is for GPT to call other APIs. But they mention `extract_people_data` from a Wikipedia article
     # https://openai.com/blog/function-calling-and-other-api-updates
+    # TODO(P0, ux): Still often-times it treats "Katka" and "Katka Sabo" as different people.
     query_people = """
-    Find all the people mentioned in my note, be careful that I might be referring to the same person
-     differently usually in the order of full name, first name and he/she.
+    Find all the people mentioned in my note,
+    be careful that I might be referring to the same person differently in which case please use their fullest name.
     For all those people, please output a valid json list of strings
     where each element contains a name or a short unique descriptive identifier of that person".
     My note: {}
@@ -280,12 +281,14 @@ def run_executive_assistant_to_get_drafts(
         if person_data_entry is None:
             continue
 
-        person_data_entry.next_draft = generate_draft(gpt_client, person_data_entry)
+        if person_data_entry.should_draft():
+            person_data_entry.next_draft = generate_draft(gpt_client, person_data_entry)
+
         person_data_entries.append(person_data_entry)
 
     print("=== All summaries === ")
     # Sort by priority, these are now P0, P1 so do it ascending.
     person_data_entries = sorted(person_data_entries, key=lambda pde: pde.sort_key())
 
-    print(json.dumps([asdict(pde) for pde in person_data_entries]))
+    print(json.dumps([asdict(pde) for pde in person_data_entries if pde.should_show()]))
     return person_data_entries

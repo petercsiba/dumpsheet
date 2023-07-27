@@ -32,7 +32,7 @@ s3 = get_boto_s3_client()
 #   * ALTERNATIVELY: Can catch exception(s) and send email from here.
 APP_UPLOADS_BUCKET = "requests-from-api-voxana"
 EMAIL_BUCKET = "draft-requests-from-ai-mail-voxana"
-PHONE_RECORDINGS_BUCKET = "katka-twillio-recordings"  # TODO(migrate)
+PHONE_RECORDINGS_BUCKET = "requests-from-twilio"
 RESPONSE_EMAILS_MAX_PER_DATA_ENTRY = 3
 
 
@@ -190,11 +190,11 @@ if __name__ == "__main__":
                     raw_email=file_contents,
                 )
         if test_case == "call":
-            filename = "6502106516-Peter.Csiba-CA7e063a0e33540dc2496d09f5b81e42aa.wav"
+            filepath = "testdata/twilio-mock-recording.wav"
             # In production, we use S3 bucket metadata. Here we just get it from the filename.
             test_full_name = "Peter Csiba"
             test_phone_number = "6502106516"
-            filepath = f"test/{filename}"
+            call_sid = "CAf85701fd23e325761071817c42092922"
             creation_time = datetime.datetime.fromtimestamp(os.path.getctime(filepath))
             with open(filepath, "rb") as handle:
                 file_contents = handle.read()
@@ -203,7 +203,7 @@ if __name__ == "__main__":
                     # TODO(P1, testing): Support local testing
                     twilio_client=None,
                     bucket_url=None,
-                    call_sid=str(creation_time),
+                    call_sid=call_sid,
                     phone_number=test_phone_number,
                     full_name=test_full_name,
                     voice_file_data=file_contents,

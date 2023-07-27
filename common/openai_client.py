@@ -156,7 +156,13 @@ class OpenAiClient:
     def __init__(self):
         print("OpenAiClient init")
         # In-memory representation of the above to mostly sum up stats.
+        self.force_no_print_prompt = False
         self.prompt_stats: List[PromptLog] = []
+
+    def _should_print_prompt(self, print_prompt_arg: bool):
+        if self.force_no_print_prompt:
+            return False
+        return print_prompt_arg
 
     def sum_up_prompt_stats(self) -> PromptStats:
         stats = PromptStats()
@@ -239,7 +245,9 @@ class OpenAiClient:
     #   then we can re-use the "body" to "fine-tune" a model and have faster responses.
     def run_prompt(self, prompt: str, model=DEFAULT_MODEL, print_prompt=True):
         with PromptCache(
-            cache_key=prompt, model=model, print_prompt=print_prompt
+            cache_key=prompt,
+            model=model,
+            print_prompt=self._should_print_prompt(print_prompt),
         ) as pcm:
             if pcm.cache_hit:
                 return pcm.prompt_log.result
@@ -292,7 +300,9 @@ class OpenAiClient:
 
         # We mainly do caching
         with PromptCache(
-            cache_key=audio_filepath, model=model, print_prompt=True
+            cache_key=audio_filepath,
+            model=model,
+            print_prompt=self._should_print_prompt(True),
         ) as pcm:
             # We only use the cache for local runs to further speed up development (and reduce cost)
             if pcm.cache_hit and not is_running_in_aws():
@@ -306,7 +316,7 @@ class OpenAiClient:
                 #   unless the organization opts in
                 # https://openai.com/blog/introducing-chatgpt-and-whisper-apis
                 # (2023, May): File uploads are currently limited to 25 MB and the these file types are supported:
-                #   mp3, mp4, mpeg, mpga, m4a, wav, and webm (MAYBE fake news). Confirmed that webm and ffmpeg mp4 work.
+                #   mp3, mp4, mpeg, mpga, m4a, wav, and webm (m4a FAKE news). Confirmed that webm and ffmpeg mp4 work.
                 # TODO(P2, feature); For longer inputs, we can use pydub to chunk it up
                 #   https://platform.openai.com/docs/guides/speech-to-text/longer-inputs
                 res = openai.Audio.translate(
