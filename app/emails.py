@@ -277,8 +277,10 @@ def send_email(params: EmailLog) -> bool:
 
 def add_signature():
     return """
-        <p>Thank you for using <a href="http://voxana.ai/">Voxana.ai</a> - your executive assistant</p>
-        <p>Got any questions? Just hit reply - my human supervisors respond to all emails within 24 hours.
+<br />
+<p>----------------------------</p>
+<p>Thank you for using <a href="http://voxana.ai/">Voxana.ai</a> - your executive assistant</p>
+<p>Got any questions? Just hit reply - my human supervisors respond to all emails within 24 hours<p>.
     """
 
 
@@ -321,10 +323,10 @@ def send_confirmation(params: EmailLog, attachment_paths):
         send_email(params=params)
 
 
-def _summary_table_row(key: str, value: str) -> str:
+def _summary_table_row(key: str, value: str, cell_tag="td") -> str:
     return (
-        f"<tr><td style='background-color: #f0f0f0; padding: 5px 2px;'><strong>{key}</strong></td>"
-        f"<td style='padding: 2px 5px;'>{value}</td></tr>\n"
+        f"<tr><{cell_tag} style='background-color: #f0f0f0; padding: 5px 2px;'><strong>{key}</strong></{cell_tag}>"
+        f"<{cell_tag} style='padding: 2px 5px;'>{value}</{cell_tag}></tr>\n"
     )
 
 
@@ -381,7 +383,11 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
 
     # Join the list items into a single string
     if person.should_show():
-        summary_html = "<table>" + "".join(summary_rows) + "</table>"
+        summary_html = (
+            '<table style="border: 1px solid black;">'
+            + "".join(summary_rows)
+            + "</table>"
+        )
     else:
         summary_html = (
             f"<p>Please talk more about {person.name}, I have too little context to confidently summarize.</p>"
@@ -390,8 +396,7 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
     res_body = """
 {draft_html}
 <p>{summary_html}</p>
-----------------------------
-<p>{signature}</p>
+{signature}
 """.format(
         draft_html=next_draft_html, summary_html=summary_html, signature=add_signature()
     )
@@ -422,7 +427,7 @@ def send_result_rest_of_the_crowd(
         idempotency_id=f"{idempotency_id_prefix}-rest-of-the-crowd",
         subject=f"You also mentioned these {len(people)} folks",
     )
-    rows = []
+    rows = [_summary_table_row("Name", "Notes", cell_tag="th")]
     for person in people:
         rows.append(_summary_table_row(person.name, person.transcript))
 
@@ -430,7 +435,7 @@ def send_result_rest_of_the_crowd(
     <p>These folks you mentioned, but unfortunately I didn't get enough context
     from your note to confidently draft a response or summarize their profile. </p>
     <p>Remember, you can always fill me in with a new recording."</p>
-    <p><table>{rows_html}</table></p><p>{signature}</p>
+    <p><table style="border: 1px solid black;">{rows_html}</table></p>{signature}
     """.format(
         rows_html="".join(rows), signature=add_signature()
     )
@@ -450,7 +455,7 @@ def send_result_no_people_found(
     email_params.body_text = """
     <p>I tried my best, but I couldn't figure out who you talked about in your note. This is what I understood:</p>
     <p>{full_transcript}</p>
-    <p>{signature}</p>
+    {signature}
     """.format(
         full_transcript=full_transcript, signature=add_signature()
     )
