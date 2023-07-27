@@ -194,6 +194,11 @@ def lambda_handler(event, context):
         call_sid = object_metadata["callsid"]
         phone_number = object_metadata["phonenumber"]
         proper_name = object_metadata["propername"]
+        carrier_info = object_metadata.get("carrierinfo")
+        print(
+            f"Received voicemail from {phone_number}, {proper_name} and {carrier_info}"
+        )
+
         data_entry = process_voice_recording_input(
             gpt_client=gpt_client,
             twilio_client=twilio_client,
@@ -202,6 +207,7 @@ def lambda_handler(event, context):
             call_sid=call_sid,
             phone_number=phone_number,
             full_name=proper_name,
+            phone_carrier_info=carrier_info,
             event_timestamp=head_object["LastModified"],
         )
     else:
@@ -255,7 +261,9 @@ if __name__ == "__main__":
                     gpt_client=open_ai_client,
                     raw_email=file_contents,
                 )
-        if test_case == "call":
+        if test_case == "voicemail":
+            # Optional
+            twilio_client = TwilioClient()
             filepath = "testdata/twilio-mock-recording.wav"
             # In production, we use S3 bucket metadata. Here we just get it from the filename.
             test_full_name = "Peter Csiba"
@@ -272,6 +280,7 @@ if __name__ == "__main__":
                     call_sid=call_sid,
                     phone_number=test_phone_number,
                     full_name=test_full_name,
+                    phone_carrier_info="T-Mobile consumer stuff",
                     voice_file_data=file_contents,
                     event_timestamp=creation_time,  # reasonably idempotent
                 )

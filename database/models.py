@@ -19,6 +19,8 @@ class BaseOnboarding(BaseModel):
     email = TextField(null=True, unique=True)
     id = BigAutoField()
     ip_address = TextField(null=True)
+    phone = TextField(null=True, unique=True)
+    phone_carrier_info = TextField(null=True)
     referer = TextField(null=True)
     utm_source = TextField(null=True)
 

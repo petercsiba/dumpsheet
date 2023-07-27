@@ -74,7 +74,10 @@ supabase migration new create_prompt_log
 ./database/generate_models.sh
 # copy paste that definition to the generated file
 supabase db reset  # weird name i know, this takes quite long :/
-# do some testing, then push to prod
+# pro-tip: if you have cached a bunch of stuff, you would like to dump your DB into `seed.sql`
+# --inserts likely required for `supabase db reset`
+export PGPASSWORD=postgres; pg_dump -h localhost -p 54322 -U postgres -d postgres --schema=public -F p --inserts > supabase/seed.sql
+# do some testing, then push migrations to be applied in prod
 supabase db push
 ```
 

@@ -21,7 +21,7 @@ class Account(BaseAccount):
     class Meta:
         db_table = "account"
 
-    def get_email(self):
+    def get_email(self) -> Optional[str]:
         if bool(self.user):
             return User.get_by_id(self.user).email
         if bool(self.onboarding):
@@ -30,7 +30,7 @@ class Account(BaseAccount):
         return None
 
     @staticmethod
-    def get_by_email_or_none(email) -> Optional["Account"]:
+    def get_by_email_or_none(email: str) -> Optional["Account"]:
         # For accounts which have already explicitly signed up
         user = User.get_or_none(User.email == email)
         if bool(user):
@@ -59,7 +59,7 @@ class Account(BaseAccount):
         if bool(account):
             return account
 
-        print(f"onboarding account {email}")
+        print(f"onboarding account for email {email}")
         onboarding = BaseOnboarding.insert(email=email, **onboarding_kwargs).execute()
         account_id = (
             BaseAccount.insert(
@@ -89,6 +89,49 @@ class Account(BaseAccount):
         onboarding = BaseOnboarding.insert(ip_address=ip_address).execute()
         account_id = (
             BaseAccount.insert(onboarding=onboarding).on_conflict_ignore().execute()
+        )
+        account = Account.get_by_id(account_id)
+        print(f"onboarded account {account}")
+        return account
+
+    @staticmethod
+    def get_by_phone_or_none(phone: str) -> Optional["Account"]:
+        # For accounts which have already explicitly signed up
+        user = User.get_or_none(User.phone == phone)
+        if bool(user):
+            return Account.get(Account.user == user)
+
+        # For accounts only going through onboarding
+        # TODO(ux, P1): It is important to use the same canonical phone-number number format (phonenumbers library?)
+        onboarding = BaseOnboarding.get_or_none(BaseOnboarding.phone == phone)
+        if bool(onboarding):
+            return Account.get(Account.onboarding == onboarding)
+
+        return None
+
+    @staticmethod
+    def get_or_onboard_for_phone(
+        phone: str,
+        full_name: Optional[str] = None,
+        onboarding_kwargs=None,
+    ) -> "Account":
+        if onboarding_kwargs is None:
+            onboarding_kwargs = {}
+
+        account = Account.get_by_phone_or_none(phone)
+        if bool(account):
+            return account
+
+        print(f"onboarding account for phone {phone}")
+        onboarding = BaseOnboarding.insert(phone=phone, **onboarding_kwargs).execute()
+        account_id = (
+            BaseAccount.insert(
+                onboarding=onboarding,
+                user=None,  # only during sign up
+                full_name=full_name,
+            )
+            .on_conflict_ignore()
+            .execute()
         )
         account = Account.get_by_id(account_id)
         print(f"onboarded account {account}")
