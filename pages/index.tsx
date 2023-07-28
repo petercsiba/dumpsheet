@@ -18,7 +18,7 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Voxana AI - Your Executive Sidekick</title>
+        <title>Voxana AI - Your Executive Assistant</title>
         <meta name="description" content="Voxana AI - Your Voice, Turned into Action" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
