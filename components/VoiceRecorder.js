@@ -15,7 +15,7 @@ const SHORT_RECORDING_TIMEOUT = 2500;
 const formatDuration = (seconds) => {
 	const minutes = Math.floor(seconds / 60);
 	const remainingSeconds = Math.floor(seconds % 60);
-	return `${minutes}m : ${remainingSeconds}s`;
+	return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
 };
 
 const StopRecordingButton = () => (
@@ -31,13 +31,13 @@ const StopRecordingButton = () => (
 );
 
 const StartRecordingButton = () => (
-	<div className="bg-gray-200 p-2 inline-block rounded-full border-2 border-black">
+	<div className="inline-block">
 		<Image
 			priority
 			src={MicrophoneIcon}
 			alt="Start your voice recording"
-			width={50}
-			height={50}
+			width={100}
+			height={100}
 		/>
 	</div>
 );
@@ -211,7 +211,7 @@ export default function VoiceRecorder() {
 			<div className="bg-white-500 p-2 inline-block">
 				<p className="py-2">Alternatively, download and upload manually.</p>
 				<div className="flex justify-center">
-					<a href={audioURL} download={fileName} className="px-4 py-2 bg-gray-200 rounded">Download</a>
+					<a href={audioURL} download={fileName}>Download</a>
 				</div>
 			</div>
 		);
@@ -219,10 +219,10 @@ export default function VoiceRecorder() {
 
 // In the main component...
 	return (
-		<div className="flex flex-col items-center p">
+		<div className="flex flex-col items-center">
 			{ /* audioURL && <AudioPlayer audioURL={audioURL} duration={duration} /> <br/> */}
 			{!Boolean(uploadStatus) && <button
-				className="p-2 rounded"
+				className="btn-white p-0"
 				onClick={recording ? stopRecording : startRecording}
 				disabled={Boolean(uploadStatus)}
 			>

@@ -1,5 +1,6 @@
 import dynamic from 'next/dynamic'
 import Head from 'next/head'
+import Image from 'next/image';
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react'
 import {Auth, ThemeSupa} from '@supabase/auth-ui-react'
 import TodoList from '@/components/TodoList'
@@ -26,9 +27,19 @@ export default function Home() {
           <div className="min-w-full min-h-screen flex items-center justify-center">
               <div className="w-full h-full flex justify-center items-center p-4">
                   <div className="w-full h-full sm:h-auto sm:w-2/5 max-w-sm p-5 bg-white shadow flex flex-col text-base">
-                    <span className="font-sans font-normal text-3xl text-purple text-center pb-2 mb-1 border-b mx-4 align-center">
+                      <div className="flex flex-col items-center py-8">
+                          <Image
+                              src="/images/tell-me-what-to-draft.png"
+                              alt="tell me what to draft heading"
+                              width={300}
+                              height={30}
+                          />
+                      </div>
+                      {/*
+                    <span className="font-sans font-normal text-3xl text-black text-center pb-2 mb-1 mx-4 align-center">
                       Tell me what to draft
                     </span>
+                    */}
                       {/*
                     <span className="font-sans font-light text-2xl text-left pb-2 mb-1 mx-4">
                         Examples
@@ -42,6 +53,14 @@ export default function Home() {
                       */}
                       <div className="pt-4">
                         <VoiceRecorderWithNoSSR />
+                      </div>
+                      <div className="flex flex-col items-center py-8">
+                          <Image
+                              src="/images/voxana-ai-logo-transparent.png"
+                              alt="Voxana AI Logo"
+                              width={150}
+                              height={30}
+                          />
                       </div>
                   </div>
               </div>
