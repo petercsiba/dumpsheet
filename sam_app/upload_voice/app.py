@@ -18,6 +18,7 @@ from database.client import connect_to_postgres_i_will_call_disconnect_i_promise
 s3 = boto3.client("s3")
 
 ALLOWED_ORIGINS = ["https://app.voxana.ai", "http://localhost:3000"]
+TWILIO_FUNCTIONS_API_KEY = "twilio-functions-super-secret-key-123"
 
 # AWS Lambda Execution Context feature - this should save about 1 second on subsequent invocations.
 secrets_cache = {}
@@ -192,9 +193,58 @@ def handle_post_request_for_update_email(event: Dict) -> Dict:
     return craft_info(200, "account email updated")
 
 
+def handle_post_request_for_call_set_email(event):
+    body = json.loads(event["body"])
+    phone_number = body.get("phone_number")
+    message = body.get("message")
+    print(f"received message from {phone_number}: {message}")
+    if phone_number is None or message is None:
+        return craft_error(400, "both phone_number and message are required params")
+
+    pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+    match = re.search(pattern, message)
+    new_email = match.group(0) if match else None
+    if new_email is None:
+        return craft_error(400, "no email address found in message")
+
+    acc = account.Account.get_by_phone_or_none(phone_number)
+    if acc is None:
+        return craft_error(500, f"account should be already present for {phone_number}")
+
+    existing_email = acc.get_email()
+    if existing_email is None:
+        existing_onboarding: models.BaseOnboarding = acc.onboarding
+        existing_onboarding.email = new_email
+        print(f"updating existing onboarding for {phone_number} to {new_email}")
+        existing_onboarding.save()
+        return craft_info(201, "email updated")
+    elif existing_email == new_email:
+        return craft_info(200, "email already set")
+    assert existing_email != new_email
+    return craft_error(
+        400,
+        f"cannot reset email through this endpoint, phone_number claimed by {existing_email}",
+    )
+
+
+ENDPOINT_VOICE_UPLOAD = "/upload/voice"
+ENDPOINT_CALL_SET_EMAIL = "/call/set-email"
+
+
 def lambda_handler(event, context):
+    # https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html#apigateway-example-event
     http_method = event["httpMethod"]
-    print(f"handling {http_method} request")
+    api_endpoint = event["requestContext"][
+        "resourcePath"
+    ]  # event['path'] might work as well
+    api_key = event["headers"].get("x-api-key")
+
+    print(f"handling {http_method} {api_endpoint} request")
+
+    # TODO(P1, security): This should be better, but PITA to use SAM for this.
+    if api_endpoint == ENDPOINT_CALL_SET_EMAIL:
+        if api_key != TWILIO_FUNCTIONS_API_KEY:
+            return craft_error(403, "x-api-key is required")
 
     postgres_login_url = get_secret(
         secret_id="arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/supabase/postgres_login_url-AvIn1c",
@@ -205,21 +255,30 @@ def lambda_handler(event, context):
     # at the end of each function invocation. Lambda execution context will freeze and thaw it.
     connect_to_postgres_i_will_call_disconnect_i_promise(postgres_login_url)  # lies
 
-    if http_method == "OPTIONS":
-        # AWS API Gateway requires a non-empty response body for OPTIONS requests
-        response = craft_response(200, {})
-    elif http_method == "GET":
-        response = handle_get_request_for_presigned_url(event)
-    elif http_method == "POST":
-        response = handle_post_request_for_update_email(event)
+    if api_endpoint == ENDPOINT_VOICE_UPLOAD:
+        if http_method == "OPTIONS":
+            # AWS API Gateway requires a non-empty response body for OPTIONS requests
+            response = craft_response(200, {})
+        elif http_method == "GET":
+            response = handle_get_request_for_presigned_url(event)
+        elif http_method == "POST":
+            response = handle_post_request_for_update_email(event)
+        else:
+            raise ValueError(f"Invalid HTTP method: {http_method}")
+    elif api_endpoint == ENDPOINT_CALL_SET_EMAIL:
+        if http_method == "POST":
+            response = handle_post_request_for_call_set_email(event)
+        else:
+            raise ValueError(f"Invalid HTTP method: {http_method}")
     else:
-        raise ValueError(f"Invalid HTTP method: {http_method}")
+        raise NotImplementedError(api_endpoint)
 
     # Add the CORS stuff here, as I couldn't figure out it in template.yaml nor API Gateway conf.
     # Extract the origin from the request headers
     origin = event["headers"].get("origin", "unknown")
 
     # Set the allowed origin in the response to the origin of the request if it's in the list of allowed origins
+    # Some callers like twilio-functions don't need CORS.
     allowed_origin = origin if origin in ALLOWED_ORIGINS else "unknown"
     response["headers"] = {
         "Access-Control-Allow-Credentials": True,

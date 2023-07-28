@@ -29,6 +29,14 @@ class Account(BaseAccount):
         print(f"Account.get_mail: no onboarding nor user for account {self.id}")
         return None
 
+    def get_phone(self) -> Optional[str]:
+        if bool(self.user):
+            return User.get_by_id(self.user).phone
+        if bool(self.onboarding):
+            return BaseOnboarding.get_by_id(self.onboarding).phone
+        print(f"Account.get_phone: no onboarding nor user for account {self.id}")
+        return None
+
     @staticmethod
     def get_by_email_or_none(email: str) -> Optional["Account"]:
         # For accounts which have already explicitly signed up

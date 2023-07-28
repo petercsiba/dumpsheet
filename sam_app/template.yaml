@@ -96,6 +96,11 @@ Resources:
           Properties:
             Path: /upload/voice
             Method: post
+        CallSetEmailPost:
+          Type: Api
+          Properties:
+            Path: /call/set-email
+            Method: post
 #            RestApiId:
 #              Ref: VoxanaApi
 
