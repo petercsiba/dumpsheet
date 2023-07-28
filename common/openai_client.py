@@ -309,6 +309,7 @@ class OpenAiClient:
                 return pcm.prompt_log.result
 
             with open(audio_filepath, "rb") as audio_file:
+                # TODO(P0, bug): Seems like empty audio files can get stuck here (maybe temperature=0 and backoff?).
                 print(
                     f"Transcribing (and translating) {get_fileinfo(file_handle=audio_file)}"
                 )

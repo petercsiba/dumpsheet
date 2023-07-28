@@ -1,11 +1,13 @@
 # TODO(P0): (De)prioritize all TODOs lol:
 #   git grep '# TODO' | awk -F: '{print $2 " " $1 " " $3}' | sed -e 's/^[[:space:]]*//' | sort
+# TODO(P0, devx): CloudWatch logs are completely useless, slow, cannot search, really only good for developing.
 
 import datetime
 import os
 import time
 from typing import List, Optional
 from urllib.parse import unquote_plus
+from uuid import UUID
 
 from app.datashare import PersonDataEntry
 from app.emails import (
@@ -63,6 +65,22 @@ def wait_for_sms_email_update():
     #                 break
 
 
+def wait_for_email_updated_on_account(account_id: UUID) -> bool:
+    start_time = time.time()
+    end_time = start_time + 10 * 60  # 10 minutes later
+
+    while time.time() < end_time:
+        if Account.get_by_id(account_id).get_email() is not None:
+            print(f"account {account_id} has email set")
+            return True
+
+        # Wait for 10 seconds
+        print("waiting for user to input their email address")
+        time.sleep(10)
+
+    return False
+
+
 # Second lambda
 def process_transcript_from_data_entry(
     gpt_client: OpenAiClient,
@@ -74,6 +92,13 @@ def process_transcript_from_data_entry(
     people_entries = run_executive_assistant_to_get_drafts(
         gpt_client, full_transcript=data_entry.output_transcript
     )
+
+    # TODO(P0, monitoring): We should catch exceptions thrown to the main function, and do a poor mans opsgenie
+    #   to send an "alert" email.
+    if not wait_for_email_updated_on_account(data_entry.account_id):
+        raise ValueError(
+            f"email missing for account {data_entry.account_id} to process data_entry {data_entry.id}"
+        )
 
     rest_of_the_crowd = []
     for i, person in enumerate(people_entries):
@@ -184,7 +209,7 @@ if __name__ == "__main__":
         open_ai_client = OpenAiClient()
         # open_ai_client.run_prompt(f"test {time.time()}")
 
-        test_case = "email"  # FOR EASY TEST CASE SWITCHING
+        test_case = "app"  # FOR EASY TEST CASE SWITCHING
         orig_data_entry = None
         if test_case == "app":
             app_account = Account.get_or_onboard_for_email("test@voxana.ai")
@@ -196,7 +221,8 @@ if __name__ == "__main__":
             ).execute()
             orig_data_entry = process_app_upload(
                 gpt_client=open_ai_client,
-                audio_filepath="testdata/app-silent-audio.webm",
+                # audio_filepath="testdata/app-silent-audio.webm",
+                audio_filepath="testdata/sequioa-guy.webm",
                 data_entry_id_str=str(app_data_entry_id),
             )
         if test_case == "email":

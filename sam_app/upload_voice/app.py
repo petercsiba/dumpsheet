@@ -102,9 +102,9 @@ def handle_get_request_for_presigned_url(event) -> Dict:
     # Specify the S3 bucket and file name
     bucket_name = "requests-from-api-voxana"
     data_entry_id = uuid.uuid4()
-    file_name = f"{source_ip}/{data_entry_id}"
+    file_name = f"{data_entry_id}"  # used to include IP but got confusing
     print(
-        f"received request from {anonymous_identifier} generating upload permissions for {file_name}"
+        f"received upload request for data entry {data_entry_id} from {anonymous_identifier}"
     )
     # We should get this from the request
     content_type = "audio/webm"
@@ -141,7 +141,7 @@ def handle_get_request_for_presigned_url(event) -> Dict:
     inserted = models.BaseDataEntry.insert(
         id=data_entry_id,
         account=acc,
-        display_name=f"Voice recording from {(datetime.datetime.now().strftime('%B %d, %H:%M'))}",
+        display_name=f"Voice recording upload from {(datetime.datetime.now().strftime('%B %d, %H:%M'))}",
         idempotency_id=request_id,
         input_type=content_type,
         input_uri=get_bucket_url(bucket_name=bucket_name, key=file_name),

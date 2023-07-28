@@ -182,6 +182,7 @@ My notes: {}"""
     person.batch_into_one_email = False  # TODO: Revisit this logic
     person.role = raw_summary.get("role", person.role)
     person.industry = raw_summary.get("industry", person.industry)
+    # TODO(P0, ux): Katka wants "key facts" here.
     person.impressions = raw_summary.get("impressions", person.impressions)
     person.their_needs = raw_summary.get("their_needs", person.their_needs)
     person.my_takeaways = raw_summary.get("my_takeaways", person.my_takeaways)
@@ -197,21 +198,26 @@ My notes: {}"""
 
 
 def generate_draft(gpt_client: OpenAiClient, person: PersonDataEntry) -> Optional[str]:
+    # TODO(P1, feature): Eventually this function will get complicated at which point we should revisit
     print(f"generate_draft for {person}")
-    # TODO(P0, ux): From the initial transcript we can get people I talked with (we currently do "people mentioned").
     message_type = "email"
+    message_words = 150
     default_items_to_follow_up = [
         "[assumed] Follow up with brief great to meet you, let me know if I can ever do anything for you!"
     ]
     # default_items_to_follow_up = []
     if person.items_to_follow_up is None:
         # TODO(P1, feature): Items will become sub-tasks for AUTO-GPT like features
+        person.items_to_follow_up = default_items_to_follow_up
         items = default_items_to_follow_up
         message_type = "sms"
+        message_words = 50
     elif isinstance(person.items_to_follow_up, list):
         if len(person.items_to_follow_up) == 0:
+            person.items_to_follow_up = default_items_to_follow_up
             items = default_items_to_follow_up
             message_type = "sms"
+            message_words = 50
         else:
             items = person.items_to_follow_up
     else:
@@ -223,27 +229,29 @@ def generate_draft(gpt_client: OpenAiClient, person: PersonDataEntry) -> Optiona
     if len(items) == 0:
         print(f"NOTE: Nothing to draft for person {person.name}")
         return None
-    items_str = "\n* ".join(items)
+    # TODO(P0, ux): Figure out how to keep the context low
+    # items_str = "\n* ".join(items)
+    items_str = items[0]
 
     # TODO(P1): Personalize the messages to my overall transcript vibes (here its more per-note).
     style = "casual, calm, yet professional person"
     prompt_drafts = """
 Being my personal executive assistant,
 based on my attached notes,
-please draft a brief {message_type} to {name} written in style of
+please draft a brief (up to {message_words} words) {message_type} to {name} written in style of
 a "{style}", adjusted to the talking style from my note.
-Keep it on topic, without too many superlatives.
+Keep it on topic, tone it down.
 
 These are items to address in the {message_type}:
 * {items_str}
 
 Please make sure that:
-* to mention what I enjoyed OR appreciated in the conversation
-* include a fact / a hobby / an interest from our conversation
+* to mention one thing I have enjoyed OR appreciated in the conversation
+* include one fact / a hobby / an interest from our conversation
 * omit, i.e. do not include any sensitive information like money
-* only use facts provided in the note, don't make up things
 
 My note {note}""".format(
+        message_words=message_words,
         message_type=message_type,
         name=person.name,
         style=style,
