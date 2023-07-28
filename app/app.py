@@ -4,6 +4,7 @@
 
 import datetime
 import os
+import re
 import time
 from typing import List, Optional
 from urllib.parse import unquote_plus
@@ -131,6 +132,22 @@ def process_transcript_from_data_entry(
     return people_entries
 
 
+def parse_uuid_from_string(input_string):
+    uuid_pattern = re.compile(
+        r"[0-9a-f]{8}-"
+        r"[0-9a-f]{4}-"
+        r"4[0-9a-f]{3}-"
+        r"[89ab][0-9a-f]{3}-"
+        r"[0-9a-f]{12}",
+        re.IGNORECASE,
+    )
+    match = uuid_pattern.search(input_string)
+    if match:
+        return UUID(match.group())
+    else:
+        return None
+
+
 def lambda_handler(event, context):
     # Get the bucket name and file key from the event
     try:
@@ -154,10 +171,12 @@ def lambda_handler(event, context):
     if bucket == APP_UPLOADS_BUCKET:
         download_path = "/tmp/{}".format(os.path.basename(key))
         s3.download_file(bucket, key, download_path)
+        # it can include folders, file extensions and such; ideally it should have metadata but unsure with presigned
+        data_entry_id = parse_uuid_from_string(key)
         data_entry = process_app_upload(
             gpt_client=gpt_client,
             audio_filepath=download_path,
-            data_entry_id_str=key,
+            data_entry_id=data_entry_id,
         )
     elif bucket == EMAIL_BUCKET:
         raw_email = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
@@ -219,11 +238,14 @@ if __name__ == "__main__":
                 idempotency_id=f"message-id-{time.time()}",
                 input_type="app_upload",
             ).execute()
+            test_parsing_too = parse_uuid_from_string(
+                f"folder/{app_data_entry_id}.webm"
+            )
             orig_data_entry = process_app_upload(
                 gpt_client=open_ai_client,
                 # audio_filepath="testdata/app-silent-audio.webm",
                 audio_filepath="testdata/sequioa-guy.webm",
-                data_entry_id_str=str(app_data_entry_id),
+                data_entry_id=test_parsing_too,
             )
         if test_case == "email":
             # with open("testdata/katka-new-draft-test", "rb") as handle:

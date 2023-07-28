@@ -102,7 +102,7 @@ def handle_get_request_for_presigned_url(event) -> Dict:
     # Specify the S3 bucket and file name
     bucket_name = "requests-from-api-voxana"
     data_entry_id = uuid.uuid4()
-    file_name = f"{data_entry_id}"  # used to include IP but got confusing
+    file_name = f"{data_entry_id}.webm"  # used to include IP but got confusing
     print(
         f"received upload request for data entry {data_entry_id} from {anonymous_identifier}"
     )
