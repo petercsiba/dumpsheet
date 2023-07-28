@@ -74,6 +74,9 @@ class Account(BaseAccount):
         print(f"onboarded account {account}")
         return account
 
+    # TODO(P1, ux/analytics): On second thought, would be better to have Onboarding.account_id,
+    #   we always create the Account, while people can change IPs, or go from App to calls and would be nice
+    #   to link everything to the same account.
     @staticmethod
     def get_or_onboard_for_ip(
         ip_address: str,
