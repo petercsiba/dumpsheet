@@ -1,5 +1,6 @@
 import os
 import random
+import time
 
 from app.app import process_transcript_from_data_entry
 from common.openai_client import OpenAiClient
@@ -27,15 +28,7 @@ def process_file(gpt_client: OpenAiClient, file_contents):
         print("=== draft ===")
         print(person.next_draft)
         print("=== summary ===")
-        summary_fields = {
-            "Name": person.name,
-            "Role": person.role,
-            "Industry": person.industry,
-            "Their Needs": person.their_needs,
-            "My Takeaways": person.my_takeaways,
-            "Suggested Revisit": person.suggested_revisit,
-            "Items to follow up (drafted above)": person.items_to_follow_up,
-        }
+        summary_fields = person.get_summary_fields()
         print(
             "\n * ".join([f"{key}: {value}" for key, value in summary_fields.items()])
         )
@@ -44,10 +37,14 @@ def process_file(gpt_client: OpenAiClient, file_contents):
 dir_path = "testdata/katka-email-data-dump/"
 # Use the os library to get a list of all files in that directory
 file_list = os.listdir(dir_path)
+# Get the current time
+current_time = int(time.time())
+print("===SEED: ", current_time)
+random.seed(current_time)
 random.shuffle(file_list)
 
 with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
-    open_ai_client = OpenAiClient()
+    open_ai_client = OpenAiClient(force_no_print_prompt=True)
 
     # Loop through each file
     for i, file in enumerate(file_list):

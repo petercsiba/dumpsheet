@@ -105,44 +105,54 @@ class PersonDataEntry:
 
     # INPUTS
     # All text mentioning them joined into one string
-    # TODO(P1, devx): This seems to actually by List[str]
     transcript: str = None  # TODO: Deprecate in favor of `note`
 
     # OUTPUTS (TODO: Make it a separate model (or json column) so it can be persisted.
     # Additional structured  items
     # mnemonic: str = None
     # mnemonic_explanation: str = None
-    vibes: str = None  # TODO: Deprecated
     impressions: str = None
     role: str = None
     industry: str = None
-    batch_into_one_email: bool = True  # TODO: we might want to make it a derived field (like P2(later) implies it)
-    priority: str = None  # TODO: Deprecated
     suggested_revisit: str = "P2(later)"
     # Explicitly mentioned actions to take
-    follow_ups: List[str] = field(default_factory=list)  # TODO: Deprecated for below
-    items_to_follow_up: List[str] = field(default_factory=list)
-    my_takeaways: List[str] = field(default_factory=list)
-    # Future-looking feature
-    needs: List[str] = field(default_factory=list)  # TODO: Deprecated
+    key_facts: List[str] = field(default_factory=list)
+    my_action_items: List[str] = field(default_factory=list)
+    suggested_response_item: str = None
+    response_message_type: str = "sms"  # TODO: make this an enum
     their_needs: List[str] = field(default_factory=list)
     # For everything else interesting, their children names, where are they from, what they like
     additional_metadata: Dict[str, any] = field(default_factory=dict)
 
     # These are actual copy-paste-able drafts from the mentioned follow-ups, hard coded list and such
-    # drafts: List[Draft] = field(default_factory=list)  # TODO: Deprecated, we only generate one draft now
     next_draft: Optional[str] = None
 
     parsing_error: str = None
+
+    def get_summary_fields(self) -> Dict[str, str]:
+        return {
+            "Name": self.name,
+            "Role": self.role,
+            "Industry": self.industry,
+            "Their Needs": self.their_needs,
+            "Suggested Response": f"{self.response_message_type} to {self.suggested_response_item}",
+            "My Action Items": self.my_action_items,
+            "Key Facts": self.key_facts,
+            "Suggested Revisit": self.suggested_revisit,
+        }
 
     def get_transcript_text(self, separator="\n") -> str:  # TODO: Deprecated with GPT-4
         return dump_to_lines(self.transcript, separator)
 
     def sort_key(self):
-        return 0 if self.should_show() else 1, -len(str(self.transcript))
+        return 0 if self.should_show_full_contact_card() else 1, -len(
+            str(self.transcript)
+        )
 
     def should_draft(self):
-        return self.should_show()  # and safe_none_or_empty(self.items_to_follow_up)
+        return self.should_show_full_contact_card() and bool(
+            self.suggested_response_item
+        )
 
-    def should_show(self):
+    def should_show_full_contact_card(self):
         return not bool(self.parsing_error)

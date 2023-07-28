@@ -54,7 +54,7 @@ def extract_everyone_i_have_talked_to(
         print("WARNING: Likely no people found in the input transcript")
         return []
     people = gpt_response_to_json_list(raw_response)
-    print(f"People: {json.dumps(people)}")
+    print(f"==PEOPLE I TALKED TO: {json.dumps(people)}")
     return people
 
 
@@ -125,13 +125,14 @@ summary_fields_preset = {
     "industry": "which business area they specialize in professionally",
     "impressions": "my first impression of them summarized into one sentence",
     "their_needs": "list of what the person is looking for, null for empty",
-    "my_takeaways": "list of my learnings, action items which should stay private to me",
-    # Will need to improve this by better classification of the note
-    "items_to_follow_up": (
-        "list of items i explicitly mention which need my response to the person, "
-        "ignore items which are already in my_takeaways, null if no items"
+    "key_facts": "list of key facts each fact in a super-short up to 5 word brief, null for empty",
+    "my_action_items": "list of action items I explicitly assigned myself to address after the meeting, null for empty",
+    "suggested_response_item": (
+        "one key topic or item for my follow up response to the person, "
+        "default to 'great to meet you, let me know if I can ever do anything for you'"
     ),
-    "suggested_revisit": "priority of when should i respond to them, PO(today), P1(end of week), P2(later)",
+    "response_message_type": "best message channel like email, sms, linkedin, whatsapp for me to respond on",
+    "suggested_revisit": "priority of when should i respond to them, PO (today), P1 (end of week), P2 (later)",
 }
 
 
@@ -141,8 +142,8 @@ def summarize_note_to_person_data_entry(
     query_summarize = """
 I want to structure the following note about {}
 into a single json dictionary with the following key value pairs: {}
-
-Output only the json dictionary.
+Keep it brief to the point.
+Output only the resulting json dictionary.
 My notes: {}"""
     person = PersonDataEntry()
     person.name = name
@@ -173,17 +174,20 @@ My notes: {}"""
         return person
 
     # person.mnemonic = raw_summary.get("mnemonic", None)
-    # person.mnemonic_explanation = raw_summary.get("mnemonic_explanation", None)
-    person.batch_into_one_email = False  # TODO: Revisit this logic
+    # person.mnemonic_explanation = raw_summary.get("mnemonic_explanation", None)c
     person.role = raw_summary.get("role", person.role)
     person.industry = raw_summary.get("industry", person.industry)
-    # TODO(P0, ux): Katka wants "key facts" here.
     person.impressions = raw_summary.get("impressions", person.impressions)
-    person.their_needs = raw_summary.get("their_needs", person.their_needs)
-    person.my_takeaways = raw_summary.get("my_takeaways", person.my_takeaways)
-    person.items_to_follow_up = raw_summary.get(
-        "items_to_follow_up", person.items_to_follow_up
+    person.key_facts = raw_summary.get("key_facts", person.key_facts)
+    person.my_action_items = raw_summary.get("my_action_items", person.my_action_items)
+    person.suggested_response_item = raw_summary.get(
+        "suggested_response_item", person.suggested_response_item
     )
+    person.response_message_type = raw_summary.get("response_message_type")
+    if person.response_message_type is None:
+        person.response_message_type = "sms"
+    person.response_message_type.lower()
+    person.their_needs = raw_summary.get("their_needs", person.their_needs)
     person.suggested_revisit = raw_summary.get(
         "suggested_revisit", person.suggested_revisit
     )
@@ -194,63 +198,47 @@ My notes: {}"""
 
 def generate_draft(gpt_client: OpenAiClient, person: PersonDataEntry) -> Optional[str]:
     # TODO(P1, feature): Eventually this function will get complicated at which point we should revisit
-    print(f"generate_draft for {person}")
-    message_type = "email"
-    message_words = 150
-    default_items_to_follow_up = [
-        "[assumed] Follow up with brief great to meet you, let me know if I can ever do anything for you!"
-    ]
-    # default_items_to_follow_up = []
-    if person.items_to_follow_up is None:
-        # TODO(P1, feature): Items will become sub-tasks for AUTO-GPT like features
-        person.items_to_follow_up = default_items_to_follow_up
-        items = default_items_to_follow_up
-        message_type = "sms"
-        message_words = 50
-    elif isinstance(person.items_to_follow_up, list):
-        if len(person.items_to_follow_up) == 0:
-            person.items_to_follow_up = default_items_to_follow_up
-            items = default_items_to_follow_up
-            message_type = "sms"
-            message_words = 50
-        else:
-            items = person.items_to_follow_up
-    else:
-        print(
-            f"WARNING: Unexpected items type {type(person.items_to_follow_up)} for {person.name}"
-        )
-        items = [str(person.items_to_follow_up)]
-
-    if len(items) == 0:
-        print(f"NOTE: Nothing to draft for person {person.name}")
+    print(f"generate_draft for {person.name}")
+    if person.suggested_response_item is None:
+        print(f"WARNING: no suggested response item for {person.name}")
         return None
-    # TODO(P0, ux): Figure out how to keep the context low
-    # items_str = "\n* ".join(items)
-    items_str = items[0]
+    response_item = person.suggested_response_item
+
+    # 41. 90% of leads are preferred to be texted, as compared to be called.
+    # 42. In business, SMS response rates are 295% higher than the rates from the phone calls.
+    message_type_to_template = {
+        "email": "400 characters one paragraph email; as a casual, calm, friendly silicon valley executive",
+        "linkedin": "300 characters one paragraph linkedin outreach; as a casual, calm, friendly, professional",
+        "whatsapp": "200 characters sms message; as a friendly, to the point, yet professional person",
+        "sms": "150 characters message; as a witty, to the point, friendly, yet professional person",
+    }
+    message_type = (
+        person.response_message_type
+        if person.response_message_type in message_type_to_template
+        else "email"
+    )
+    template = message_type_to_template[message_type]
 
     # TODO(P1): Personalize the messages to my overall transcript vibes (here its more per-note).
-    style = "casual, calm, yet professional person"
+    style = ""
     prompt_drafts = """
 Being my personal executive assistant,
 based on my attached notes,
-please draft a brief (up to {message_words} words) {message_type} to {name} written in style of
-a "{style}", adjusted to the talking style from my note.
+please draft a {template} to {name} i met as a response to address {response_item}
+written in style of a "{style}", adjusted to the talking style from my note.
 Keep it on topic, tone it down.
 
-These are items to address in the {message_type}:
-* {items_str}
-
 Please make sure that:
-* to mention one thing I have enjoyed OR appreciated in the conversation
-* include one fact / a hobby / an interest from our conversation
-* omit, i.e. do not include any sensitive information like money
+* to mention one thing I have enjoyed OR appreciated in the conversation to show that i care
+* include one fact from our conversation to show i that i am listening
+* omit sensitive information like money
+* do not use buzzwords or filler words like interesting, meaningful, intriguing
 
 My note {note}""".format(
-        message_words=message_words,
-        message_type=message_type,
+        template=template,
         name=person.name,
+        response_item=response_item,
         style=style,
-        items_str=items_str,
         note=person.transcript,
     )
     raw_response = gpt_client.run_prompt(prompt_drafts)
@@ -310,5 +298,13 @@ def run_executive_assistant_to_get_drafts(
     # Sort by priority, these are now P0, P1 so do it ascending.
     person_data_entries = sorted(person_data_entries, key=lambda pde: pde.sort_key())
 
-    print(json.dumps([asdict(pde) for pde in person_data_entries if pde.should_show()]))
+    print(
+        json.dumps(
+            [
+                asdict(pde)
+                for pde in person_data_entries
+                if pde.should_show_full_contact_card()
+            ]
+        )
+    )
     return person_data_entries

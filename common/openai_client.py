@@ -153,10 +153,10 @@ class PromptCache:
 
 
 class OpenAiClient:
-    def __init__(self):
+    def __init__(self, force_no_print_prompt=False):
         print("OpenAiClient init")
         # In-memory representation of the above to mostly sum up stats.
-        self.force_no_print_prompt = False
+        self.force_no_print_prompt = force_no_print_prompt
         self.prompt_stats: List[PromptLog] = []
 
     def _should_print_prompt(self, print_prompt_arg: bool):

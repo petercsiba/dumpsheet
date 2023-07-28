@@ -362,15 +362,7 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
         subject_prefix = "Takeaways from"
         next_draft_html = ""  # nothing to draft, just to research / act on
 
-    summary_fields = {
-        "Name": person.name,
-        "Role": person.role,
-        "Industry": person.industry,
-        "Their Needs": person.their_needs,
-        "My Takeaways": person.my_takeaways,
-        "Suggested Revisit": person.suggested_revisit,
-        "Items to follow up": person.items_to_follow_up,
-    }
+    summary_fields = person.get_summary_fields()
     summary_rows = []
     for key, value in summary_fields.items():
         if len(str(value)) <= 1:
@@ -389,7 +381,7 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
             summary_rows.append(_summary_table_row(key, f"<ul>{li_items}</ul>"))
 
     # Join the list items into a single string
-    if person.should_show():
+    if person.should_show_full_contact_card():
         summary_html = (
             '<table style="border: 1px solid black;">'
             + "".join(summary_rows)

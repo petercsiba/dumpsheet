@@ -105,7 +105,7 @@ def process_transcript_from_data_entry(
 
     rest_of_the_crowd = []
     for i, person in enumerate(people_entries):
-        if not person.should_show():
+        if not person.should_show_full_contact_card():
             rest_of_the_crowd.append(person)
             continue
         # if user.contact_method() == "email":
