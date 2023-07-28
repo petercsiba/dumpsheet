@@ -14,26 +14,21 @@ from common.openai_client import (
 # Min transcript size somewhat trims down on "hallucinations"
 MIN_FULL_TRANSCRIPT_CHAR_LENGTH = 100
 MIN_PERSON_TRANSCRIPT_CHAR_LENGTH = 80
-# TODO(P1, features): Go bi-model with Claude which can handle 100k tokens for longer dumps
-#  https://www.anthropic.com/index/claude-2
 MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
 
 
-# TODO(P0, ux): We should extract the full named entity graph here (node, person/company/...), (edge, "relationship")
-#   here extraction might be simple, but to actually make it valuable might be harder.
 # TODO(P1, devx): Historically, this query give me most of the headaches.
-#   * GPT-4 suggests using Named Entity Recognition (NER)
+#   * GPT-4 suggests using Named Entity Recognition (NER) - with nodes and edges.
 #   * If it remains a problem - maybe just do it one-by-one, screw token cost.
-def named_entity_recognition(gpt_client: OpenAiClient, full_transcript: str) -> List:
+def extract_everyone_i_have_talked_to(
+    gpt_client: OpenAiClient, full_transcript: str
+) -> List:
     # NOTE: We shorten the string by words cause easier, but we better estimate the token count by OpenAI counter.
     token_count = num_tokens_from_string(full_transcript)
-    # TODO(P1, ux): Transcript has 1 words
-    #   GPT: Since your note is empty, there are no names to extract.
-    #        Please provide a note with the names you want me to process.
     print(f"Transcript has {token_count} words")
 
     # Make sure to include the whole string without gaps.
-    # TODO(P1, quality): Eventually we would need to implement processing a larger input.
+    # TODO(P1, quality): Eventually we would need to implement processing a larger input (Claude, or split it up).
     if token_count > MAX_TRANSCRIPT_TOKEN_COUNT:
         print(
             f"ERROR: raw_transcript too long ({token_count}), truncating to {MAX_TRANSCRIPT_TOKEN_COUNT}"
@@ -46,11 +41,11 @@ def named_entity_recognition(gpt_client: OpenAiClient, full_transcript: str) -> 
     # https://openai.com/blog/function-calling-and-other-api-updates
     # TODO(P0, ux): Still often-times it treats "Katka" and "Katka Sabo" as different people.
     query_people = """
-    Find all the people mentioned in my note,
-    be careful that I might be referring to the same person differently in which case please use their fullest name.
-    For all those people, please output a valid json list of strings
-    where each element contains a name or a short unique descriptive identifier of that person".
-    My note: {}
+    This is a voice note from a meeting or event where I talked to one or multiple people.
+    List everybody I have directly talked to, omit mentions of other people in our conversation.
+    Output a valid json list of strings of the people I have directly talked to
+    - sometimes I don't recall their names so use a short description.
+    Voice transcript of our meeting: {}
         """.format(
         full_transcript
     )
@@ -287,7 +282,7 @@ def run_executive_assistant_to_get_drafts(
     token_count = num_tokens_from_string(full_transcript)
     print(f"extract_context_per_person on raw_transcript of {token_count} token count")
 
-    people = named_entity_recognition(gpt_client, full_transcript)
+    people = extract_everyone_i_have_talked_to(gpt_client, full_transcript)
     if len(people) == 0:
         return []
 

@@ -465,16 +465,15 @@ def gpt_response_to_json_list(raw_response) -> List:
     # Solves TypeError: unhashable type: 'slice'
     if isinstance(response, dict):
         print(
-            f"WARNING: expected response to be a list, got a dict for {str(response[:100])}"
+            f"WARNING: expected response to be a list, got a dict for {str(response)[:100]}. Only using values."
         )
-        res = [f"{key}: {value}" for key, value in response.items()]
+        return [f"{value}" for key, value in response.items()]
     elif isinstance(response, list):
         # Sometimes it's a list of dicts, so convert each person object to just a plain string.
-        res = [gpt_response_to_plaintext(str(person)) for person in response]
-    else:
-        print(f"ERROR response got un-expected type {type(response)}: {response}")
-        return []
-    return res
+        return [gpt_response_to_plaintext(str(person)) for person in response]
+
+    print(f"ERROR response got un-expected type {type(response)}: {response}")
+    return []
 
 
 # When you expect a string, but you don't quite get it such from chat-gpt.
