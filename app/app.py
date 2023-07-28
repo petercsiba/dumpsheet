@@ -6,6 +6,7 @@ import datetime
 import os
 import re
 import time
+import uuid
 from typing import List, Optional
 from urllib.parse import unquote_plus
 from uuid import UUID
@@ -15,6 +16,7 @@ from app.emails import (
     send_result,
     send_result_no_people_found,
     send_result_rest_of_the_crowd,
+    send_technical_failure_email,
 )
 from app.networking_dump import run_executive_assistant_to_get_drafts
 from common.aws_utils import get_boto_s3_client, get_bucket_url
@@ -148,7 +150,7 @@ def parse_uuid_from_string(input_string):
         return None
 
 
-def lambda_handler(event, context):
+def lambda_handler_wrapper(event, context):
     # Get the bucket name and file key from the event
     try:
         bucket = event["Records"][0]["s3"]["bucket"]["name"]
@@ -222,6 +224,29 @@ def lambda_handler(event, context):
         twilio_client=twilio_client,
         data_entry=data_entry,
     )
+
+
+def _event_idempotency_id(event):
+    # Check if this is an API Gateway Event
+    if "requestContext" in event and "requestId" in event["requestContext"]:
+        idempotency_key = event["requestContext"]["requestId"]
+    # Check if this is an S3 Event
+    elif (
+        "Records" in event
+        and len(event["Records"]) > 0
+        and "eventID" in event["Records"][0]
+    ):
+        idempotency_key = event["Records"][0]["eventID"]
+    else:
+        idempotency_key = uuid.uuid4()
+    return idempotency_key
+
+
+def lambda_handler(event, context):
+    try:
+        lambda_handler_wrapper(event, context)
+    except Exception as err:
+        send_technical_failure_email(err, _event_idempotency_id(event))
 
 
 # For local testing without emails or S3, great for bigger refactors.

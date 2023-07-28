@@ -8,7 +8,9 @@ load_dotenv()
 DEFAULT_REGION = "us-west-2"
 
 # EMAIL Stuff
+NO_REPLY_EMAIL = "No Reply <no-reply@mail.voxana.ai>"
 SENDER_EMAIL = "Voxana Assistant <assistant@mail.voxana.ai>"  # From:
+SENDER_EMAIL_ALERTS = "Poor Mans Opsgenie <alerts@mail.voxana.ai>"  # From:
 SUPPORT_EMAIL = "Voxana.AI <support@voxana.ai>"
 DEBUG_RECIPIENTS = ["email-archive@voxana.ai"]
 RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS = int(

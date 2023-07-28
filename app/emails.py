@@ -4,6 +4,7 @@
 import os
 import re
 import traceback
+import uuid
 from email.header import decode_header
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -17,7 +18,13 @@ from bs4 import BeautifulSoup
 
 from app.datashare import PersonDataEntry
 from common.aws_utils import is_running_in_aws
-from common.config import DEBUG_RECIPIENTS, SENDER_EMAIL, SUPPORT_EMAIL
+from common.config import (
+    DEBUG_RECIPIENTS,
+    NO_REPLY_EMAIL,
+    SENDER_EMAIL,
+    SENDER_EMAIL_ALERTS,
+    SUPPORT_EMAIL,
+)
 from common.storage_utils import pretty_filesize_path
 from database.email_log import EmailLog
 
@@ -460,4 +467,26 @@ def send_result_no_people_found(
         full_transcript=full_transcript, signature=add_signature()
     )
 
+    return send_email(params=email_params)
+
+
+def send_technical_failure_email(
+    err: Exception, idempotency_id: str = str(uuid.uuid4())
+) -> bool:
+    # Gets the most recent Exception, get it ASAP as I know my code quality
+    trace = traceback.format_exc()
+    subject = str(err)
+    if len(subject) > 100:
+        subject = subject[:97] + "..."
+
+    email_params = EmailLog(
+        sender=SENDER_EMAIL_ALERTS,
+        recipient="petherz@gmail.com",
+        recipient_full_name="Peter Csiba",
+        subject=f"[ERROR] Voxana Docker Lambda: {subject}",
+        reply_to=NO_REPLY_EMAIL,  # We skip the orig_to_address, as that would trigger another transcription.
+        idempotency_id=idempotency_id,
+    )
+    # TODO(devx, P0): Would be great to include last 10 log messages for even faster debugging.
+    email_params.body_text = f"<p>{str(err)}</p>" + trace.replace("\n", "<br />")
     return send_email(params=email_params)
