@@ -131,6 +131,7 @@ class Account(BaseAccount):
             return account
 
         print(f"onboarding account for phone {phone}")
+        # TODO(ux, P1): We should support multi-channel onboarding (identity management is tough!)
         onboarding = BaseOnboarding.insert(phone=phone, **onboarding_kwargs).execute()
         account_id = (
             BaseAccount.insert(

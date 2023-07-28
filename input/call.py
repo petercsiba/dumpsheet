@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 from typing import Optional
 
 from common.config import SUPPORT_EMAIL
@@ -8,6 +9,17 @@ from common.twillio_client import TwilioClient
 from database.account import Account
 from database.models import BaseDataEntry
 from input.common import ffmpeg_convert_audio_to_mp4
+
+
+def strip_empty_tokens(text):
+    empty_tokens = ["none", "undefined", "null"]
+    # Create a regex pattern that matches the empty tokens, case insensitive
+    pattern = re.compile(
+        "|".join("\\b{}\\b".format(token) for token in empty_tokens), re.IGNORECASE
+    )
+    # Substitute all matches with an empty string
+    stripped_text = pattern.sub("", text)
+    return stripped_text.strip()  # Remove leading/trailing white space
 
 
 def process_voice_recording_input(
@@ -21,6 +33,9 @@ def process_voice_recording_input(
     full_name: str,
     phone_carrier_info: Optional[str] = None,
 ) -> BaseDataEntry:
+    full_name = strip_empty_tokens(
+        full_name
+    )  # Sometimes getting "Undefined Peter Csiba"
     account = Account.get_or_onboard_for_phone(
         phone=phone_number,
         full_name=full_name,
