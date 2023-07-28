@@ -5,8 +5,9 @@ module.exports = {
     extend: {
       colors: {
         // 'accent-1': '#333',
-        'accent-1': '#981161',  // Tailwind default purple is a855f7
-        'purple': '#a21063',  // gradient [350e47, dd1173]
+        'black': '#191919',
+        'green': '#D0D0CB',
+        'white': '#F0F0EB',
       },
     },
   },

@@ -73,7 +73,7 @@ export default function TodoList({ session }: { session: Session }) {
             setNewTaskText(e.target.value)
           }}
         />
-        <button className="btn-purple" type="submit">
+        <button className="btn-blue" type="submit">
           Add
         </button>
       </form>
