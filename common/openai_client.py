@@ -395,6 +395,7 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
             )
         return None
 
+    # Here do some black-magic regex postprocessing for all previously encountered problems (mostly with GPT 3.5).
     orig_response = raw_response
     # Output: ```json <text> ```
     raw_response = re.sub(
@@ -412,7 +413,8 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
     raw_response = (
         raw_response.replace("',", '",').replace(": '", ': "').replace("'}", '"}')
     )
-    raw_response = raw_response.replace(': ""', ': "').replace('""}', '"}')
+    # See test_gpt_response_to_json
+    # raw_response = raw_response.replace(': ""', ': "').replace('""}', '"}')
     # Sometimes, it includes the input in the response. So only consider what is after "Output"
     match = re.search("(?i)output:", raw_response)
     if match:

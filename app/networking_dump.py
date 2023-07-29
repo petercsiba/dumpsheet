@@ -25,7 +25,12 @@ def extract_everyone_i_have_talked_to(
 ) -> List:
     # NOTE: We shorten the string by words cause easier, but we better estimate the token count by OpenAI counter.
     token_count = num_tokens_from_string(full_transcript)
-    print(f"Transcript has {token_count} words")
+    print(f"Transcript has {token_count} words and {len(full_transcript)} characters")
+
+    # This can happen for either super-short, or silent uploads
+    if len(full_transcript) < 5 or token_count <= 1:
+        print("WARNING: Transcript too short")
+        return []
 
     # Make sure to include the whole string without gaps.
     # TODO(P1, quality): Eventually we would need to implement processing a larger input (Claude, or split it up).
@@ -61,7 +66,7 @@ def extract_everyone_i_have_talked_to(
 # Return a dict(name -> context)
 # My mistake was that I tried to optimize token count, returning only indexes, which made the code very complicated.
 def extract_context_per_person(
-    gpt_client: OpenAiClient, full_transcript: str, people: List
+    gpt_client: OpenAiClient, full_transcript: str, people: List[str]
 ) -> Dict:
     if people is None or len(people) == 0:
         return {}
@@ -89,21 +94,19 @@ Be careful to include all full original substrings with enough context merged in
         )
         raw_response = gpt_client.run_prompt(query_mentions_first_try)
         people = gpt_response_to_json(raw_response)
-        # TODO: Post GPT-4 we might be just able to remove this
-        # if people is None:
-        #     print("WARNING: Could not get substring mentions for the provided folks")
-        #     query_mentions_second_try = query_mentions.format(
-        #         "a valid json map with key equal to persons name and where value"
-        #         "is a string joined of all found mentions",
-        #         sublist_in_query,
-        #         full_transcript,
-        #     )
-        #     raw_response = gpt_client.run_prompt(query_mentions_second_try)
-        #     # TODO(P2, quality): Maybe we should filter out short or one sentence transcripts,
-        #     #   or names which are clearly not humans like "Other European similar organizations".
-        #     people = gpt_response_to_json(raw_response)
-        #     # TODO: Some error handling and defaulting to retry one-by-one? I can see it a recurring theme
-        #     #   of batch gpt failing and retrying with one-by-one.
+        # This is important to get right, so alert.
+        if people is None:
+            raise ValueError(
+                f"couldn't parse people list from raw_response {raw_response}"
+            )
+        # if isinstance(people, list)
+        if isinstance(people, dict):  # expected outcome
+            for name, transcript in people.items():
+                if transcript is None or len(str(transcript)) < 5:
+                    print(
+                        f"WARNING: extracted context for {name} is too short: {transcript}"
+                    )
+
         if len(people) != len(sublist):
             print(
                 f"WARNING: mentions size {len(people)} different from input size {len(sublist)}"

@@ -71,6 +71,10 @@ def test_people_name_extraction():
             "input": who_i_talked_to_test_case_2,
             "output": ["Katka Sabo"],
         },
+        "empty transcript": {
+            "input": ".",  # Yielded ["Janet", "John", "new member of the sales team", "Sarah from HR"]
+            "output": [],
+        },
     }
     for name, test_case in test_cases.items():
         print(f"test_case: {name}")

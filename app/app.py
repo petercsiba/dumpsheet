@@ -1,4 +1,5 @@
 # TODO(P0): (De)prioritize all TODOs lol:
+# TODO(P0): AWS login credentials should live for at least 8 hours, 1 hour is damn short to have annoying re-login
 #   git grep '# TODO' | awk -F: '{print $2 " " $1 " " $3}' | sed -e 's/^[[:space:]]*//' | sort
 # TODO(P0, devx): CloudWatch logs are completely useless, slow, cannot search, really only good for developing.
 
