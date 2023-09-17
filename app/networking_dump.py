@@ -13,6 +13,7 @@ from common.openai_client import (
 
 # Min transcript size somewhat trims down on "hallucinations"
 MIN_FULL_TRANSCRIPT_CHAR_LENGTH = 100
+MIN_FULL_TRANSCRIPT_CHAR_LENGTH_TO_GENERATE_SUMMARY = 200
 MIN_PERSON_TRANSCRIPT_CHAR_LENGTH = 80
 MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
 
@@ -139,8 +140,19 @@ summary_fields_preset = {
 }
 
 
-def summarize_note_to_person_data_entry(
-    gpt_client: OpenAiClient, name: str, note: str
+def summarize_note(gpt_client: OpenAiClient, raw_note: str):
+    return gpt_client.run_prompt(
+        f"""Summarize my following meeting note into a short concise structured output,
+        make sure to include all facts, if needed label those facts
+        so I can review this in a year and know what happened.
+        Only output the result.
+        My raw notes: {raw_note}
+        """
+    )
+
+
+def summarize_raw_note_to_person_data_entry(
+    gpt_client: OpenAiClient, name: str, raw_note: str
 ) -> Optional[PersonDataEntry]:
     query_summarize = """
 I want to structure the following note about {}
@@ -150,10 +162,10 @@ Output only the resulting json dictionary.
 My notes: {}"""
     person = PersonDataEntry()
     person.name = name
-    person.transcript = note
+    person.transcript = raw_note
     print(f"Getting a summary for {person.name}")
     # NOTE: transcript might be a list of strings.
-    len_transcript = len(str(note))
+    len_transcript = len(str(raw_note))
     if len_transcript < MIN_PERSON_TRANSCRIPT_CHAR_LENGTH:
         print(
             f"Skipping summary for {name} as transcript too short: "
@@ -165,7 +177,7 @@ My notes: {}"""
         # TODO(P1, bug): ParsingError: { "name": "Michmucho", "industry": "", "role": "", "vibes": "Unknown",
         #  "priority": 3, "follow_ups": null, "needs": null }
         raw_response = gpt_client.run_prompt(
-            query_summarize.format(name, json.dumps(summary_fields_preset), note),
+            query_summarize.format(name, json.dumps(summary_fields_preset), raw_note),
             print_prompt=True,
         )
         raw_summary = gpt_response_to_json(raw_response)
@@ -193,6 +205,11 @@ My notes: {}"""
     person.their_needs = raw_summary.get("their_needs", person.their_needs)
     person.suggested_revisit = raw_summary.get(
         "suggested_revisit", person.suggested_revisit
+    )
+    person.summarized_note = (
+        raw_note
+        if len(raw_note) < MIN_FULL_TRANSCRIPT_CHAR_LENGTH_TO_GENERATE_SUMMARY
+        else f"(Summarized)\n {summarize_note(gpt_client, raw_note)}"
     )
     # TODO(P1, ux): Custom fields like their children names, or responses to recurring questions from me.
     # person.additional_metadata = {}
@@ -287,8 +304,10 @@ def run_executive_assistant_to_get_drafts(
         return []
 
     person_data_entries: List[PersonDataEntry] = []
-    for name, note in person_to_transcript.items():
-        person_data_entry = summarize_note_to_person_data_entry(gpt_client, name, note)
+    for name, raw_note in person_to_transcript.items():
+        person_data_entry = summarize_raw_note_to_person_data_entry(
+            gpt_client, name, raw_note
+        )
         if person_data_entry is None:
             continue
 

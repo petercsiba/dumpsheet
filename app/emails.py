@@ -282,13 +282,34 @@ def send_email(params: EmailLog) -> bool:
         return False
 
 
+def _format_heading(heading: str) -> str:
+    # Calculate the number of dashes needed on each side
+    num_dashes_each_side = (80 - len(heading) - 2) // 2
+
+    # Ensure there are at least 5 dashes on each side
+    num_dashes_each_side = max(num_dashes_each_side, 5)
+
+    # Construct the formatted string
+    formatted = (
+        "-" * num_dashes_each_side + " " + heading + " " + "-" * num_dashes_each_side
+    )
+
+    # In case of an odd number of dashes, add one more dash to the end
+    if len(formatted) < 80:
+        formatted += "-"
+
+    return f"<p>{formatted}</p>"
+
+
 def add_signature():
     return """
 <br />
-<p>----------------------------</p>
+{support_heading}
 <p>Thank you for using <a href="http://voxana.ai/">Voxana.ai</a> - your executive assistant</p>
 <p>Got any questions? Just hit reply - my human supervisors respond to all emails within 24 hours<p>.
-    """
+    """.format(
+        support_heading=_format_heading("Supported By")
+    )
 
 
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
@@ -352,10 +373,17 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
             # template = "draft"
             subject_prefix = "Drafted Response for"
             next_draft_html = """
-    <p>{}</p>
-    ----------------------------
+    {heading1}
+    <p>{draft}</p>
+    {heading2}
+    {summarized_note}
     """.format(
-                person.next_draft.replace("\n", "<br />")
+                heading1=_format_heading(
+                    f"Drafted {person.response_message_type} response to {person.name}"
+                ),
+                draft=person.next_draft.replace("\n", "<br />"),
+                heading2=_format_heading("Your notes"),
+                summarized_note=person.summarized_note.replace("\n", "<br />"),
             )
     if should_takeaways:
         # template = "takeaways"
@@ -383,7 +411,8 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
     # Join the list items into a single string
     if person.should_show_full_contact_card():
         summary_html = (
-            '<table style="border: 1px solid black;">'
+            _format_heading("Contact card for your CRM (Excel)")
+            + '<table style="border: 1px solid black;">'
             + "".join(summary_rows)
             + "</table>"
         )

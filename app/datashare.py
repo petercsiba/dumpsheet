@@ -119,6 +119,7 @@ class PersonDataEntry:
     key_facts: List[str] = field(default_factory=list)
     my_action_items: List[str] = field(default_factory=list)
     suggested_response_item: str = None
+    summarized_note: str = ""
     response_message_type: str = "sms"  # TODO: make this an enum
     their_needs: List[str] = field(default_factory=list)
     # For everything else interesting, their children names, where are they from, what they like
