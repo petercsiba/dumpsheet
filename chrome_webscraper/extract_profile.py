@@ -36,6 +36,7 @@ def split_text(text, chunk_size=2500, overlap=400):
 
 
 def extract_profile_data(gpt_client: OpenAiClient, text_only_data: str) -> Dict:
+    print(f"extract_profile_data from {len(text_only_data)} bytes of data")
     chunks = split_text(text_only_data)
     first_result = None
     results = {}
@@ -57,6 +58,8 @@ text: {}"""
         query = query_template.format(name, chunk)
         result = gpt_client.run_prompt(query, print_prompt=True)
         result_dict = gpt_response_to_json(result)
+        if result_dict is None:
+            result_dict = {}
         if first_result is None:
             first_result = result_dict
 
