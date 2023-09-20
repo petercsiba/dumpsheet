@@ -3,12 +3,12 @@ import React, { useState, FC } from 'react';
 interface CollectEmailProcessingInfoProps {
     collectEmail: boolean | null;
     existingEmail: string | null;
-    accountId: string;
+    accountId: string | null;
 }
 
 const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
 
-const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ collectEmail, existingEmail, accountId }) => {
+const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ collectEmail, existingEmail, accountId}) => {
     const [email, setEmail] = useState('');
     const [message, setMessage] = useState('');
     const [submitted, setSubmitted] = useState(false);
@@ -45,9 +45,12 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
                 setShowForm(false)
             }
         } catch (err) {
-            setMessage(`Please send the error message "${err}" alongside the reference ${accountId} to support@voxana.ai. Apologies for inconvenience`);
+            setMessage(`Ugh - an error occurred. 
+            Rest assured - you can download the recording with the "Download button" and send it to ai@voxana.ai.`);
             setShowForm(false)
-            console.error(err);
+            console.error(`
+                Please send the error message "${err}" alongside the reference ${accountId} to support@voxana.ai. Apologies for inconvenience`
+            );
         }
     };
 
