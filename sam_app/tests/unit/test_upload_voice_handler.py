@@ -103,7 +103,7 @@ def test_lambda_handler_post_upload_voice(db_connection):
     ret = app.lambda_handler(req, "")
     assert ret["statusCode"] == 200
 
-    updated_onboarding = BaseOnboarding.get_by_id(orig_account.onboarding)
+    updated_onboarding = BaseOnboarding.get(BaseOnboarding.account == orig_account)
     expected_email = "petherz+test1@gmail.com"
     assert updated_onboarding.email == expected_email
     # Test some extra functionality on the Account class for more confidence in my sleep
@@ -111,6 +111,52 @@ def test_lambda_handler_post_upload_voice(db_connection):
     assert updated_account.get_email() == expected_email
     assert Account.get_by_email_or_none(expected_email).id == orig_account.id
     assert Account.get_or_onboard_for_email(expected_email).id == orig_account.id
+
+    # Cannot reset email to other just like that
+    req = get_event_fixture(
+        "POST",
+        "/upload/voice",
+        {"email": "tryingtopwn@gmail.com", "account_id": str(orig_account.id)},
+    )
+    ret = app.lambda_handler(req, "")
+    assert ret["statusCode"] == 409
+    assert (
+        ret["body"]["error"]
+        == "requested account is claimed by a different a email address"
+    )
+
+
+def test_lambda_handler_post_upload_voice_new_account_same_email(db_connection):
+    orig_account = Account.get_or_onboard_for_ip("127.0.0.1")
+    orig_onboarding = BaseOnboarding.get(BaseOnboarding.account == orig_account)
+    orig_onboarding.email = "existing@gmail.com"
+    orig_onboarding.save()
+    new_account = Account.get_or_onboard_for_ip("127.0.0.2")
+    new_onboarding = BaseOnboarding.get(BaseOnboarding.account == new_account)
+    # Double-check setup
+    assert orig_account.id != new_account.id
+    assert orig_onboarding.account_id != new_onboarding.account_id
+    assert orig_account.get_email() == "existing@gmail.com"
+    print(
+        f"orig:({orig_onboarding.id}, {orig_account.id}) new:({new_onboarding.id}, {new_account.id})"
+    )
+
+    # Other un-claimed onboarding / account pair wants to have the same email
+    req = get_event_fixture(
+        "POST",
+        "/upload/voice",
+        {"email": "existing@gmail.com", "account_id": str(new_account.id)},
+    )
+    ret = app.lambda_handler(req, "")
+    assert ret["statusCode"] == 200
+
+    # The new onboarding got updated
+    updated_onboarding = BaseOnboarding.get_by_id(new_onboarding.id)
+    assert updated_onboarding.email == "existing@gmail.com"
+    assert updated_onboarding.account_id == orig_account.id
+
+    # No onboarding points to it
+    assert BaseOnboarding.get_or_none(BaseOnboarding.account == new_account) is None
 
 
 def test_lambda_handler_call_set_email(db_connection):

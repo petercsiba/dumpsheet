@@ -19,4 +19,4 @@ Lifecycle for first-time users
 * For the email input response:
   * Twilio function takes it, calls AWS API Gateway `POST sms/set-email` with credentials
   * Best effort parses the email address and verifies correctness
-  * Updates the Account.Onboarding.email
+  * Updates the Onboarding.email

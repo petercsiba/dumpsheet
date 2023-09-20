@@ -14,6 +14,7 @@ from botocore.exceptions import NoCredentialsError
 # Ideally, we would set up an AWS Lambda Layer, but I failed to achieve this.
 from database import account, data_entry, models
 from database.client import connect_to_postgres_i_will_call_disconnect_i_promise
+from database.models import BaseDataEntry, BaseEmailLog
 
 s3 = boto3.client("s3")
 
@@ -163,33 +164,64 @@ def handle_post_request_for_update_email(event: Dict) -> Dict:
         return craft_error(400, "both email and account_id parameters are required")
     print(f"handle_post_request_for_update_email {email}:{account_id}")
 
+    print(f"looking for account with id {account_id}")
+    acc = account.Account.get_or_none(account.Account.id == account_id)
+    if acc is None:
+        return craft_error(404, "account not found")
+    existing_email = acc.get_email()
+
+    # so we can set it for its Onboarding object.
+    onboarding = models.BaseOnboarding.get_or_none(models.BaseOnboarding.account == acc)
+    if not bool(onboarding):
+        return craft_error(404, "onboarding not found")
+
     # We want to be careful with this update as handling identities must be robust
-    # 1. Check if such email already exists
-    email_used_for = account.Account.get_by_email_or_none(email)
-    if bool(email_used_for):
+    # 1. Check if such email already has an account (in theory there can be multiple onboardings for the same email)
+    acc_for_email = account.Account.get_by_email_or_none(email)
+    if bool(acc_for_email):
         # However, if you want to indicate that the resource was already created prior to the request,
         # there isn't a specific HTTP status code for this situation.
-        if email_used_for.id != account_id:
-            msg = f"account for {email} already exists"
-            return craft_error(409, msg)
-        return craft_info(200, "account already exists for the provided email")
+        if acc_for_email.id == account_id:
+            return craft_info(200, "account already exists with the provided email")
+        if bool(existing_email) and existing_email != email:
+            return craft_error(
+                409, "requested account is claimed by a different a email address"
+            )
+        try:
+            # Different accounts, same email.
+            # account.Account.merge_in(acc_for_email.id, account_id)
+            new_account_id = acc_for_email.id
+            onboarding.account_id = new_account_id
+            onboarding.email = email
+            onboarding.save()
+            num_de = (
+                BaseDataEntry.update(account_id=new_account_id)
+                .where(BaseDataEntry.account_id == account_id)
+                .execute()
+            )
+            num_el = (
+                BaseEmailLog.update(account_id=new_account_id)
+                .where(BaseEmailLog.account_id == account_id)
+                .execute()
+            )
+            print(
+                f"Updated 1 onboardings, {num_de} data entries and {num_el} email logs"
+            )
+            return craft_info(200, "account merged into existing")
+        except Exception as e:
+            return craft_error(500, f"could not merge accounts cause {e}")
 
-    # 2. Vice-versa, check that account if already has claimed email
-    print(f"looking for account with id {account_id}")
-    existing_account = account.Account.get_or_none(account.Account.id == account_id)
-    if existing_account is None:
-        return craft_error(404, "account not found")
-
-    existing_email = existing_account.get_email()
+    # 2. Vice-versa, prevent overriding emails for existing acc by checking that account if already has claimed email
     if bool(existing_email):
         if existing_email != email:
-            return craft_error(409, "account already claimed")
-        return craft_info(200, "account already exists")
+            return craft_error(
+                409, "requested account is claimed by a different a email address"
+            )
+        return craft_info(200, "account already exists with the provided email")
 
-    # This means existing_account has NO associated User, and we can set it for its Onboarding object.
-    existing_onboarding = existing_account.onboarding
-    existing_onboarding.email = email
-    existing_onboarding.save()
+    # This means existing_account has NO associated User, AND the email is un-used,
+    onboarding.email = email
+    onboarding.save()
     return craft_info(200, "account email updated")
 
 

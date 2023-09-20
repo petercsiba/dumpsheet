@@ -17,3 +17,7 @@ aws ecr get-login-password --region us-east-1 --profile $PROFILE_NAME | docker l
 docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups . || docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups .
 
 docker push 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups:latest
+
+# echo "To finish deploy, log-in to AWS: https://d-90679cf568.awsapps.com/start/"
+
+echo "Go to lambda and select latest container https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/draft-your-follow-ups/edit/image-settings?tab=code"

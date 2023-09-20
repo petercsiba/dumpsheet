@@ -2,6 +2,8 @@ import random
 import string
 from typing import Optional
 
+from peewee import DoesNotExist
+
 from database.models import BaseAccount, BaseOnboarding
 from database.user import User
 
@@ -24,18 +26,72 @@ class Account(BaseAccount):
     def get_email(self) -> Optional[str]:
         if bool(self.user):
             return User.get_by_id(self.user).email
-        if bool(self.onboarding):
-            return BaseOnboarding.get_by_id(self.onboarding).email
-        print(f"Account.get_mail: no onboarding nor user for account {self.id}")
+
+        try:
+            onboarding_email = (
+                BaseOnboarding.select()
+                .where(
+                    (BaseOnboarding.account == self.id)
+                    & (BaseOnboarding.email.is_null(False))
+                    & (BaseOnboarding.email != "")
+                )
+                .order_by(BaseOnboarding.created_at.desc())
+                .get()
+                .email
+            )
+            if onboarding_email:
+                return onboarding_email
+        except DoesNotExist:
+            print(f"WARNING: Account.get_mail: no email found for account {self.id}")
         return None
 
     def get_phone(self) -> Optional[str]:
         if bool(self.user):
             return User.get_by_id(self.user).phone
-        if bool(self.onboarding):
-            return BaseOnboarding.get_by_id(self.onboarding).phone
-        print(f"Account.get_phone: no onboarding nor user for account {self.id}")
+
+        try:
+            onboarding_phone = (
+                BaseOnboarding.select()
+                .where(
+                    (BaseOnboarding.account == self.id)
+                    & (BaseOnboarding.phone.is_null(False))
+                    & (BaseOnboarding.phone != "")
+                )
+                .order_by(BaseOnboarding.created_at.desc())
+                .get()
+                .phone
+            )
+            if onboarding_phone:
+                return onboarding_phone
+        except DoesNotExist:
+            print(f"WARNING: Account.get_phone: no phone found for account {self.id}")
+
         return None
+
+    # @staticmethod
+    # # TODO(P2): This feels like a too dangerous function to have around
+    # def merge_in(new_account_id, old_account_id):
+    #     new_account = BaseAccount.get_or_none(BaseAccount.id == new_account_id)
+    #     if new_account is None:
+    #         raise ValueError(f"new_account_id {new_account_id} must exist")
+    #
+    #     old_account = BaseAccount.get_or_none(BaseAccount.id == old_account_id)
+    #     if old_account is None:
+    #         raise ValueError(f"old_account_id {old_account_id} must exist")
+    #
+    #     with database_proxy.transaction() as tx:
+    #         print(f"merging {old_account_id} into {new_account_id}")
+    #         num_onb = BaseOnboarding.update(account_id=new_account_id).where(
+    #           BaseOnboarding.account_id == old_account_id).execute()
+    #         num_de = BaseDataEntry.update(account_id=new_account_id).where(
+    #           BaseDataEntry.account_id == old_account_id).execute()
+    #         num_el = BaseEmailLog.update(account_id=new_account_id).where(
+    #           BaseEmailLog.account_id == old_account_id).execute()
+    #         tx.commit()
+    #
+    #     assert BaseOnboarding.get_or_none(BaseOnboarding.account_id == old_account_id) is None
+    #     # old_account.delete_instance()
+    #     print(f"Account.merge_in updated {num_onb} onboardings, {num_de} data entries and {num_el} email logs")
 
     @staticmethod
     def get_by_email_or_none(email: str) -> Optional["Account"]:
@@ -45,9 +101,15 @@ class Account(BaseAccount):
             return Account.get(Account.user == user)
 
         # For accounts only going through onboarding
-        onboarding = BaseOnboarding.get_or_none(BaseOnboarding.email == email)
+        onboarding = (
+            BaseOnboarding.select()
+            .where(BaseOnboarding.email == email)
+            .order_by(BaseOnboarding.created_at.desc())
+            .limit(1)
+            .first()
+        )
         if bool(onboarding):
-            return Account.get(Account.onboarding == onboarding)
+            return Account.get_by_id(onboarding.account_id)
 
         return None
 
@@ -65,41 +127,39 @@ class Account(BaseAccount):
 
         account = Account.get_by_email_or_none(email)
         if bool(account):
+            print(f"Account already exists for email {email}")
             return account
 
-        print(f"onboarding account for email {email}")
-        onboarding = BaseOnboarding.insert(email=email, **onboarding_kwargs).execute()
+        print(f"Account onboarding for email {email}")
         account_id = (
             BaseAccount.insert(
-                onboarding=onboarding,
                 user=None,  # only during sign up
                 full_name=full_name,
             )
             .on_conflict_ignore()
             .execute()
         )
+        BaseOnboarding.insert(
+            email=email, account_id=account_id, **onboarding_kwargs
+        ).execute()
         account = Account.get_by_id(account_id)
         print(f"onboarded account {account}")
         return account
 
-    # TODO(P1, ux/analytics): On second thought, would be better to have Onboarding.account_id,
-    #   we always create the Account, while people can change IPs, or go from App to calls and would be nice
-    #   to link everything to the same account.
     @staticmethod
     def get_or_onboard_for_ip(
         ip_address: str,
     ) -> "Account":
-        onboarding = BaseOnboarding.get_or_none(BaseOnboarding.ip_address == ip_address)
-        if bool(onboarding):
-            return Account.get(Account.onboarding == onboarding)
-
-        print(f"onboarding account for ip_address {ip_address}")
-        onboarding = BaseOnboarding.insert(ip_address=ip_address).execute()
-        account_id = (
-            BaseAccount.insert(onboarding=onboarding).on_conflict_ignore().execute()
+        onboarding: Optional[BaseOnboarding] = BaseOnboarding.get_or_none(
+            BaseOnboarding.ip_address == ip_address
         )
+        if bool(onboarding):
+            return Account.get_by_id(onboarding.account_id)
+
+        print(f"onboarding new account for ip_address {ip_address}")
+        account_id = BaseAccount.insert().execute()
+        BaseOnboarding.insert(ip_address=ip_address, account_id=account_id).execute()
         account = Account.get_by_id(account_id)
-        print(f"onboarded account {account}")
         return account
 
     @staticmethod
@@ -113,7 +173,7 @@ class Account(BaseAccount):
         # TODO(ux, P1): It is important to use the same canonical phone-number number format (phonenumbers library?)
         onboarding = BaseOnboarding.get_or_none(BaseOnboarding.phone == phone)
         if bool(onboarding):
-            return Account.get(Account.onboarding == onboarding)
+            return Account.get_by_id(onboarding.account_id)
 
         return None
 

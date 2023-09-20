@@ -15,20 +15,6 @@ class BaseModel(Model):
         database = database_proxy
 
 
-class BaseOnboarding(BaseModel):
-    email = TextField(null=True, unique=True)
-    id = BigAutoField()
-    ip_address = TextField(null=True)
-    phone = TextField(null=True, unique=True)
-    phone_carrier_info = TextField(null=True)
-    referer = TextField(null=True)
-    utm_source = TextField(null=True)
-
-    class Meta:
-        schema = "public"
-        table_name = "onboarding"
-
-
 class BaseUsers(BaseModel):
     aud = CharField(null=True)
     banned_until = DateTimeField(null=True)
@@ -75,9 +61,6 @@ class BaseAccount(BaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     full_name = TextField(null=True)
     id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
-    onboarding = ForeignKeyField(
-        column_name="onboarding_id", field="id", model=BaseOnboarding, unique=True
-    )
     user = ForeignKeyField(
         column_name="user_id", field="id", model=BaseUsers, null=True
     )
@@ -85,6 +68,24 @@ class BaseAccount(BaseModel):
     class Meta:
         schema = "public"
         table_name = "account"
+
+
+class BaseOnboarding(BaseModel):
+    account = ForeignKeyField(
+        column_name="account_id", field="id", model=BaseAccount, null=True
+    )
+    email = TextField(null=True, unique=True)
+    id = BigAutoField()
+    ip_address = TextField(null=True)
+    phone = TextField(null=True, unique=True)
+    phone_carrier_info = TextField(null=True)
+    referer = TextField(null=True)
+    utm_source = TextField(null=True)
+    created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
+
+    class Meta:
+        schema = "public"
+        table_name = "onboarding"
 
 
 class BaseDataEntry(BaseModel):
