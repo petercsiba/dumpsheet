@@ -245,7 +245,9 @@ def handle_post_request_for_call_set_email(event):
 
     existing_email = acc.get_email()
     if existing_email is None:
-        existing_onboarding: models.BaseOnboarding = acc.onboarding
+        existing_onboarding = models.BaseOnboarding.get(
+            models.BaseOnboarding.account_id == acc.id
+        )
         existing_onboarding.email = new_email
         print(f"updating existing onboarding for {phone_number} to {new_email}")
         existing_onboarding.save()

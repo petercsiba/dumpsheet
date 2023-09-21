@@ -120,9 +120,9 @@ def test_lambda_handler_post_upload_voice(db_connection):
     )
     ret = app.lambda_handler(req, "")
     assert ret["statusCode"] == 409
+    body = json.loads(ret["body"])
     assert (
-        ret["body"]["error"]
-        == "requested account is claimed by a different a email address"
+        body["error"] == "requested account is claimed by a different a email address"
     )
 
 
