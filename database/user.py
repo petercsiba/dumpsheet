@@ -22,7 +22,8 @@ class User(BaseUsers):
         db_table = "users"
 
     @staticmethod
-    def exists_by_email(email: str) -> bool:
+    def exists_by_email(email_raw: str) -> bool:
+        email = email_raw.lower()
         return User.select().where(User.email == email).exists()
 
     @staticmethod

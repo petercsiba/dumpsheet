@@ -157,11 +157,12 @@ def handle_get_request_for_presigned_url(event) -> Dict:
 # curl -X POST -d '{email: "petherz+curl@gmail.com", account_id: "f11a156d-2dd1-44a4-83de-3dca117765b8"}' https://api.voxana.ai/upload/voice  # noqa
 def handle_post_request_for_update_email(event: Dict) -> Dict:
     body = json.loads(event["body"])
-    email = body.get("email")
+    email_raw = body.get("email")
     account_id = body.get("account_id")
 
-    if not email or not account_id:
+    if not email_raw or not account_id:
         return craft_error(400, "both email and account_id parameters are required")
+    email = str(email_raw).lower()
     print(f"handle_post_request_for_update_email {email}:{account_id}")
 
     print(f"looking for account with id {account_id}")
@@ -235,9 +236,10 @@ def handle_post_request_for_call_set_email(event):
 
     pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
     match = re.search(pattern, message)
-    new_email = match.group(0) if match else None
-    if new_email is None:
+    new_email_raw = match.group(0) if match else None
+    if new_email_raw is None:
         return craft_error(400, "no email address found in message")
+    new_email = new_email_raw.lower()
 
     acc = account.Account.get_by_phone_or_none(phone_number)
     if acc is None:

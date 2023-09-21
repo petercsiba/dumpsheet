@@ -94,7 +94,8 @@ class Account(BaseAccount):
     #     print(f"Account.merge_in updated {num_onb} onboardings, {num_de} data entries and {num_el} email logs")
 
     @staticmethod
-    def get_by_email_or_none(email: str) -> Optional["Account"]:
+    def get_by_email_or_none(email_raw: str) -> Optional["Account"]:
+        email = email_raw.lower()
         # For accounts which have already explicitly signed up
         user = User.get_or_none(User.email == email)
         if bool(user):
