@@ -1,6 +1,7 @@
-!/bin/bash
+#!/bin/bash
 
 # TEMPLATE_FILE=sam_app/template.yaml
+PROFILE_NAME="AdministratorAccess-831154875375"
 
 # Exit early when any step fails (like pytest fails)
 set -e
@@ -17,8 +18,16 @@ cd sam_app
 
 echo "build the sam stuff (otherwise it could omitted changes to app.py)"
 sam build
+
 echo "deploy it"
-yes | sam deploy --profile AdministratorAccess-831154875375
+
+# Check if logged into AWS CLI by trying to list S3 buckets
+aws s3 ls --profile $PROFILE_NAME > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    aws sso login --profile $PROFILE_NAME
+fi
+
+yes | sam deploy --profile $PROFILE_NAME
 
 echo "curl the endpoint as test"
 curl -X GET https://api.voxana.ai/upload/voice
