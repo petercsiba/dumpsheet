@@ -227,8 +227,8 @@ def generate_draft(gpt_client: OpenAiClient, person: PersonDataEntry) -> Optiona
     # 41. 90% of leads are preferred to be texted, as compared to be called.
     # 42. In business, SMS response rates are 295% higher than the rates from the phone calls.
     message_type_to_template = {
-        "email": "400 characters easy-to-read email; as a casual, calm, friendly executive person",
-        "linkedin": "300 characters linkedin outreach; as a casual, calm, friendly, professional person",
+        "email": "400 characters easy-to-read email to the point; as a casual, calm, friendly executive person",
+        "linkedin": "300 characters linkedin outreach no bullshit; as a casual, calm, friendly, professional person",
         "whatsapp": "200 characters sms message; as a friendly, to the point, yet professional person",
         "sms": "150 characters message; as a witty, to the point, friendly, yet professional person",
     }
