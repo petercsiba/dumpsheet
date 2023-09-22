@@ -227,8 +227,8 @@ def generate_draft(gpt_client: OpenAiClient, person: PersonDataEntry) -> Optiona
     # 41. 90% of leads are preferred to be texted, as compared to be called.
     # 42. In business, SMS response rates are 295% higher than the rates from the phone calls.
     message_type_to_template = {
-        "email": "400 characters one paragraph email; as a casual, calm, friendly silicon valley executive",
-        "linkedin": "300 characters one paragraph linkedin outreach; as a casual, calm, friendly, professional",
+        "email": "400 characters easy-to-read email; as a casual, calm, friendly executive person",
+        "linkedin": "300 characters linkedin outreach; as a casual, calm, friendly, professional person",
         "whatsapp": "200 characters sms message; as a friendly, to the point, yet professional person",
         "sms": "150 characters message; as a witty, to the point, friendly, yet professional person",
     }
@@ -244,7 +244,7 @@ def generate_draft(gpt_client: OpenAiClient, person: PersonDataEntry) -> Optiona
     prompt_drafts = """
 Being my personal executive assistant,
 based on my attached notes,
-please draft a {template} to {name} i met as a response to address {response_item}
+please draft a up to {template} to {name} i met as a response to address {response_item}
 written in style of a "{style}", adjusted to the talking style from my note.
 Keep it on topic, tone it down.
 
