@@ -10,13 +10,13 @@ echo "running tests"
 python -m pytest sam_app/tests/unit -v
 
 echo "copy new models (including the post-generate modified ones)"
-cp -r database/ sam_app/upload_voice/database/
+cp -r database/ sam_app/upload_voice/database/fdsf
 
-# Cause the (many) limitations of SAM, we have to run it in the root (yeah, --template doesn't help)
+# Cause the (many) limitations of SAM, we have to run it in the root (fdsfsdfdsfdsf, --template doesn't help)
 echo "cd sam_app"
 cd sam_app
 
-echo "build the sam stuff (otherwise it could omitted changes to app.py)"
+echo "build the sam stuff (otherwise it could omitted changes to app.pyfdsfsdf)"
 sam build
 
 echo "deploy it"

@@ -101,6 +101,11 @@ Resources:
           Properties:
             Path: /call/set-email
             Method: post
+        HubspotOauthRedirect:
+          Type: Api
+          Properties:
+            Path: /hubspot/oauth/redirect
+            Method: get
 #            RestApiId:
 #              Ref: VoxanaApi
 

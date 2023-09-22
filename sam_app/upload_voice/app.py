@@ -3,7 +3,7 @@ import json
 import os
 import re
 import uuid
-from typing import Dict
+from typing import Dict, Optional
 
 import boto3
 import peewee  # noqa
@@ -71,8 +71,13 @@ def get_bucket_url(bucket_name, key):
     return bucket_url
 
 
-def craft_response(status_code: int, body: Dict) -> Dict:
-    return {"statusCode": status_code, "body": json.dumps(body)}
+def craft_response(
+    status_code: int, body: Dict, headers: Optional[Dict] = None
+) -> Dict:
+    result = {"statusCode": status_code, "body": json.dumps(body)}
+    if bool(headers):
+        result["headers"] = headers
+    return result
 
 
 # NOTE: Please keep the `error_message` brief - do not include ids/values - to mitigate potential malicious action.
@@ -263,8 +268,27 @@ def handle_post_request_for_call_set_email(event):
     )
 
 
+def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
+    print(f"HUBSPOT OAUTH REDIRECT EVENT: {event}")
+    authorization_code = event["queryStringParameters"].get("code", "")
+
+    if not authorization_code:
+        craft_error(400, "Missing authorization code")
+
+    # TODO(P0, peter): Figure out how to store link to this token (through email / user).
+    # store_token(authorization_code)
+
+    return craft_response(
+        200,
+        {"info": "Thank you for using Voxana.AI"},
+        {"Location": "https://your-landing-page.com?status=success"},
+    )
+
+
+# TODO(P1, Peter): Migrate this to a Flask / Django server - this lambda deployment is slowly starting to be ridiculous
 ENDPOINT_VOICE_UPLOAD = "/upload/voice"
 ENDPOINT_CALL_SET_EMAIL = "/call/set-email"
+ENDPOINT_HUBSPOT_OAUTH_REDIRECT = "/hubspot/oauth/redirect"
 
 
 def lambda_handler(event, context):
@@ -304,6 +328,11 @@ def lambda_handler(event, context):
     elif api_endpoint == ENDPOINT_CALL_SET_EMAIL:
         if http_method == "POST":
             response = handle_post_request_for_call_set_email(event)
+        else:
+            raise ValueError(f"Invalid HTTP method: {http_method}")
+    elif api_endpoint == ENDPOINT_CALL_SET_EMAIL:
+        if http_method == "GET":
+            response = handle_get_request_for_hubspot_oauth_redirect(event)
         else:
             raise ValueError(f"Invalid HTTP method: {http_method}")
     else:

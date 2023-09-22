@@ -1,11 +1,13 @@
 beautifulsoup4
 boto3
+hubspot-api-client
 openai
 peewee
 plotly
 psycopg2[binary,pool]
 python-dotenv
 pytz
+requests_oauthlib
 supabase
 tiktoken
 toml
