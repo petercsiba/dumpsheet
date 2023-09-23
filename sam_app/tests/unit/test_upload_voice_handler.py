@@ -11,7 +11,8 @@ from database.client import (
     connect_to_postgres_i_will_call_disconnect_i_promise,
     disconnect_from_postgres_as_i_promised,
 )
-from database.models import BaseOnboarding
+from database.data_entry import STATE_UPLOAD_INTENT
+from database.models import BaseDataEntry, BaseOnboarding
 
 from ...upload_voice import app
 from ...upload_voice.app import TWILIO_FUNCTIONS_API_KEY
@@ -57,6 +58,18 @@ def get_event_fixture(
         },
         "isBase64Encoded": False,
     }
+
+
+def create_data_entry_fixture(
+    account_id: uuid.UUID, input_type: str = "input_type"
+) -> UUID:
+    return BaseDataEntry.insert(
+        account_id=account_id,
+        display_name=f"Data entry for {account_id}",
+        idempotency_id=account_id,
+        input_type=input_type,
+        state=STATE_UPLOAD_INTENT,
+    ).execute()
 
 
 def get_event_for_post_call_set_email(account_id: UUID):
@@ -133,6 +146,8 @@ def test_lambda_handler_post_upload_voice_new_account_same_email(db_connection):
     orig_onboarding.save()
     new_account = Account.get_or_onboard_for_ip("127.0.0.2")
     new_onboarding = BaseOnboarding.get(BaseOnboarding.account == new_account)
+    new_data_entry_id = create_data_entry_fixture(new_account.id)
+
     # Double-check setup
     assert orig_account.id != new_account.id
     assert orig_onboarding.account_id != new_onboarding.account_id
@@ -157,6 +172,10 @@ def test_lambda_handler_post_upload_voice_new_account_same_email(db_connection):
 
     # No onboarding points to it
     assert BaseOnboarding.get_or_none(BaseOnboarding.account == new_account) is None
+
+    # Data entry was updated
+    updated_data_entry = BaseDataEntry.get_by_id(new_data_entry_id)
+    assert updated_data_entry.account_id == orig_account.id
 
 
 def test_lambda_handler_call_set_email(db_connection):

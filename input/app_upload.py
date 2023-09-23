@@ -10,7 +10,7 @@ from input.common import ffmpeg_convert_audio_to_mp4
 def process_app_upload(
     gpt_client: OpenAiClient, audio_filepath: str, data_entry_id: uuid.UUID
 ) -> BaseDataEntry:
-    print(f"process_app_upload for {data_entry_id}")
+    print(f"process_app_upload for data_entry_id {data_entry_id}")
     # First check if everything is fine
     data_entry: BaseDataEntry = BaseDataEntry.get_by_id(data_entry_id)
 

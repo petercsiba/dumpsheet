@@ -69,11 +69,15 @@ def wait_for_sms_email_update():
     #                 break
 
 
-def wait_for_email_updated_on_account(account_id: UUID) -> bool:
+# We use data_entry_id, as the underlying account_id can change in the demo onboarding flow
+# Yeah, I know it's kinda junk - we try to track how users come to the platform and merge same emails.
+def wait_for_email_updated_on_data_entry(data_entry_id: UUID) -> bool:
     start_time = time.time()
     end_time = start_time + 10 * 60  # 10 minutes later
 
     while time.time() < end_time:
+        updated_data_entry = BaseDataEntry.get_by_id(data_entry_id)
+        account_id = updated_data_entry.account_id
         if Account.get_by_id(account_id).get_email() is not None:
             print(f"account {account_id} has email set")
             return True
@@ -99,9 +103,9 @@ def process_transcript_from_data_entry(
 
     # TODO(P0, monitoring): We should catch exceptions thrown to the main function, and do a poor mans opsgenie
     #   to send an "alert" email.
-    if not wait_for_email_updated_on_account(data_entry.account_id):
+    if not wait_for_email_updated_on_data_entry(data_entry.id):
         raise ValueError(
-            f"email missing for account {data_entry.account_id} to process data_entry {data_entry.id}"
+            f"email missing for data_entry {data_entry.id} - cannot process"
         )
 
     rest_of_the_crowd = []
