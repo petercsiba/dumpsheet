@@ -107,6 +107,8 @@ def process_transcript_from_data_entry(
         raise ValueError(
             f"email missing for data_entry {data_entry.id} - cannot process"
         )
+    # This the hack when DataEntry.account_id can be updated, so we re-fetch the stuff.
+    data_entry = BaseDataEntry.get_by_id(data_entry.id)
 
     rest_of_the_crowd = []
     for i, person in enumerate(people_entries):
