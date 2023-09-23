@@ -371,16 +371,12 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
         else:
             should_takeaways = False
             # template = "draft"
-            subject_prefix = "Drafted Response for"
+            subject_prefix = f"Drafted {person.response_message_type} for"
             next_draft_html = """
-    {heading1}
     <p>{draft}</p>
     {heading2}
     {summarized_note}
     """.format(
-                heading1=_format_heading(
-                    f"Drafted {person.response_message_type} response to {person.name}"
-                ),
                 draft=person.next_draft.replace("\n", "<br />"),
                 heading2=_format_heading("Your notes"),
                 summarized_note=person.summarized_note.replace("\n", "<br />"),
