@@ -21,15 +21,6 @@ export default function Home() {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <div className="w-full h-full bg-gray-200">
-          <div className="w-full bg-green-500 p-4 flex items-center justify-center">
-              <span className="text-black font-semibold px-2">
-                  <a href="https://www.linkedin.com/in/katka-sabo-61bb8528/" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">
-                    Find us
-                  </a>
-              </span>
-              <img src="/images/tc-logo.png" alt="TechCrunch Logo" className="h-8 w-auto" />
-              <span className="text-black font-semibold px-2">Disrupt</span>
-          </div>
           <div className="min-w-full min-h-screen flex items-center justify-center">
               <div className="w-full h-full flex justify-center items-center p-4">
                   <div className="w-full h-full sm:h-auto sm:w-2/5 max-w-sm p-5 bg-white shadow flex flex-col text-base">
