@@ -106,7 +106,7 @@ Resources:
           Properties:
             Path: /hubspot/oauth/redirect
             Method: get
-#            RestApiId:
+#            RestApiId:  # ugh
 #              Ref: VoxanaApi
 
 #  VoxanaApi:

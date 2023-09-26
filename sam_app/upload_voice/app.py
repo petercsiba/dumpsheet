@@ -333,7 +333,7 @@ def lambda_handler(event, context):
             response = handle_post_request_for_call_set_email(event)
         else:
             raise ValueError(f"Invalid HTTP method: {http_method}")
-    elif api_endpoint == ENDPOINT_CALL_SET_EMAIL:
+    elif api_endpoint == ENDPOINT_HUBSPOT_OAUTH_REDIRECT:
         if http_method == "GET":
             response = handle_get_request_for_hubspot_oauth_redirect(event)
         else:
