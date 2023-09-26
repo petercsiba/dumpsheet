@@ -71,6 +71,8 @@ Resources:
         # https://stackoverflow.com/questions/65777261/how-to-add-policy-to-access-secret-with-lambda-function-aws-sam
         - AWSSecretsManagerGetSecretValuePolicy:
             SecretArn: 'arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/supabase/postgres_login_url-AvIn1c'
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: 'arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/hubspot/client_secret-ApsPp3'
         # Some alternatives how to provide the secrets access (which i have tried and maybe failed).
         # - arn:aws:iam::831154875375:policy/SecretsManagerReadAllSecretsInThisAccountInThisRegion
             # Resource: 'arn:aws:secretsmanager:*:*:secret:prod/supabase/postgres-login-url*'

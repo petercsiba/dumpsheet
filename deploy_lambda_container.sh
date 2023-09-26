@@ -5,6 +5,17 @@ PROFILE_NAME="PowerUserAccess-831154875375"
 echo "=== Running tests first ==="
 python -m pytest sam_app/tests/unit -v
 
+# Capture the exit code from pytest
+PYTEST_EXIT_CODE=$?
+
+# Handle the exit code as needed
+if [ $PYTEST_EXIT_CODE -ne 0 ]; then
+    echo "Tests failed, exiting."
+    exit $PYTEST_EXIT_CODE
+else
+    echo "Tests passed."
+fi
+
 echo "=== Login to AWS ECR ==="
 # Check if logged into AWS CLI by trying to list S3 buckets
 aws s3 ls --profile $PROFILE_NAME > /dev/null 2>&1

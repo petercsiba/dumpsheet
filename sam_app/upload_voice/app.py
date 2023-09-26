@@ -109,7 +109,7 @@ def handle_get_request_for_presigned_url(event) -> Dict:
     bucket_name = "requests-from-api-voxana"
     data_entry_id = uuid.uuid4()
     file_name = f"{data_entry_id}.webm"
-    print(f"received upload request for data entry {data_entry_id}")
+    print(f"received upload request for data entry {data_entry_id}: event {event}")
     # We should get this from the request
     content_type = "audio/webm"
 
@@ -335,13 +335,15 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
         # api_client.access_token = access_token
         account_id = uuid.UUID("3776ef1f-23a0-43e8-b275-ba45e5af9dea")
 
-    org = organization.Organization.get_or_create_for_account_id(account_id)
+    org = organization.Organization.get_or_create_for_account_id(
+        account_id, "auto-generated please fill in"
+    )
+    now = datetime.datetime.now()
+    org.hubspot_linked_at = now
     org.hubspot_access_token = tokens.access_token
     org.hubspot_refresh_token = tokens.refresh_token
     # We subtract 60 seconds to make more real.
-    expires_at = datetime.datetime.now() + datetime.timedelta(
-        seconds=tokens.expires_in - 60
-    )
+    expires_at = now + datetime.timedelta(seconds=tokens.expires_in - 60)
     org.hubspot_expires_at = expires_at
     org.save()
 
