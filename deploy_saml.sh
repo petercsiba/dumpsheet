@@ -1,4 +1,6 @@
 #!/bin/bash
+# TODO(P0, devx): Migrate this SAM crap to some regular Python server on ECS / EC2
+#
 
 # TEMPLATE_FILE=sam_app/template.yaml
 PROFILE_NAME="AdministratorAccess-831154875375"
@@ -12,7 +14,7 @@ python -m pytest sam_app/tests/unit -v
 echo "copy new models (including the post-generate modified ones)"
 cp -r database/ sam_app/upload_voice/database/fdsf
 
-# Cause the (many) limitations of SAM, we have to run it in the root (fdsfsdfdsfdsf, --template doesn't help)
+# Cause the (many) limitations of SAM, we have to run it in the root ( --template doesn't help)
 echo "cd sam_app"
 cd sam_app
 
@@ -27,6 +29,9 @@ if [ $? -ne 0 ]; then
     aws sso login --profile $PROFILE_NAME
 fi
 
+# NOTE: Sometimes it fails to detect changes, you might need to clear the cache in:
+# Locally: rm -rf .aws-sam/
+# Remotely: https://s3.console.aws.amazon.com/s3/buckets/aws-sam-cli-managed-default-samclisourcebucket-ul50z4hzdzd9?region=us-east-1&tab=objects
 yes | sam deploy --profile $PROFILE_NAME
 
 echo "curl the endpoint as test"

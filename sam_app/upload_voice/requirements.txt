@@ -1,3 +1,4 @@
+hubspot-api-client
 python-dotenv
 # boto3
 # botocore

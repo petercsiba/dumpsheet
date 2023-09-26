@@ -17,8 +17,10 @@ class BaseModel(Model):
 
 class BaseOrganization(BaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
-    hubspot_code = TextField(null=True)
+    hubspot_access_token = TextField(null=True)
+    hubspot_expires_at = DateTimeField(null=True)
     hubspot_linked_at = DateTimeField(null=True)
+    hubspot_refresh_token = TextField(null=True)
     id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
     name = TextField()
 

@@ -1,3 +1,4 @@
+# TODO(P0, devx): Migrate this to Flask, the AWS SAM for lambdas is just crazy shit show.
 import datetime
 import json
 import os
@@ -8,23 +9,29 @@ from typing import Dict, Optional
 import boto3
 import peewee  # noqa
 from botocore.exceptions import NoCredentialsError
+from hubspot import HubSpot
+from hubspot.auth import oauth
 
 # NOTE: There are a few copies of the "database" module around this repo.
 # for IDE, doing ".database" would point to "backend/sam_app/upload_voice/database".
 # Ideally, we would set up an AWS Lambda Layer, but I failed to achieve this.
-from database import account, data_entry, models
+from database import account, data_entry, models, organization
 from database.client import connect_to_postgres_i_will_call_disconnect_i_promise
 from database.models import BaseDataEntry, BaseEmailLog
 
 s3 = boto3.client("s3")
 
 ALLOWED_ORIGINS = ["https://app.voxana.ai", "http://localhost:3000"]
+HUBSPOT_APP_ID = "2150554"
+HUBSPOT_CLIENT_ID = "501ffe58-5d49-47ff-b41f-627fccc28715"
+HUBSPOT_REDIRECT_URL = "https://api.voxana.ai/hubspot/oauth/redirect"
 TWILIO_FUNCTIONS_API_KEY = "twilio-functions-super-secret-key-123"
 
 # AWS Lambda Execution Context feature - this should save about 1 second on subsequent invocations.
 secrets_cache = {}
 
 
+# TODO(P1, devx): Replace with Doppler - AWS secret manager is also kinda crap to manage.
 def get_secret(secret_id, env_var_name):
     if secret_id in secrets_cache:
         print(f"Using cached secret for {secret_id}")
@@ -270,25 +277,85 @@ def handle_post_request_for_call_set_email(event):
     )
 
 
+def _parse_account_id_from_state_param(param: Optional[str]) -> Optional[uuid.UUID]:
+    if not bool(param):
+        print("State parameter is missing")
+        return None
+
+    account_id = None
+    account_id_key_value = param.split(":")
+    if len(account_id_key_value) == 2 and account_id_key_value[0] == "accountId":
+        account_id_str = account_id_key_value[1]
+        try:
+            account_id = uuid.UUID(
+                account_id_str, version=4
+            )  # Assuming it's a version 4 UUID
+            print(f"Valid Account ID: {account_id}")
+        except ValueError:
+            print(f"Invalid UUID format for {account_id_str}")
+    else:
+        print(f"Invalid state parameter {param}")
+
+    return account_id
+
+
 def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     print(f"HUBSPOT OAUTH REDIRECT EVENT: {event}")
-    authorization_code = event["queryStringParameters"].get("code", "")
 
+    authorization_code = event["queryStringParameters"].get("code", "")
     if not authorization_code:
         craft_error(400, "Missing authorization code")
 
-    # TODO(P0, peter): Figure out how to store link to this token (through email / user).
-    # store_token(authorization_code)
+    client_secret = get_secret(
+        "arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/hubspot/client_secret-ApsPp3",
+        "HUBSPOT_CLIENT_SECRET",
+    )
+    api_client = HubSpot()
+    try:
+        tokens = api_client.auth.oauth.tokens_api.create(
+            grant_type="authorization_code",
+            redirect_uri=HUBSPOT_REDIRECT_URL,
+            client_id=HUBSPOT_CLIENT_ID,
+            client_secret=client_secret,
+            # This is a one-time authorization code to get access and refresh tokens - so don't screw up.
+            code=authorization_code,
+        )
+        # TODO(P0, security): To pass SOC2 one day we cannot store this as plaintext.
+        print(f"got hubspot oauth tokens: {tokens}")
+    except oauth.ApiException as e:
+        return craft_error(
+            500, f"Exception when fetching access token from HubSpot: {e}"
+        )
 
-    return craft_error(500, "Not yet implemented check logs for params needed")
-    # return craft_response(
-    #     200,
-    #     body={"info": "Thanks you for using Voxana.AI"},
-    #     # headers={"Location": "https://your-landing-page.com?status=success"},
-    # )
+    account_id = _parse_account_id_from_state_param(
+        event["queryStringParameters"].get("state", None)
+    )
+    if account_id is None:
+        # TODO(P1, devx): Replace with onboarding as we have through email, we can fetch email from Hubspot API
+        # api_client.access_token = access_token
+        account_id = uuid.UUID("3776ef1f-23a0-43e8-b275-ba45e5af9dea")
+
+    org = organization.Organization.get_or_create_for_account_id(account_id)
+    org.hubspot_access_token = tokens.access_token
+    org.hubspot_refresh_token = tokens.refresh_token
+    # We subtract 60 seconds to make more real.
+    expires_at = datetime.datetime.now() + datetime.timedelta(
+        seconds=tokens.expires_in - 60
+    )
+    org.hubspot_expires_at = expires_at
+    org.save()
+
+    return craft_response(
+        200,
+        body={"info": "Thank you for using Voxana.AI"},
+        headers={
+            "Location": f"https://app.voxana.ai?hubspot_status=success&account_id={account_id}"
+        },
+    )
 
 
 # TODO(P1, Peter): Migrate this to a Flask / Django server - this lambda deployment is slowly starting to be ridiculous
+# wtf sam
 ENDPOINT_VOICE_UPLOAD = "/upload/voice"
 ENDPOINT_CALL_SET_EMAIL = "/call/set-email"
 ENDPOINT_HUBSPOT_OAUTH_REDIRECT = "/hubspot/oauth/redirect"
