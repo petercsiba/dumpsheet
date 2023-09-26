@@ -98,21 +98,11 @@ def format_user_agent(user_agent_str: str):
 
 
 def handle_get_request_for_presigned_url(event) -> Dict:
-    print(event)
-    # Extract some identifiers - these should NOT be use for auth - but good enough for a demo.
-    source_ip = event["requestContext"]["identity"].get("sourceIp", "unknown")
-    user_agent = format_user_agent(
-        event["requestContext"]["identity"].get("userAgent", "")
-    )
-    anonymous_identifier = f"{source_ip}-{user_agent}"
-
     # Specify the S3 bucket and file name
     bucket_name = "requests-from-api-voxana"
     data_entry_id = uuid.uuid4()
-    file_name = f"{data_entry_id}.webm"  # used to include IP but got confusing
-    print(
-        f"received upload request for data entry {data_entry_id} from {anonymous_identifier}"
-    )
+    file_name = f"{data_entry_id}.webm"
+    print(f"received upload request for data entry {data_entry_id}")
     # We should get this from the request
     content_type = "audio/webm"
 
@@ -133,9 +123,21 @@ def handle_get_request_for_presigned_url(event) -> Dict:
     except NoCredentialsError:
         return craft_error(500, "error generating presigned URL: No AWS Credentials")
 
-    # Add referer, utm_source, user_agent here
-    # https://chat.openai.com/share/b866f3da-145c-4c48-8a34-53cf85a7eb19
-    acc = account.Account.get_or_onboard_for_ip(ip_address=anonymous_identifier)
+    account_id = event["headers"].get("X-Account-Id", None)
+    if account_id:
+        print(f"Received account_id: {account_id}")
+        acc = account.Account.get_by_id(account_id)
+    else:
+        # Extract some identifiers - these should NOT be use for auth - but good enough for a demo.
+        source_ip = event["requestContext"]["identity"].get("sourceIp", "unknown")
+        user_agent = format_user_agent(
+            event["requestContext"]["identity"].get("userAgent", "")
+        )
+        anonymous_identifier = f"{source_ip}-{user_agent}"
+        # Add referer, utm_source, user_agent here
+        # https://chat.openai.com/share/b866f3da-145c-4c48-8a34-53cf85a7eb19
+        acc = account.Account.get_or_onboard_for_ip(ip_address=anonymous_identifier)
+
     if bool(acc.user):
         # TODO(P0, auth): Support authed sessions somehow.
         return craft_error(401, "please sign in")
@@ -278,11 +280,12 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     # TODO(P0, peter): Figure out how to store link to this token (through email / user).
     # store_token(authorization_code)
 
-    return craft_response(
-        200,
-        {"info": "Thank you for using Voxana.AI"},
-        {"Location": "https://your-landing-page.com?status=success"},
-    )
+    return craft_error(500, "Not yet implemented check logs for params needed")
+    # return craft_response(
+    #     200,
+    #     body={"info": "Thanks you for using Voxana.AI"},
+    #     # headers={"Location": "https://your-landing-page.com?status=success"},
+    # )
 
 
 # TODO(P1, Peter): Migrate this to a Flask / Django server - this lambda deployment is slowly starting to be ridiculous

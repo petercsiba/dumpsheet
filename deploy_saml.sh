@@ -16,7 +16,7 @@ cp -r database/ sam_app/upload_voice/database/fdsf
 echo "cd sam_app"
 cd sam_app
 
-echo "build the sam stuff (otherwise it could omitted changes to app.pyfdsfsdf)"
+echo "build the sam stuff (otherwise it could omitted changes to app.py)"
 sam build
 
 echo "deploy it"
