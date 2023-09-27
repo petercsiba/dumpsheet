@@ -343,8 +343,7 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     org.hubspot_access_token = tokens.access_token
     org.hubspot_refresh_token = tokens.refresh_token
     # We subtract 60 seconds to make more real.
-    expires_at = now + datetime.timedelta(seconds=tokens.expires_in - 60)
-    org.hubspot_expires_at = expires_at
+    org.hubspot_expires_at = now + datetime.timedelta(seconds=tokens.expires_in - 60)
     org.save()
 
     return craft_response(

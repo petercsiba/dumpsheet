@@ -2,10 +2,11 @@ import datetime
 import time
 import uuid
 
+import pytz
 from hubspot import HubSpot
 from hubspot.auth import oauth
-from hubspot.crm import contacts
 
+from app.hubspot_models import HubspotContactData, HubspotContactDefinition
 from common.config import HUBSPOT_CLIENT_ID, HUBSPOT_CLIENT_SECRET, HUBSPOT_REDIRECT_URL
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.models import BaseAccount, BaseOnboarding, BaseOrganization
@@ -27,11 +28,14 @@ class HubspotClient:
             self.expires_at_cache = organization.hubspot_expires_at
             if bool(self.expires_at_cache):
                 self.api_client.access_token = organization.hubspot_access_token
+                print(
+                    f"reusing cached access token valid until {self.expires_at_cache}"
+                )
 
-        if (
-            self.expires_at_cache is None
-            or self.expires_at_cache < datetime.datetime.now()
-        ):
+        # TODO(P1, effectivity): The TZ comparison seems to be not working.
+        if self.expires_at_cache is None or self.expires_at_cache.astimezone(
+            pytz.UTC
+        ) < datetime.datetime.now(pytz.UTC):
             print(f"gonna refresh token for organization {self.organization_id}")
             try:
                 organization = BaseOrganization.get_by_id(self.organization_id)
@@ -47,12 +51,13 @@ class HubspotClient:
                 organization.hubspot_access_token = tokens.access_token
                 organization.hubspot_refresh_token = tokens.refresh_token
                 # We subtract 60 seconds to make more real.
-                organization.expires_at = datetime.datetime.now() + datetime.timedelta(
-                    seconds=tokens.expires_in - 60
+                organization.hubspot_expires_at = (
+                    datetime.datetime.now()
+                    + datetime.timedelta(seconds=tokens.expires_in - 60)
                 )
                 organization.save()
 
-                self.expires_at_cache = organization.expires_at
+                self.expires_at_cache = organization.hubspot_expires_at
                 self.api_client.access_token = organization.hubspot_access_token
                 print(f"token refreshed, expires at {self.expires_at_cache}")
             except oauth.ApiException as e:
@@ -77,10 +82,19 @@ class HubspotClient:
         self._ensure_token_fresh()
         try:
             # Handles the pagination with default limit = 100
-            api_response = self.api_client.crm.contacts.get_all()
-            print(f"Contacts listed: {api_response}")
+            return self.api_client.crm.contacts.get_all()
         except contacts.ApiException as e:
             print(f"Exception when creating contact: {e}")
+
+    def list_custom_properties(self, object_type="contact"):
+        properties_api = self.api_client.crm.properties.core_api
+        try:
+            response = properties_api.get_all(object_type=object_type)
+            # print(f"structure of list_custom_properties ({type(response).__name__}): {dir(response)}")
+            return response
+        except Exception as e:
+            print(f"Exception when listing custom properties: {e}")
+            return None
 
 
 if __name__ == "__main__":
@@ -98,18 +112,29 @@ if __name__ == "__main__":
                 hubspot_linked_at=datetime.datetime.now(),
                 name="testing locally",
             ).execute()
-
-        account_id = BaseAccount.insert(
-            full_name="peter csiba",
-            organization_id=organization_id,
-            organization_role=ORGANIZATION_ROLE_ADMIN,
-        ).execute()
-        BaseOnboarding.insert(
-            email="petherz+localhost@gmail.com",
-            account_id=account_id,
-        )
+            account_id = BaseAccount.insert(
+                full_name="peter csiba",
+                organization_id=organization_id,
+                organization_role=ORGANIZATION_ROLE_ADMIN,
+            ).execute()
+            BaseOnboarding.insert(
+                email="petherz+localhost@gmail.com",
+                account_id=account_id,
+            )
 
         client = HubspotClient(organization_id)
+        props = client.list_custom_properties()
+        with open("contact-properties.json", "w") as file_handle:
+            file_handle.write(str(props))
+
+        contact_def = HubspotContactDefinition.from_properties_api_response(
+            props.results
+        )
+        print(f"contact_def gpt prompt: {contact_def.to_gpt_prompt()}")
+
         # client.auth_account_id(uuid.UUID("3776ef1f-23a0-43e8-b275-ba45e5af9dea"))
-        client.crm_contact_create()
-        client.crm_contact_get_all()
+        # client.crm_contact_create()
+        contacts = client.crm_contact_get_all()
+        print(contacts[0])
+        contact = HubspotContactData(contact_def, contacts[0])
+        print(contact.data)
