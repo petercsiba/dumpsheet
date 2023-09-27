@@ -61,7 +61,7 @@ class FieldDefinition:
             print(f"ignoring {self.name} for gpt prompt gen")
             return None
 
-        result = f'"{self.name}": "optional {self.field_type} value representing {self.label}'
+        result = f'"{self.name}": "{self.field_type} field representing {self.label}'
 
         if bool(self.description):
             result += f" described as {self.description}"
@@ -70,7 +70,9 @@ class FieldDefinition:
                 print(f"too many options, shortening to {GPT_MAX_NUM_OPTION_FIELDS}")
             options_slice: List[Option] = self.options[:GPT_MAX_NUM_OPTION_FIELDS]
             option_values = [opt.value for opt in options_slice]
-            result += f" with options as {option_values}"
+            result += (
+                f" with options as {option_values} - pick the most suitable value."
+            )
         result += '"'
 
         return result
@@ -139,6 +141,7 @@ class FormDefinition:
             fields[field.name] = field
         return cls(fields)
 
+    # TODO(P2, devx): Maybe a better place for gpt-related stuff is in hubspot_gpt.
     def to_gpt_prompt(self) -> str:
         field_prompts = [field.to_gpt_prompt() for field in self.fields.values()]
         return ",\n".join([f for f in field_prompts if f is not None])
@@ -310,7 +313,7 @@ CONTACT_FIELDS = {
         name="state",
         field_type="text",
         label="State/Region",
-        description="The contact's state of residence. This might be set via import, form, or integration.",
+        description="The contact's state of residence.",
         options=[],
         group_name="contactinformation",
         hubspot_defined=True,
@@ -319,7 +322,7 @@ CONTACT_FIELDS = {
         name="country",
         field_type="text",
         label="Country/Region",
-        description="The contact's country/region of residence. This might be set via import, form, or integration.",
+        description="The contact's country/region of residence.",
         options=[],
         group_name="contactinformation",
         hubspot_defined=True,
@@ -337,10 +340,7 @@ CONTACT_FIELDS = {
         name="lifecyclestage",
         field_type="radio",
         label="Lifecycle Stage",
-        description=(
-            "The qualification of contacts to sales readiness. "
-            "It can be set through imports, forms, workflows, and manually on a per contact basis."
-        ),
+        description="The qualification of contacts to sales readiness.",
         options=[
             Option(label="Subscriber", value="subscriber"),
             Option(label="Lead", value="lead"),
