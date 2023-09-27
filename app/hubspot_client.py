@@ -5,8 +5,9 @@ import uuid
 import pytz
 from hubspot import HubSpot
 from hubspot.auth import oauth
+from hubspot.crm.contacts import SimplePublicObjectInputForCreate
 
-from app.hubspot_models import HubspotContactData, HubspotContactDefinition
+from app.hubspot_models import CONTACT_FIELDS, HubspotFormDefinition, HubspotObject
 from common.config import HUBSPOT_CLIENT_ID, HUBSPOT_CLIENT_SECRET, HUBSPOT_REDIRECT_URL
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.models import BaseAccount, BaseOnboarding, BaseOrganization
@@ -66,10 +67,8 @@ class HubspotClient:
     def crm_contact_create(self):
         self._ensure_token_fresh()
         try:
-            simple_public_object_input_for_create = (
-                contacts.SimplePublicObjectInputForCreate(
-                    properties={"email": f"email+{int(time.time())}@example.com"}
-                )
+            simple_public_object_input_for_create = SimplePublicObjectInputForCreate(
+                properties={"email": f"email+{int(time.time())}@example.com"}
             )
             api_response = self.api_client.crm.contacts.basic_api.create(
                 simple_public_object_input_for_create=simple_public_object_input_for_create
@@ -124,17 +123,15 @@ if __name__ == "__main__":
 
         client = HubspotClient(organization_id)
         props = client.list_custom_properties()
-        with open("contact-properties.json", "w") as file_handle:
-            file_handle.write(str(props))
-
-        contact_def = HubspotContactDefinition.from_properties_api_response(
-            props.results
-        )
+        contact_def = HubspotFormDefinition.from_properties_api_response(props.results)
         print(f"contact_def gpt prompt: {contact_def.to_gpt_prompt()}")
+        print(f"contact_def to_python_definition: {contact_def.to_python_definition()}")
 
         # client.auth_account_id(uuid.UUID("3776ef1f-23a0-43e8-b275-ba45e5af9dea"))
         # client.crm_contact_create()
         contacts = client.crm_contact_get_all()
-        print(contacts[0])
-        contact = HubspotContactData(contact_def, contacts[0])
-        print(contact.data)
+        print(f"{contacts[0]}: contacts[0]")
+        contact = HubspotObject.from_api_response(
+            "contact", CONTACT_FIELDS, contacts[0]
+        )
+        print(f"contact.data: {contact.data}")
