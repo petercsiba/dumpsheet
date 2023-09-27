@@ -1,4 +1,8 @@
-from app.hubspot_models import CONTACT_FIELDS, FormDefinition
+import datetime
+
+import pytz
+
+from app.hubspot_models import CALL_FIELDS, CONTACT_FIELDS, FormDefinition
 from common.openai_client import OpenAiClient, gpt_response_to_json
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 
@@ -10,8 +14,11 @@ def extract_form_data(gpt_client: OpenAiClient, form: FormDefinition, text: str)
     Based off this note:
     {note}
     Return as a valid JSON format mapping field labels to values, for unknown just use null.
+    Current time is {current_time}
     """.format(
-        form_fields=form.to_gpt_prompt(), note=text
+        form_fields=form.to_gpt_prompt(),
+        note=text,
+        current_time=datetime.datetime.now(pytz.UTC),
     )
     raw_response = gpt_client.run_prompt(gpt_query)
     form_data = gpt_response_to_json(raw_response)
@@ -42,4 +49,7 @@ if __name__ == "__main__":
     with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
         gpt_client = OpenAiClient()
         form = FormDefinition(CONTACT_FIELDS)
+        extract_form_data(gpt_client, form, test_data)
+
+        form = FormDefinition(CALL_FIELDS)
         extract_form_data(gpt_client, form, test_data)

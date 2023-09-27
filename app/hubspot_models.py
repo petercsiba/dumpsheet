@@ -8,7 +8,11 @@ from hubspot.crm.properties import ModelProperty, Option
 # We allow-list fields which we will use with Hubspot
 class FieldNames(Enum):
     # Common object fields; There are also createdate, lastmodifieddate, updated_at which we ignore.
+    HS_ACTIVITY_TYPE = "hs_activity_type"
     HS_OBJECT_ID = "hs_object_id"
+    # TODO: We will need to somehow map their emails / account to HS account.
+    HUBSPOT_OWNER_ID = "hubspot_owner_id"
+    HS_TIMESTAMP = "hs_timestamp"
     # Contact: Top-level
     EMAIL = "email"
     FIRSTNAME = "firstname"
@@ -25,12 +29,26 @@ class FieldNames(Enum):
     LIFECYCLESTAGE = "lifecyclestage"
     LEADSTATUS = "leadstatus"
     RECENT_CONVERSION_EVENT_NAME = "recent_conversion_event_name"
-    HUBSPOT_OWNER_ID = "hubspot_owner_id"  # TODO: We will need to somehow map their emails / account to HS account.
+    # Calls:
+    HS_CALL_BODY = "hs_call_body"
+    HS_CALL_CALLEE_OBJECT_ID = "hs_call_callee_object_id"
+    HS_CALL_CALLEE_OBJECT_TYPE_ID = "hs_call_callee_object_type_id"
+    HS_CALL_DIRECTION = "hs_call_direction"
+    HS_CALL_DISPOSITION = "hs_call_disposition"
+    HS_CALL_FROM_NUMBER = "hs_call_from_number"
+    HS_CALL_STATUS = "hs_call_status"
+    HS_CALL_TITLE = "hs_call_title"
+    HS_CALL_TO_NUMBER = "hs_call_to_number"
 
 
 ALLOWED_FIELDS = set(item.value for item in FieldNames)
 GPT_MAX_NUM_OPTION_FIELDS = 10
-GPT_IGNORE_LIST = [FieldNames.HS_OBJECT_ID.value]
+GPT_IGNORE_LIST = [
+    FieldNames.HS_OBJECT_ID.value,
+    FieldNames.HUBSPOT_OWNER_ID.value,
+    FieldNames.HS_CALL_CALLEE_OBJECT_ID,
+    FieldNames.HS_CALL_FROM_NUMBER,
+]
 
 
 # Treat this as a form field
@@ -69,9 +87,10 @@ class FieldDefinition:
             if len(self.options) > GPT_MAX_NUM_OPTION_FIELDS:
                 print(f"too many options, shortening to {GPT_MAX_NUM_OPTION_FIELDS}")
             options_slice: List[Option] = self.options[:GPT_MAX_NUM_OPTION_FIELDS]
-            option_values = [opt.value for opt in options_slice]
+            option_values = [(opt.label, opt.value) for opt in options_slice]
             result += (
-                f" with options as {option_values} - pick the most suitable value."
+                f" restricted to these options defined as a list of (label, value) {option_values}"
+                " pick the most suitable value."
             )
         result += '"'
 
@@ -174,6 +193,8 @@ class HubspotObject:
         for field_name, value in response.properties.items():
             result.set_field_value(field_name, value)
         return result
+
+    # TODO(P0, feature): from_gpt_response, need to massage output field names, and option responses
 
     def set_field_value(self, field_name: str, value: Any, raise_key_error=False):
         if field_name in self.form.fields.keys():
@@ -373,6 +394,151 @@ CONTACT_FIELDS = {
         description="The Industry a contact is in",
         options=[],
         group_name="contactinformation",
+        hubspot_defined=True,
+    ),
+}
+
+CALL_FIELDS = {
+    "hs_activity_type": FieldDefinition(
+        name="hs_activity_type",
+        field_type="select",
+        label="Call and meeting type",
+        description="The activity type of the engagement",
+        options=[],
+        group_name="engagement",
+        hubspot_defined=True,
+    ),
+    "hs_call_body": FieldDefinition(
+        name="hs_call_body",
+        field_type="html",
+        label="Call notes",
+        description="The description of the call, including the summary of it.",
+        options=[],
+        group_name="call",
+        hubspot_defined=True,
+    ),
+    "hs_call_callee_object_id": FieldDefinition(
+        name="hs_call_callee_object_id",
+        field_type="number",
+        label="Callee object id",
+        description=(
+            "The ID of the HubSpot record associated with the call. "
+            "This will be the recipient of the call for OUTBOUND calls, or the dialer of the call for INBOUND calls."
+        ),
+        options=[],
+        group_name="call",
+        hubspot_defined=True,
+    ),
+    "hs_call_direction": FieldDefinition(
+        name="hs_call_direction",
+        field_type="select",
+        label="Call direction",
+        description="The direction of the call from the perspective of the HubSpot user.",
+        options=[
+            Option(label="Inbound", value="INBOUND"),
+            Option(label="Outbound", value="OUTBOUND"),
+        ],
+        group_name="call",
+        hubspot_defined=True,
+    ),
+    "hs_call_disposition": FieldDefinition(
+        name="hs_call_disposition",
+        field_type="select",
+        label="Call outcome",
+        description="The outcome of the call",
+        options=[
+            Option(label="Busy", value="9d9162e7-6cf3-4944-bf63-4dff82258764"),
+            Option(label="Connected", value="f240bbac-87c9-4f6e-bf70-924b57d47db"),
+            Option(
+                label="Left live message", value="a4c4c377-d246-4b32-a13b-75a56a4cd0ff"
+            ),
+            Option(
+                label="Left voicemail", value="b2cf5968-551e-4856-9783-52b3da59a7d0"
+            ),
+            Option(label="No answer", value="73a0d17f-1163-4015-bdd5-ec830791da20"),
+            Option(label="Wrong number", value="17b47fee-58de-441e-a44c-c6300d46f273"),
+        ],
+        group_name="call",
+        hubspot_defined=True,
+    ),
+    "hs_call_from_number": FieldDefinition(
+        name="hs_call_from_number",
+        field_type="text",
+        label="From number",
+        description="The phone number of the person that initiated the call",
+        options=[],
+        group_name="call",
+        hubspot_defined=True,
+    ),
+    "hs_call_status": FieldDefinition(
+        name="hs_call_status",
+        field_type="select",
+        label="Call status",
+        description="The status of the call",
+        options=[
+            Option(label="Busy", value="BUSY"),
+            Option(label="Calling CRM User", value="CALLING_CRM_USER"),
+            Option(label="Canceled", value="CANCELED"),
+            Option(label="Completed", value="COMPLETED"),
+            Option(label="Connecting", value="CONNECTING"),
+            Option(label="Failed", value="FAILED"),
+            Option(label="In Progress", value="IN_PROGRESS"),
+            Option(label="Missed", value="MISSED"),
+            Option(label="No Answer", value="NO_ANSWER"),
+            Option(label="Queued", value="QUEUED"),
+            Option(label="Ringing", value="RINGING"),
+        ],
+        group_name="call",
+        hubspot_defined=True,
+    ),
+    "hs_call_title": FieldDefinition(
+        name="hs_call_title",
+        field_type="text",
+        label="Call Title",
+        description="The title of the call",
+        options=[],
+        group_name="call",
+        hubspot_defined=True,
+    ),
+    "hs_call_to_number": FieldDefinition(
+        name="hs_call_to_number",
+        field_type="text",
+        label="To Number",
+        description="The phone number of the person that was called",
+        options=[],
+        group_name="call",
+        hubspot_defined=True,
+    ),
+    "hs_object_id": FieldDefinition(
+        name="hs_object_id",
+        field_type="number",
+        label="Record ID",
+        description=(
+            "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
+        ),
+        options=[],
+        group_name="callinformation",
+        hubspot_defined=True,
+    ),
+    "hs_timestamp": FieldDefinition(
+        name="hs_timestamp",
+        field_type="date",
+        label="Activity date",
+        description="The date that an engagement occurred",
+        options=[],
+        group_name="engagement",
+        hubspot_defined=True,
+    ),
+    "hubspot_owner_id": FieldDefinition(
+        name="hubspot_owner_id",
+        field_type="select",
+        label="Activity assigned to",
+        description=(
+            "The user that the activity is assigned to in HubSpot. "
+            "This can be any HubSpot user or Salesforce integration user, and can be set manually or via Workflows."
+        ),
+        options=[],
+        group_name="engagement",
         hubspot_defined=True,
     ),
 }

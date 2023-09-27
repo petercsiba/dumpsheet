@@ -5,9 +5,10 @@ import uuid
 import pytz
 from hubspot import HubSpot
 from hubspot.auth import oauth
+from hubspot.crm import contacts
 from hubspot.crm.contacts import SimplePublicObjectInputForCreate
 
-from app.hubspot_models import CONTACT_FIELDS, FormDefinition, HubspotObject
+from app.hubspot_models import FormDefinition
 from common.config import HUBSPOT_CLIENT_ID, HUBSPOT_CLIENT_SECRET, HUBSPOT_REDIRECT_URL
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.models import BaseAccount, BaseOnboarding, BaseOrganization
@@ -122,16 +123,16 @@ if __name__ == "__main__":
             )
 
         client = HubspotClient(organization_id)
-        props = client.list_custom_properties()
+        props = client.list_custom_properties(object_type="call")
         contact_def = FormDefinition.from_properties_api_response(props.results)
         print(f"contact_def gpt prompt: {contact_def.to_gpt_prompt()}")
         print(f"contact_def to_python_definition: {contact_def.to_python_definition()}")
 
-        # client.auth_account_id(uuid.UUID("3776ef1f-23a0-43e8-b275-ba45e5af9dea"))
-        # client.crm_contact_create()
-        contacts = client.crm_contact_get_all()
-        print(f"{contacts[0]}: contacts[0]")
-        contact = HubspotObject.from_api_response(
-            "contact", CONTACT_FIELDS, contacts[0]
-        )
-        print(f"contact.data: {contact.data}")
+        # # client.auth_account_id(uuid.UUID("3776ef1f-23a0-43e8-b275-ba45e5af9dea"))
+        # # client.crm_contact_create()
+        # contacts = client.crm_contact_get_all()
+        # print(f"{contacts[0]}: contacts[0]")
+        # contact = HubspotObject.from_api_response(
+        #     "contact", CONTACT_FIELDS, contacts[0]
+        # )
+        # print(f"contact.data: {contact.data}")
