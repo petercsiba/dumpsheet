@@ -3,6 +3,7 @@ boto3
 hubspot-api-client
 openai
 peewee
+phonenumbers
 plotly
 psycopg2[binary,pool]
 python-dotenv

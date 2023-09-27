@@ -1,6 +1,8 @@
+import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+import phonenumbers
 from hubspot.crm.contacts import SimplePublicObjectWithAssociations
 from hubspot.crm.properties import ModelProperty, Option
 
@@ -8,7 +10,7 @@ from hubspot.crm.properties import ModelProperty, Option
 # We allow-list fields which we will use with Hubspot
 class FieldNames(Enum):
     # Common object fields; There are also createdate, lastmodifieddate, updated_at which we ignore.
-    HS_ACTIVITY_TYPE = "hs_activity_type"
+    # HS_ACTIVITY_TYPE = "hs_activity_type"
     HS_OBJECT_ID = "hs_object_id"
     # TODO: We will need to somehow map their emails / account to HS account.
     HUBSPOT_OWNER_ID = "hubspot_owner_id"
@@ -78,30 +80,6 @@ class FieldDefinition:
         self.group_name = group_name
         self.hubspot_defined = hubspot_defined
 
-    # Main reason to separate Definition from Values is that we can generate GPT prompts in a generic-ish way.
-    # Sample output "industry": "which business area they specialize in professionally",
-    def to_gpt_prompt(self) -> Optional[str]:
-        if self.name in GPT_IGNORE_LIST:
-            print(f"ignoring {self.name} for gpt prompt gen")
-            return None
-
-        result = f'"{self.name}": "{self.field_type} field representing {self.label}'
-
-        if bool(self.description):
-            result += f" described as {self.description}"
-        if bool(self.options) and isinstance(self.options, list):
-            if len(self.options) > GPT_MAX_NUM_OPTION_FIELDS:
-                print(f"too many options, shortening to {GPT_MAX_NUM_OPTION_FIELDS}")
-            options_slice: List[Option] = self.options[:GPT_MAX_NUM_OPTION_FIELDS]
-            option_values = [(opt.label, opt.value) for opt in options_slice]
-            result += (
-                f" restricted to these options defined as a list of (label, value) {option_values}"
-                " pick the most suitable value."
-            )
-        result += '"'
-
-        return result
-
     # Code-gen
     @classmethod
     def from_properties_api_response(cls, response: ModelProperty) -> "FieldDefinition":
@@ -149,6 +127,89 @@ class FieldDefinition:
             hubspot_defined=str(self.hubspot_defined),
         )
 
+    def validate_and_fix(self, value: Optional[Any]) -> Any:
+        if value is None:
+            return None
+
+        if self.field_type == "text":
+            return self._validate_text(value)
+        if self.field_type == "date":
+            return self._validate_date(value)
+        if self.field_type == "html":
+            return self._validate_html(value)
+        if self.field_type == "number":
+            return self._validate_number(value)
+        if self.field_type == "phonenumber":
+            return self._validate_phonenumber(value)
+        if self.field_type in ["radio", "select"]:
+            return self._validate_select(value, self.options)
+        print(f"WARNING: No validator for field type {self.field_type}: {value}")
+        return None
+
+    def _validation_error(self, expected: str, value: Any):
+        print(
+            f"WARNING: Invalid {self.field_type} format for {self.group_name}.{self.name} "
+            f"expected {expected} given (type={type(value)}): {value}"
+        )
+
+    def _validate_date(self, value: Any):
+        try:
+            datetime.datetime.strptime(value, "%Y-%m-%d")
+        except ValueError:
+            self._validation_error("YYYY-MM-DD", value)
+            return None
+        return value
+
+    def _validate_html(self, value: Any):
+        return self._validate_text(value)
+
+    def _validate_number(self, value: Any):
+        try:
+            return int(value)
+        except ValueError:
+            self._validation_error("int", value)
+            return None
+
+    def _validate_phonenumber(self, value: Any, default_region="US"):
+        try:
+            parsed_number = phonenumbers.parse(value, default_region)
+            if phonenumbers.is_valid_number(parsed_number):
+                return phonenumbers.format_number(
+                    parsed_number, phonenumbers.PhoneNumberFormat.E164
+                )
+            else:
+                self._validation_error("invalid", value)
+        except phonenumbers.phonenumberutil.NumberParseException:
+            self._validation_error("cannot parse", value)
+
+        return None
+
+    def _validate_select(self, value: Any, options: List[Option]):
+        option_values = [option.value for option in options]
+        if isinstance(value, str):
+            if value in option_values:
+                return value
+            # Sometimes GPT outputs the Label instead of the Value
+            option_labels = {option.label: option.value for option in options}
+            if value in option_labels:
+                return option_labels[value]
+            self._validation_error("str value not an option label or value ", value)
+
+        # Sometimes we get `'hs_task_type': {'label': 'Call', 'value': 'CALL'}`
+        if isinstance(value, dict):
+            if "value" in value:
+                return self._validate_select(value["value"], options)
+
+        self._validation_error("unexpected format", value)
+        return None
+
+    def _validate_text(self, value: Any):
+        if isinstance(value, str) or value is None:
+            return value
+
+        self._validation_error("unexpected text type", value)
+        return str(value)
+
 
 # Mostly used for code-gen
 class FormDefinition:
@@ -165,11 +226,6 @@ class FormDefinition:
             field = FieldDefinition.from_properties_api_response(field_response)
             fields[field.name] = field
         return cls(fields)
-
-    # TODO(P2, devx): Maybe a better place for gpt-related stuff is in hubspot_gpt.
-    def to_gpt_prompt(self) -> str:
-        field_prompts = [field.to_gpt_prompt() for field in self.fields.values()]
-        return ",\n".join([f for f in field_prompts if f is not None])
 
     def to_python_definition(self):
         return ",\n".join(
@@ -405,15 +461,15 @@ CONTACT_FIELDS = {
 }
 
 CALL_FIELDS = {
-    "hs_activity_type": FieldDefinition(
-        name="hs_activity_type",
-        field_type="select",
-        label="Call and meeting type",
-        description="The activity type of the engagement",
-        options=[],
-        group_name="engagement",
-        hubspot_defined=True,
-    ),
+    # "hs_activity_type": FieldDefinition(
+    #     name="hs_activity_type",
+    #     field_type="select",
+    #     label="Call and meeting type",
+    #     description="The activity type of the engagement",
+    #     options=[],
+    #     group_name="engagement",
+    #     hubspot_defined=True,
+    # ),
     "hs_call_body": FieldDefinition(
         name="hs_call_body",
         field_type="html",
@@ -447,6 +503,7 @@ CALL_FIELDS = {
         group_name="call",
         hubspot_defined=True,
     ),
+    # TODO(P1, fullness): Seems ignored by GPT
     "hs_call_disposition": FieldDefinition(
         name="hs_call_disposition",
         field_type="select",
