@@ -7,7 +7,7 @@ from hubspot import HubSpot
 from hubspot.auth import oauth
 from hubspot.crm.contacts import SimplePublicObjectInputForCreate
 
-from app.hubspot_models import CONTACT_FIELDS, HubspotFormDefinition, HubspotObject
+from app.hubspot_models import CONTACT_FIELDS, FormDefinition, HubspotObject
 from common.config import HUBSPOT_CLIENT_ID, HUBSPOT_CLIENT_SECRET, HUBSPOT_REDIRECT_URL
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.models import BaseAccount, BaseOnboarding, BaseOrganization
@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
         client = HubspotClient(organization_id)
         props = client.list_custom_properties()
-        contact_def = HubspotFormDefinition.from_properties_api_response(props.results)
+        contact_def = FormDefinition.from_properties_api_response(props.results)
         print(f"contact_def gpt prompt: {contact_def.to_gpt_prompt()}")
         print(f"contact_def to_python_definition: {contact_def.to_python_definition()}")
 

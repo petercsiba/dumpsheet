@@ -5,8 +5,11 @@ from hubspot.crm.contacts import SimplePublicObjectWithAssociations
 from hubspot.crm.properties import ModelProperty, Option
 
 
-class HubspotContactFieldNames(Enum):
-    # Top-level
+# We allow-list fields which we will use with Hubspot
+class FieldNames(Enum):
+    # Common object fields; There are also createdate, lastmodifieddate, updated_at which we ignore.
+    HS_OBJECT_ID = "hs_object_id"
+    # Contact: Top-level
     EMAIL = "email"
     FIRSTNAME = "firstname"
     LASTNAME = "lastname"
@@ -14,23 +17,24 @@ class HubspotContactFieldNames(Enum):
     CITY = "city"
     STATE = "state"
     COUNTRY = "country"
-    # Job info
+    # Contact: Job info
     COMPANY = "company"
     JOBTITLE = "jobtitle"
     INDUSTRY = "industry"
-    # Lifecycle and Marketing
+    # Contact: Lifecycle and Marketing
     LIFECYCLESTAGE = "lifecyclestage"
     LEADSTATUS = "leadstatus"
     RECENT_CONVERSION_EVENT_NAME = "recent_conversion_event_name"
     HUBSPOT_OWNER_ID = "hubspot_owner_id"  # TODO: We will need to somehow map their emails / account to HS account.
 
 
-ALLOWED_FIELDS = set(item.value for item in HubspotContactFieldNames)
+ALLOWED_FIELDS = set(item.value for item in FieldNames)
 GPT_MAX_NUM_OPTION_FIELDS = 10
+GPT_IGNORE_LIST = [FieldNames.HS_OBJECT_ID.value]
 
 
 # Treat this as a form field
-class HubspotFieldDefinition:
+class FieldDefinition:
     def __init__(
         self,
         name: str,
@@ -52,8 +56,13 @@ class HubspotFieldDefinition:
 
     # Main reason to separate Definition from Values is that we can generate GPT prompts in a generic-ish way.
     # Sample output "industry": "which business area they specialize in professionally",
-    def to_gpt_prompt(self) -> str:
+    def to_gpt_prompt(self) -> Optional[str]:
+        if self.name in GPT_IGNORE_LIST:
+            print(f"ignoring {self.name} for gpt prompt gen")
+            return None
+
         result = f'"{self.name}": "optional {self.field_type} value representing {self.label}'
+
         if bool(self.description):
             result += f" described as {self.description}"
         if bool(self.options) and isinstance(self.options, list):
@@ -63,14 +72,12 @@ class HubspotFieldDefinition:
             option_values = [opt.value for opt in options_slice]
             result += f" with options as {option_values}"
         result += '"'
+
         return result
 
     # Code-gen
     @classmethod
-    def from_properties_api_response(
-        cls, response: ModelProperty
-    ) -> "HubspotFieldDefinition":
-        # print(f"structure of field response ({type(response).__name__}): {dir(response)}")
+    def from_properties_api_response(cls, response: ModelProperty) -> "FieldDefinition":
         return cls(
             name=response.name,
             field_type=response.field_type,
@@ -86,16 +93,18 @@ class HubspotFieldDefinition:
         return f'"{value}"' if isinstance(value, str) else "None"
 
     @classmethod
-    def _none_or_list(self, value: Optional[List]) -> str:
-        if isinstance(value, list):
-            options = [f'"{opt.value}"' for opt in value]
-            return f"[{', '.join(options)}]"
+    def _gen_options(self, options: Optional[list[Option]]) -> str:
+        if isinstance(options, list):
+            options_definitions = [
+                f'Option(label="{opt.label}", value="{opt.value}")' for opt in options
+            ]
+            return "[" + ",\n".join(options_definitions) + "]"
         return "None"
 
     # Code-gen
     def to_python_definition(self) -> str:
         return """
-        "{name}": HubspotFieldDefinition(
+        "{name}": FieldDefinition(
             name="{name}",
             field_type="{field_type}",
             label="{label}",
@@ -107,30 +116,32 @@ class HubspotFieldDefinition:
             name=self.name,
             field_type=self.field_type,
             label=self.label,
-            description=HubspotFieldDefinition._none_or_quoted_str(self.description),
-            options=HubspotFieldDefinition._none_or_list(self.options),
-            group_name=HubspotFieldDefinition._none_or_quoted_str(self.group_name),
+            description=FieldDefinition._none_or_quoted_str(self.description),
+            options=FieldDefinition._gen_options(self.options),
+            group_name=FieldDefinition._none_or_quoted_str(self.group_name),
             hubspot_defined=str(self.hubspot_defined),
         )
 
 
 # Mostly used for code-gen
-class HubspotFormDefinition:
-    def __init__(self, fields: Dict[str, HubspotFieldDefinition]):
+class FormDefinition:
+    def __init__(self, fields: Dict[str, FieldDefinition]):
+        # TODO(P1, correctness): I imagine we would need a GPT intro / context string
         self.fields = {k: v for k, v in fields.items() if k in ALLOWED_FIELDS}
 
     @classmethod
     def from_properties_api_response(
         cls, field_list: List[ModelProperty]
-    ) -> "HubspotFormDefinition":
+    ) -> "FormDefinition":
         fields = {}
-        for field_response in field_list:
-            field = HubspotFieldDefinition.from_properties_api_response(field_response)
+        for field_response in [f for f in field_list if f.name in ALLOWED_FIELDS]:
+            field = FieldDefinition.from_properties_api_response(field_response)
             fields[field.name] = field
         return cls(fields)
 
     def to_gpt_prompt(self) -> str:
-        return ",\n".join([field.to_gpt_prompt() for field in self.fields.values()])
+        field_prompts = [field.to_gpt_prompt() for field in self.fields.values()]
+        return ",\n".join([f for f in field_prompts if f is not None])
 
     def to_python_definition(self):
         return ",\n".join(
@@ -143,27 +154,26 @@ class HubspotObject:
     def __init__(
         self,
         obj_name: str,
-        fields: Dict[str, HubspotFieldDefinition],
+        form: FormDefinition,
     ):
-        # TODO(p0, devx): We somehow should store hs_object_id, but omit from GPT gen. Likely we need another param.
         self.obj_name = obj_name
-        self.fields = fields
+        self.form = form
         self.data = {}  # you can just plug into properties
 
     @classmethod
     def from_api_response(
         cls,
         obj_name: str,
-        fields: Dict[str, HubspotFieldDefinition],
+        fields: Dict[str, FieldDefinition],
         response: SimplePublicObjectWithAssociations,
     ):
-        result = HubspotObject(obj_name, fields)
+        result = HubspotObject(obj_name, FormDefinition(fields))
         for field_name, value in response.properties.items():
             result.set_field_value(field_name, value)
         return result
 
     def set_field_value(self, field_name: str, value: Any, raise_key_error=False):
-        if field_name in self.fields.keys():
+        if field_name in self.form.fields.keys():
             # TODO(P1, consistency): We can use field.field_type to validate input type.
             self.data[field_name] = value
         else:
@@ -230,7 +240,7 @@ class AssociationType(Enum):
 
 
 CONTACT_FIELDS = {
-    "recent_conversion_event_name": HubspotFieldDefinition(
+    "recent_conversion_event_name": FieldDefinition(
         name="recent_conversion_event_name",
         field_type="text",
         label="Recent Conversion",
@@ -239,7 +249,7 @@ CONTACT_FIELDS = {
         group_name="conversioninformation",
         hubspot_defined=True,
     ),
-    "firstname": HubspotFieldDefinition(
+    "firstname": FieldDefinition(
         name="firstname",
         field_type="text",
         label="First Name",
@@ -248,7 +258,7 @@ CONTACT_FIELDS = {
         group_name="contactinformation",
         hubspot_defined=True,
     ),
-    "lastname": HubspotFieldDefinition(
+    "lastname": FieldDefinition(
         name="lastname",
         field_type="text",
         label="Last Name",
@@ -257,7 +267,7 @@ CONTACT_FIELDS = {
         group_name="contactinformation",
         hubspot_defined=True,
     ),
-    "email": HubspotFieldDefinition(
+    "email": FieldDefinition(
         name="email",
         field_type="text",
         label="Email",
@@ -266,7 +276,7 @@ CONTACT_FIELDS = {
         group_name="contactinformation",
         hubspot_defined=True,
     ),
-    "phone": HubspotFieldDefinition(
+    "phone": FieldDefinition(
         name="phone",
         field_type="phonenumber",
         label="Phone Number",
@@ -275,7 +285,7 @@ CONTACT_FIELDS = {
         group_name="contactinformation",
         hubspot_defined=True,
     ),
-    "hubspot_owner_id": HubspotFieldDefinition(
+    "hubspot_owner_id": FieldDefinition(
         name="hubspot_owner_id",
         field_type="select",
         label="Contact owner",
@@ -287,7 +297,7 @@ CONTACT_FIELDS = {
         group_name="sales_properties",
         hubspot_defined=True,
     ),
-    "city": HubspotFieldDefinition(
+    "city": FieldDefinition(
         name="city",
         field_type="text",
         label="City",
@@ -296,7 +306,7 @@ CONTACT_FIELDS = {
         group_name="contactinformation",
         hubspot_defined=True,
     ),
-    "state": HubspotFieldDefinition(
+    "state": FieldDefinition(
         name="state",
         field_type="text",
         label="State/Region",
@@ -305,7 +315,7 @@ CONTACT_FIELDS = {
         group_name="contactinformation",
         hubspot_defined=True,
     ),
-    "country": HubspotFieldDefinition(
+    "country": FieldDefinition(
         name="country",
         field_type="text",
         label="Country/Region",
@@ -314,7 +324,7 @@ CONTACT_FIELDS = {
         group_name="contactinformation",
         hubspot_defined=True,
     ),
-    "jobtitle": HubspotFieldDefinition(
+    "jobtitle": FieldDefinition(
         name="jobtitle",
         field_type="text",
         label="Job Title",
@@ -323,28 +333,28 @@ CONTACT_FIELDS = {
         group_name="contactinformation",
         hubspot_defined=True,
     ),
-    "lifecyclestage": HubspotFieldDefinition(
+    "lifecyclestage": FieldDefinition(
         name="lifecyclestage",
         field_type="radio",
         label="Lifecycle Stage",
         description=(
-            "The qualification of contacts to sales readiness. It can be set through imports, forms, workflows"
-            ", and manually on a per contact basis."
+            "The qualification of contacts to sales readiness. "
+            "It can be set through imports, forms, workflows, and manually on a per contact basis."
         ),
         options=[
-            "subscriber",
-            "lead",
-            "marketingqualifiedlead",
-            "salesqualifiedlead",
-            "opportunity",
-            "customer",
-            "evangelist",
-            "other",
+            Option(label="Subscriber", value="subscriber"),
+            Option(label="Lead", value="lead"),
+            Option(label="Marketing Qualified Lead", value="marketingqualifiedlead"),
+            Option(label="Sales Qualified Lead", value="salesqualifiedlead"),
+            Option(label="Opportunity", value="opportunity"),
+            Option(label="Customer", value="customer"),
+            Option(label="Evangelist", value="evangelist"),
+            Option(label="Other", value="other"),
         ],
         group_name="contactinformation",
         hubspot_defined=True,
     ),
-    "company": HubspotFieldDefinition(
+    "company": FieldDefinition(
         name="company",
         field_type="text",
         label="Company Name",
@@ -356,7 +366,7 @@ CONTACT_FIELDS = {
         group_name="contactinformation",
         hubspot_defined=True,
     ),
-    "industry": HubspotFieldDefinition(
+    "industry": FieldDefinition(
         name="industry",
         field_type="text",
         label="Industry",
