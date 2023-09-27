@@ -39,6 +39,12 @@ class FieldNames(Enum):
     HS_CALL_STATUS = "hs_call_status"
     HS_CALL_TITLE = "hs_call_title"
     HS_CALL_TO_NUMBER = "hs_call_to_number"
+    # Tasks
+    HS_TASK_BODY = "hs_task_body"
+    HS_TASK_SUBJECT = "hs_task_subject"
+    HS_TASK_STATUS = "hs_task_status"
+    HS_TASK_PRIORITY = "hs_task_priority"
+    HS_TASK_TYPE = "hs_task_type"
 
 
 ALLOWED_FIELDS = set(item.value for item in FieldNames)
@@ -535,6 +541,107 @@ CALL_FIELDS = {
         label="Activity assigned to",
         description=(
             "The user that the activity is assigned to in HubSpot. "
+            "This can be any HubSpot user or Salesforce integration user, and can be set manually or via Workflows."
+        ),
+        options=[],
+        group_name="engagement",
+        hubspot_defined=True,
+    ),
+}
+
+TASK_FIELDS = {
+    "hs_object_id": FieldDefinition(
+        name="hs_object_id",
+        field_type="number",
+        label="Record ID",
+        description=(
+            "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
+        ),
+        options=[],
+        group_name="taskinformation",
+        hubspot_defined=True,
+    ),
+    "hs_task_body": FieldDefinition(
+        name="hs_task_body",
+        field_type="html",
+        label="Notes",
+        description="Action items in short bullet points",
+        options=[],
+        group_name="task",
+        hubspot_defined=True,
+    ),
+    "hs_task_priority": FieldDefinition(
+        name="hs_task_priority",
+        field_type="select",
+        label="Priority",
+        description="The priority of the task",
+        options=[
+            Option(label="None", value="NONE"),
+            Option(label="Low", value="LOW"),
+            Option(label="Medium", value="MEDIUM"),
+            Option(label="High", value="HIGH"),
+        ],
+        group_name="task",
+        hubspot_defined=True,
+    ),
+    "hs_task_status": FieldDefinition(
+        name="hs_task_status",
+        field_type="select",
+        label="Task Status",
+        description="The status of the task",
+        options=[
+            Option(label="Completed", value="COMPLETED"),
+            Option(label="Deferred", value="DEFERRED"),
+            Option(label="In Progress", value="IN_PROGRESS"),
+            Option(label="Not Started", value="NOT_STARTED"),
+            Option(label="Waiting", value="WAITING"),
+        ],
+        group_name="task",
+        hubspot_defined=True,
+    ),
+    "hs_task_subject": FieldDefinition(
+        name="hs_task_subject",
+        field_type="text",
+        label="Task Title",
+        description="The title of the task",
+        options=[],
+        group_name="task",
+        hubspot_defined=True,
+    ),
+    "hs_task_type": FieldDefinition(
+        name="hs_task_type",
+        field_type="select",
+        label="Task Type",
+        description="The type of the task",
+        options=[
+            Option(label="Call", value="CALL"),
+            Option(label="Email", value="EMAIL"),
+            Option(label="LinkedIn", value="LINKED_IN"),
+            Option(label="Meeting", value="MEETING"),
+            Option(
+                label="Sales Navigator - Connection Request", value="LINKED_IN_CONNECT"
+            ),
+            Option(label="Sales Navigator - InMail", value="LINKED_IN_MESSAGE"),
+            Option(label="To Do", value="TODO"),
+        ],
+        group_name="task",
+        hubspot_defined=True,
+    ),
+    "hs_timestamp": FieldDefinition(
+        name="hs_timestamp",
+        field_type="date",
+        label="Due date",
+        description="The due date of the task",
+        options=[],
+        group_name="engagement",
+        hubspot_defined=True,
+    ),
+    "hubspot_owner_id": FieldDefinition(
+        name="hubspot_owner_id",
+        field_type="select",
+        label="Assigned to",
+        description=(
+            "The user that the task is assigned to in HubSpot. "
             "This can be any HubSpot user or Salesforce integration user, and can be set manually or via Workflows."
         ),
         options=[],
