@@ -79,6 +79,7 @@ class BaseAccount(BaseModel):
         column_name="organization_id", field="id", model=BaseOrganization, null=True
     )
     organization_role = TextField(null=True)
+    organization_user_id = TextField(null=True)
     user = ForeignKeyField(
         column_name="user_id", field="id", model=BaseUsers, null=True
     )

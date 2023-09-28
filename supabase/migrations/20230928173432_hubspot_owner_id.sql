@@ -1,0 +1,1 @@
+ALTER TABLE public.account ADD COLUMN organization_user_id TEXT NULL;

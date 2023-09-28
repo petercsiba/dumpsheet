@@ -89,6 +89,7 @@ class HubspotClient:
                 print(
                     f"reusing cached access token valid until {self.expires_at_cache}"
                 )
+        self.api_client.crm.owners
 
         now = datetime.datetime.now(pytz.UTC)
         if (

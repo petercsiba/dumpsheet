@@ -128,8 +128,13 @@ def _count_set_fields(form_data: Dict[str, Any]) -> int:
     return sum(1 for value in form_data.values() if value is not None)
 
 
+# TODO: hubspot_owner_id might need to be int
 def extract_and_sync_contact_with_follow_up(
-    client: HubspotClient, gpt_client: OpenAiClient, text: str, local_hack=False
+    client: HubspotClient,
+    gpt_client: OpenAiClient,
+    text: str,
+    hubspot_owner_id: Optional[str] = None,
+    local_hack=False,
 ) -> HubspotDataEntry:
     # When too little text, then don't even try.
     if len(str(text)) < 50:
@@ -141,6 +146,8 @@ def extract_and_sync_contact_with_follow_up(
 
     contact_form = FormDefinition(CONTACT_FIELDS)
     contact_data = extract_form_data(gpt_client, contact_form, text)
+    if bool(contact_data) and bool(hubspot_owner_id):
+        contact_data[FieldNames.HUBSPOT_OWNER_ID.value] = hubspot_owner_id
     # When it would yield too little information, rather skip and make them re-enter.
     if _count_set_fields(contact_data) <= 1:
         print(
@@ -164,12 +171,16 @@ def extract_and_sync_contact_with_follow_up(
 
     call_form = FormDefinition(CALL_FIELDS)
     call_data = extract_form_data(gpt_client, call_form, text)
+    if bool(call_data) and bool(hubspot_owner_id):
+        call_data[FieldNames.HUBSPOT_OWNER_ID.value] = hubspot_owner_id
     call_response = client.crm_call_create(call_data)
     call_id = call_response.hs_object_id
 
     # TODO(P1, ux): Sometimes, there might be no task.
     task_form = FormDefinition(TASK_FIELDS)
     task_data = extract_form_data(gpt_client, task_form, text)
+    if bool(call_data) and bool(hubspot_owner_id):
+        call_data[FieldNames.HUBSPOT_OWNER_ID.value] = hubspot_owner_id
     task_response = client.crm_task_create(task_data)
     task_id = task_response.hs_object_id
 
@@ -290,6 +301,13 @@ if __name__ == "__main__":
 
         test_gpt_client = OpenAiClient()
 
+        peter_voxana_user_id = (
+            52619471  # Same for our HS instance and the Dev HS instance
+        )
         extract_and_sync_contact_with_follow_up(
-            test_hs_client, test_gpt_client, test_data2, local_hack=True
+            test_hs_client,
+            test_gpt_client,
+            test_data2,
+            hubspot_owner_id="52619471",
+            local_hack=True,
         )
