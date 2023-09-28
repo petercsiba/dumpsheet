@@ -417,8 +417,8 @@ def send_hubspot_result(
 
     # success / error with partial results
     contact_table = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
-    call_table = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
-    task_table = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
+    call_table = _hubspot_objs_maybe_to_table(data.call, data.gpt_call)
+    task_table = _hubspot_objs_maybe_to_table(data.task, data.gpt_task)
     email_params.body_text = """
     {heading_contact}
     <p>{contact}</p>
