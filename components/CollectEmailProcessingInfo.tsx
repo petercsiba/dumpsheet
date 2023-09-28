@@ -79,9 +79,13 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
                         </button>
                     </div>
                 ) : (
-                    <p>
-                        Syncing your data to HubSpot - will send a confirmation to {existingEmail ?? email} when done within a few minutes.
-                    </p>
+                    <div>
+                        <span className="font-bold text-lg">I will be:</span>
+                        <ul className="list-disc list-inside ml-5 text-">
+                            <li className="mt-1">Creating HubSpot Entries</li>
+                            <li className="mt-1">Sending result confirmation to your email {existingEmail ?? email}</li>
+                        </ul>
+                    </div>
                 )
             )}
             <p>{message}</p>
