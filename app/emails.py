@@ -10,13 +10,14 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import parseaddr
-from typing import List
+from typing import Any, Dict, List
 from uuid import UUID
 
 import boto3
 from bs4 import BeautifulSoup
 
 from app.datashare import PersonDataEntry
+from app.hubspot_dump import HubspotDataEntry
 from common.aws_utils import is_running_in_aws
 from common.config import (
     DEBUG_RECIPIENTS,
@@ -27,6 +28,7 @@ from common.config import (
 )
 from common.storage_utils import pretty_filesize_path
 from database.email_log import EmailLog
+from database.models import BaseAccount, BaseOrganization
 
 
 def sanitize_filename(filename: str) -> str:
@@ -284,7 +286,7 @@ def send_email(params: EmailLog) -> bool:
 
 def _format_heading(heading: str) -> str:
     # Calculate the number of dashes needed on each side
-    num_dashes_each_side = (80 - len(heading) - 2) // 2
+    num_dashes_each_side = (40 - len(heading) - 2) // 2
 
     # Ensure there are at least 5 dashes on each side
     num_dashes_each_side = max(num_dashes_each_side, 5)
@@ -356,6 +358,51 @@ def _summary_table_row(key: str, value: str, cell_tag="td") -> str:
         f"<tr><{cell_tag} style='background-color: #f0f0f0; padding: 5px 2px;'><strong>{key}</strong></{cell_tag}>"
         f"<{cell_tag} style='padding: 2px 5px;'>{value}</{cell_tag}></tr>\n"
     )
+
+
+def _hubspot_dict_to_table(data: Dict[str, Any]) -> str:
+    # TODO(ux): Might need to sort this by form definition
+    rows = []
+    for key, value in data.items():
+        rows.append(_summary_table_row(key, value))
+    rows_html = "".join(rows)
+    return (
+        """<p><table style="border: 1px solid black;">{rows_html}</table></p>""".format(
+            rows_html=rows_html
+        )
+    )
+
+
+def send_hubspot_result(
+    account_id: UUID, idempotency_id_prefix: str, data: HubspotDataEntry
+) -> bool:
+    acc: BaseAccount = BaseAccount.get_by_id(account_id)
+    org: BaseOrganization = BaseOrganization.get_by_id(acc.organization_id)
+    person_name = data.contact_name()
+
+    email_params = EmailLog.get_email_reply_params_for_account_id(
+        account_id=account_id,
+        idempotency_id=f"{idempotency_id_prefix}-result",
+        subject=f"HubSpot Data Entry for {person_name} into {org.name}",
+    )
+    email_params.body_text = """
+    {heading_contact}
+    <p>{contact}</p>
+    {heading_call}
+    <p>{call}</p>
+    {heading_task}
+    <p>{task}</p>
+    {signature}
+    """.format(
+        heading_contact=_format_heading("Contact Data"),
+        contact=_hubspot_dict_to_table(data.contact_props),
+        heading_call=_format_heading("Call Data"),
+        call=_hubspot_dict_to_table(data.call_props),
+        heading_task=_format_heading("Heading Data"),
+        task=_hubspot_dict_to_table(data.task_props),
+        signature=add_signature(),
+    )
+    return send_email(params=email_params)
 
 
 def _craft_result_email_body(person: PersonDataEntry) -> (str, str):

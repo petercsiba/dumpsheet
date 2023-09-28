@@ -8,17 +8,20 @@ import os
 import re
 import time
 import uuid
-from typing import List, Optional
+from typing import List
 from urllib.parse import unquote_plus
 from uuid import UUID
 
 from app.datashare import PersonDataEntry
 from app.emails import (
+    send_hubspot_result,
     send_result,
     send_result_no_people_found,
     send_result_rest_of_the_crowd,
     send_technical_failure_email,
 )
+from app.hubspot_client import HubspotClient
+from app.hubspot_dump import HubspotDataEntry, extract_and_sync_contact_with_follow_up
 from app.networking_dump import run_executive_assistant_to_get_drafts
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.config import RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS
@@ -30,7 +33,8 @@ from database.client import (
     connect_to_postgres,
     connect_to_postgres_i_will_call_disconnect_i_promise,
 )
-from database.models import BaseDataEntry
+from database.models import BaseAccount, BaseDataEntry, BaseOrganization
+from database.organization import ORGANIZATION_ROLE_ADMIN
 from input.app_upload import process_app_upload
 from input.call import process_voice_recording_input
 from input.email import process_email_input
@@ -92,7 +96,6 @@ def wait_for_email_updated_on_data_entry(data_entry_id: UUID) -> bool:
 # Second lambda
 def process_transcript_from_data_entry(
     gpt_client: OpenAiClient,
-    twilio_client: Optional[TwilioClient],
     data_entry: BaseDataEntry,
 ) -> List[PersonDataEntry]:
     # ===== Actually perform black magic
@@ -139,6 +142,20 @@ def process_transcript_from_data_entry(
         )
 
     return people_entries
+
+
+def process_transcript_for_organization(
+    hs_client: HubspotClient,
+    gpt_client: OpenAiClient,
+    data_entry: BaseDataEntry,
+) -> HubspotDataEntry:
+    data = extract_and_sync_contact_with_follow_up(
+        hs_client, gpt_client, data_entry.output_transcript
+    )
+
+    send_hubspot_result(data_entry.account, data_entry.idempotency_id, data)
+
+    return data
 
 
 def parse_uuid_from_string(input_string):
@@ -225,12 +242,22 @@ def lambda_handler_wrapper(event, context):
         )
 
     # Second Lambda
-    # NOTE: When we actually separate them - be careful about re-tries to clear the output.
-    process_transcript_from_data_entry(
-        gpt_client=gpt_client,
-        twilio_client=twilio_client,
-        data_entry=data_entry,
-    )
+    acc: BaseAccount = BaseAccount.get_by_id(data_entry.account_id)
+    if bool(acc.organization):
+        print("Account is part of an organization, will sync data directly there")
+        hs_client = HubspotClient(acc.organization_id)
+        process_transcript_for_organization(
+            hs_client=hs_client,
+            gpt_client=gpt_client,
+            data_entry=data_entry,
+        )
+    else:
+        # Our OG product
+        # NOTE: When we actually separate them - be careful about re-tries to clear the output.
+        process_transcript_from_data_entry(
+            gpt_client=gpt_client,
+            data_entry=data_entry,
+        )
 
 
 def _event_idempotency_id(event):
@@ -320,9 +347,32 @@ if __name__ == "__main__":
         loaded_data_entry = BaseDataEntry.get(BaseDataEntry.id == orig_data_entry.id)
         print(f"loaded_data_entry: {loaded_data_entry}")
 
-        # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
-        process_transcript_from_data_entry(
-            gpt_client=open_ai_client,
-            data_entry=orig_data_entry,
-            twilio_client=None,
+        # since we have one TestHubspot integration, all accounts have to be part of the same organization
+        # (alternatively we can mock the entire HubspotClient)
+        existing_organization: BaseOrganization = BaseOrganization.get_or_none(
+            BaseOrganization.name == "testing locally"
         )
+        if bool(existing_organization):  # Feel free to hardcode by-pass this
+            # Make sure the account is connected to this organization
+            acc: BaseAccount = BaseAccount.get_by_id(orig_data_entry.account_id)
+            if (
+                acc.organization is None
+                or acc.organization_id != existing_organization.id
+            ):
+                print("INFO: Linking account to existing organization")
+                acc.organization_id = existing_organization.id
+                acc.organization_role = ORGANIZATION_ROLE_ADMIN
+                acc.save()
+
+            hs_client = HubspotClient(existing_organization.id)
+            process_transcript_for_organization(
+                hs_client=hs_client,
+                gpt_client=open_ai_client,
+                data_entry=orig_data_entry,
+            )
+        else:
+            # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
+            process_transcript_from_data_entry(
+                gpt_client=open_ai_client,
+                data_entry=orig_data_entry,
+            )

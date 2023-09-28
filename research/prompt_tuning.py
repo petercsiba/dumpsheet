@@ -17,7 +17,6 @@ def process_file(gpt_client: OpenAiClient, file_contents):
     people_entries = process_transcript_from_data_entry(
         gpt_client=gpt_client,
         data_entry=orig_data_entry,
-        twilio_client=None,
     )
 
     print("====================================================")
