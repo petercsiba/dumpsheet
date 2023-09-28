@@ -348,7 +348,7 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
 
     return craft_response(
         200,
-        body={"info": "Thank you for using Voxana.AI"},
+        body={"info": "Hubspot Connected - thank you for using Voxana.AI"},
         headers={
             "Location": f"https://app.voxana.ai?hubspot_status=success&account_id={account_id}"
         },

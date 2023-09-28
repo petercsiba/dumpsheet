@@ -10,7 +10,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import parseaddr
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 import boto3
@@ -377,16 +377,19 @@ def _hubspot_obj_to_table(obj: Optional[HubspotObject]) -> str:
 
 def _hubspot_objs_maybe_to_table(
     obj: Optional[HubspotObject], gpt_obj: Optional[HubspotObject]
-) -> str:
+) -> Tuple[str, str]:
     if obj is None:
         result = "<p>Could not sync data to HubSpot</p>"
         if gpt_obj is None:
+            suffix = "parse-error"
             result = "<p>Could not parse data to HubSpot</p>"
         else:
+            suffix = "synx-error"
             result += _hubspot_obj_to_table(gpt_obj)
     else:
+        suffix = "success"
         result = _hubspot_obj_to_table(obj)
-    return result
+    return suffix, result
 
 
 def send_hubspot_result(
@@ -396,9 +399,15 @@ def send_hubspot_result(
     org: BaseOrganization = BaseOrganization.get_by_id(acc.organization_id)
     person_name = data.contact_name()
 
+    contact_table, idempotency_id_sufix = _hubspot_objs_maybe_to_table(
+        data.contact, data.gpt_contact
+    )
+    call_table, _ = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
+    task_table, _ = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
+
     email_params = EmailLog.get_email_reply_params_for_account_id(
         account_id=account_id,
-        idempotency_id=f"{idempotency_id_prefix}-result",
+        idempotency_id=f"{idempotency_id_prefix}-result-{idempotency_id_sufix}",
         subject=f"HubSpot Data Entry for {person_name} into {org.name}",
     )
     email_params.body_text = """
@@ -411,11 +420,11 @@ def send_hubspot_result(
     {signature}
     """.format(
         heading_contact=_format_heading("Contact Data"),
-        contact=_hubspot_objs_maybe_to_table(data.contact, data.gpt_contact),
+        contact=contact_table,
         heading_call=_format_heading("Call Data"),
-        call=_hubspot_objs_maybe_to_table(data.call, data.gpt_call),
+        call=call_table,
         heading_task=_format_heading("Task Data"),
-        task=_hubspot_objs_maybe_to_table(data.task, data.gpt_task),
+        task=task_table,
         signature=add_signature(),
     )
     # TODO(P1): Remove
