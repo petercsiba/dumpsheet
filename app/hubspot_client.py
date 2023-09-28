@@ -143,16 +143,16 @@ class HubspotClient:
                     refresh_token=organization.hubspot_refresh_token,
                 )
                 organization.hubspot_access_token = tokens.access_token
-                # TODO(P1, security): We cannot just store plaintext refresh tokens, use some 3rd party for that.
+                # We subtract 300 seconds to make more real.
+                organization.hubspot_expires_at = now + datetime.timedelta(
+                    seconds=tokens.expires_in - 300
+                )
                 if (
                     bool(tokens.refresh_token)
                     and organization.hubspot_refresh_token != tokens.refresh_token
                 ):
+                    # TODO(P1, security): We cannot just store plaintext refresh tokens, use some 3rd party for that.
                     organization.hubspot_refresh_token = tokens.refresh_token
-                    # We subtract 300 seconds to make more real.
-                    organization.hubspot_expires_at = now + datetime.timedelta(
-                        seconds=tokens.expires_in - 300
-                    )
                     print(
                         f"refresh_token changed, updating and will be valid until {organization.hubspot_expires_at}"
                     )
