@@ -320,8 +320,6 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
             # This is a one-time authorization code to get access and refresh tokens - so don't screw up.
             code=authorization_code,
         )
-        # TODO(P0, security): To pass SOC2 one day we cannot store this as plaintext.
-        print(f"got hubspot oauth tokens: {tokens}")
     except oauth.ApiException as e:
         return craft_error(
             500, f"Exception when fetching access token from HubSpot: {e}"
@@ -341,10 +339,19 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     now = datetime.datetime.now()
     org.hubspot_linked_at = now
     org.hubspot_access_token = tokens.access_token
+    try:
+        uuid.UUID(str(tokens.refresh_token))
+    except Exception as e:
+        print(
+            f"WARNING: expected refresh_token to be an UUID, got {type(tokens.refresh_token)}: {e}"
+        )
     org.hubspot_refresh_token = tokens.refresh_token
     # We subtract 60 seconds to make more real.
     org.hubspot_expires_at = now + datetime.timedelta(seconds=tokens.expires_in - 60)
     org.save()
+    print(
+        f"Success linking hubspot token for account {account_id}, good til {org.hubspot_expires_at}"
+    )
 
     return craft_response(
         200,

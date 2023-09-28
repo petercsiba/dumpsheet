@@ -55,8 +55,28 @@ class HubspotClient:
         self.organization_id = organization_id
         self._ensure_token_fresh()
 
+        # Double-check some init stuff to prevent overlong debugging
+        try:
+            uuid.UUID(str(HUBSPOT_CLIENT_SECRET))
+        except Exception as e:
+            print(
+                f"WARNING: HUBSPOT_CLIENT_SECRET is expected to be an UUID, got {type(HUBSPOT_CLIENT_SECRET)}: {e}"
+            )
+        try:
+            org: BaseOrganization = BaseOrganization.get_by_id(self.organization_id)
+            uuid.UUID(str(org.hubspot_refresh_token))
+        except Exception as e:
+            print(f"WARNING: HubspotClient cannot access refresh token {e}")
+
     # TODO(P0, bug): We have to somehow use the refresh token to get new access_tokens
     # https://legacydocs.hubspot.com/docs/methods/oauth2/oauth2-quickstart#refreshing-oauth-20-tokens
+    # From Auth0 docs:
+    # * While refresh tokens are often long-lived, the authorization server can invalidate them.
+    # * Some of the reasons a refresh token may no longer be valid include:
+    #   * the authorization server has revoked the refresh token
+    #   * the user has revoked their consent for authorization
+    #   * the refresh token has expired
+    #   * the authentication policy for the resource has changed (e.g. it only wanted reads, but now it requires writes)
     def _ensure_token_fresh(self) -> ApiSingleResponse:
         if self.expires_at_cache is None:
             organization = BaseOrganization.get_by_id(self.organization_id)
@@ -88,11 +108,19 @@ class HubspotClient:
                     refresh_token=organization.hubspot_refresh_token,
                 )
                 organization.hubspot_access_token = tokens.access_token
-                organization.hubspot_refresh_token = tokens.refresh_token
-                # We subtract 300 seconds to make more real.
-                organization.hubspot_expires_at = now + datetime.timedelta(
-                    seconds=tokens.expires_in - 300
-                )
+                # TODO(P1, security): We cannot just store plaintext refresh tokens, use some 3rd party for that.
+                if (
+                    bool(tokens.refresh_token)
+                    and organization.hubspot_refresh_token != tokens.refresh_token
+                ):
+                    organization.hubspot_refresh_token = tokens.refresh_token
+                    # We subtract 300 seconds to make more real.
+                    organization.hubspot_expires_at = now + datetime.timedelta(
+                        seconds=tokens.expires_in - 300
+                    )
+                    print(
+                        f"refresh_token changed, updating and will be valid until {organization.hubspot_expires_at}"
+                    )
                 organization.save()
 
                 self.expires_at_cache = organization.hubspot_expires_at
@@ -101,6 +129,7 @@ class HubspotClient:
             except oauth.ApiException as e:
                 print(f"ERROR when fetching access token: {e}")
                 return self._handle_exception("oauth refresh", e)
+
         return ApiSingleResponse(200, None)
 
     def _handle_exception(
