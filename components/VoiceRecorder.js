@@ -107,11 +107,12 @@ export default function VoiceRecorder() {
             // TODO(P1, hack): setTimeout for the demo to refresh that part of the screen
             // * The theory is that requesting the mike blocks syncing with quick-time
             setTimeout(() => {
+                console.log("setRecording")
                 setRecording(recorder);
-
                 setRecordingStartTime(Date.now());
             }, 200); // 200ms delay
 
+            console.log("startRecording")
             recorder.startRecording()
         } catch (error) {
             console.error("Failed to start recording: ", error)
