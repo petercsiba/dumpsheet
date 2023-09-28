@@ -62,8 +62,8 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
                     <div className="p-4 text-center">
                         <p>
                             I will be processing your request in the next few minutes, please
-                            enter your email to receive the results directly to your
-                            inbox
+                            enter your email to receive confirmations directly into your
+                            inbox.
                         </p>
                         <input
                             type="text"
@@ -80,7 +80,7 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
                     </div>
                 ) : (
                     <p>
-                        I will be sending the result to your email {existingEmail ?? email} in a few minutes
+                        Syncing your data to HubSpot - will send a confirmation to {existingEmail ?? email} when done within a few minutes.
                     </p>
                 )
             )}
