@@ -102,6 +102,9 @@ export default function VoiceRecorder() {
                 type: 'audio',
                 mimeType: 'audio/webm'
             })
+            // TODO(P1, hack): A hack for the demo to refresh that part of the screen
+            setUploadStatus("hey")
+            setUploadStatus(null)
 
             setStream(stream)
             setRecording(recorder)
