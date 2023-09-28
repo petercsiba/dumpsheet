@@ -5,6 +5,7 @@ import Image from 'next/image'
 import MicrophoneIcon from '../public/images/icons/microphone-icon.svg'
 import StopIcon from '../public/images/icons/stop-icon.svg'
 import CollectEmailProcessingInfo from "@/components/CollectEmailProcessingInfo";
+import {useAccount} from "@/contexts/AccountContext";
 
 const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
 const UPLOAD_TIMEOUT = 20000;
@@ -54,7 +55,7 @@ export default function VoiceRecorder() {
     const [duration, setDuration] = useState(null);
     const [collectEmail, setCollectEmail] = useState(null);
     const [existingEmail, setExistingEmail] = useState(null);
-    const [accountId, setAccountId] = useState(null);
+    const { accountId, setAccountId } = useAccount();
     const [processing, setProcessing] = useState(null)
 
 
@@ -118,7 +119,14 @@ export default function VoiceRecorder() {
         // and don't provide an option to disable it. GREAT, especially when AWS API Gateway does not allow to ALLOW it.
 
         // First, get the presigned URL from your Lambda function
-        const presigned_response = await fetch(PRESIGNED_URL, {method: 'GET'});
+        const headers = {};
+        if (accountId) {
+            headers['X-Account-Id'] = accountId;
+        }
+        const presigned_response = await fetch(PRESIGNED_URL, {
+            method: 'GET',
+            headers: headers,
+        });
         const data = await presigned_response.json(); // parse response to JSON
 
         // set states
