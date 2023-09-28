@@ -389,7 +389,7 @@ def _hubspot_objs_maybe_to_table(
     else:
         suffix = "success"
         result = _hubspot_obj_to_table(obj)
-    return suffix, result
+    return result, suffix
 
 
 def send_hubspot_result(
