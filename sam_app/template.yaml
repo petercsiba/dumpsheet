@@ -29,7 +29,7 @@ Globals:
     #  AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
     #  AllowMethods: "'GET,POST,OPTIONS'"
   Function:
-    Timeout: 3
+    Timeout: 120
     MemorySize: 128
 
 Resources:
