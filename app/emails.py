@@ -399,7 +399,7 @@ def send_hubspot_result(
     org: BaseOrganization = BaseOrganization.get_by_id(acc.organization_id)
     person_name = data.contact_name()
 
-    contact_table, idempotency_id_sufix = _hubspot_objs_maybe_to_table(
+    contact_table, idempotency_id_suffix = _hubspot_objs_maybe_to_table(
         data.contact, data.gpt_contact
     )
     call_table, _ = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
@@ -407,7 +407,7 @@ def send_hubspot_result(
 
     email_params = EmailLog.get_email_reply_params_for_account_id(
         account_id=account_id,
-        idempotency_id=f"{idempotency_id_prefix}-result-{idempotency_id_sufix}",
+        idempotency_id=f"{idempotency_id_prefix}-result-{idempotency_id_suffix}",
         subject=f"HubSpot Data Entry for {person_name} into {org.name}",
     )
     email_params.body_text = """
