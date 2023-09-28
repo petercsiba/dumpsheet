@@ -271,6 +271,7 @@ class HubspotObject:
             # self.data[field_name] = field.validate_and_fix(value)
             self.data[field_name] = value
         else:
+            print(f"INFO: omitting `{field_name}` from")
             if raise_key_error:
                 raise KeyError(
                     f"Field '{field_name}' does not exist on HubspotContact."

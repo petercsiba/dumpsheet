@@ -153,10 +153,14 @@ def extract_and_sync_contact_with_follow_up(
 
     return HubspotDataEntry(
         contact=HubspotObject.from_api_response_props(
-            contact_form, contact_response.properties
+            contact_form, contact_response.get_props_if_ok()
         ),
-        call=HubspotObject.from_api_response_props(call_form, call_response.properties),
-        task=HubspotObject.from_api_response_props(task_form, task_response.properties),
+        call=HubspotObject.from_api_response_props(
+            call_form, call_response.get_props_if_ok()
+        ),
+        task=HubspotObject.from_api_response_props(
+            task_form, task_response.get_props_if_ok()
+        ),
         contact_to_call_result=contact_to_call_result,
         contact_to_task_result=contact_to_task_result,
         gpt_contact=HubspotObject.from_api_response_props(contact_form, contact_data),

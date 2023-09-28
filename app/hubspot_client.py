@@ -39,6 +39,9 @@ class ApiSingleResponse:
         # `data` has more, like ['archived', 'archived_at', 'created_at', 'properties_with_history', ...]
         # but we ignore it for now
 
+    def get_props_if_ok(self):
+        return self.properties if 200 <= self.status < 300 else None
+
 
 # Quite nice API monitoring here: https://app.hubspot.com/developer/43920988/application/2150554/monitoring/api
 # TODO(P2, research): Figure out what are CRM Cards good for.
