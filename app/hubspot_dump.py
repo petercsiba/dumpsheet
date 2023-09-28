@@ -105,8 +105,15 @@ class HubspotDataEntry:
     gpt_task: Optional[HubspotObject]
 
     def contact_name(self):
-        first_name = self.contact.get_value(FieldNames.FIRSTNAME.value)
-        last_name = self.contact.get_value(FieldNames.LASTNAME.value)
+        if self.contact is not None:
+            first_name = self.contact.get_value(FieldNames.FIRSTNAME.value)
+            last_name = self.contact.get_value(FieldNames.LASTNAME.value)
+        elif self.gpt_contact is not None:
+            first_name = self.gpt_contact.get_value(FieldNames.FIRSTNAME.value)
+            last_name = self.gpt_contact.get_value(FieldNames.LASTNAME.value)
+        else:
+            first_name = "Unknown"
+            last_name = ""
         first_str = str(first_name) if bool(first_name) else ""
         last_str = str(last_name) if bool(last_name) else ""
         return f"{first_str} {last_str}"
