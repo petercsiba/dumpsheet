@@ -102,13 +102,16 @@ export default function VoiceRecorder() {
                 type: 'audio',
                 mimeType: 'audio/webm'
             })
-            // TODO(P1, hack): A hack for the demo to refresh that part of the screen
-            setUploadStatus("hey")
-            setUploadStatus(null)
-
             setStream(stream)
-            setRecording(recorder)
-            setRecordingStartTime(Date.now());
+
+            // TODO(P1, hack): setTimeout for the demo to refresh that part of the screen
+            // * The theory is that requesting the mike blocks syncing with quick-time
+            setTimeout(() => {
+                setRecording(recorder);
+
+                setRecordingStartTime(Date.now());
+            }, 200); // 200ms delay
+
             recorder.startRecording()
         } catch (error) {
             console.error("Failed to start recording: ", error)
