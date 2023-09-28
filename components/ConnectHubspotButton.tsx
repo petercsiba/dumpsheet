@@ -6,7 +6,10 @@ const HUBSPOT_CLIENT_ID: string = "501ffe58-5d49-47ff-b41f-627fccc28715";
 // When changed - the Hubspot owners need to re-auth with Voxana
 // Can be changed in the app admin: https://app.hubspot.com/developer/43920988/application/2150554
 const HUBSPOT_SCOPES: string = "oauth crm.objects.contacts.read crm.objects.contacts.write crm.objects.owners.read";
+// TODO(p2, devx): Why this ain't working?
+// const HUBSPOT_REDIRECT_URI: string = process.env.HUBSPOT_REDIRECT_URI || "http://localhost:3000"
 const HUBSPOT_REDIRECT_URI: string = "https://api.voxana.ai/hubspot/oauth/redirect";
+console.log(`hubspot config ${HUBSPOT_REDIRECT_URI} for scopes ${HUBSPOT_SCOPES}`)
 // const HUBSPOT_OPTIONAL_SCOPE: string = encodeURIComponent("automation");
 
 // Function to construct the authorization URL

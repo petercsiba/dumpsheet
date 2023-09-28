@@ -189,7 +189,7 @@ export default function VoiceRecorder() {
                 await uploadRecording(audioBlob);
 
                 setUploadSuccess(true);
-                setUploadStatus('Uploaded successfully!');
+                setUploadStatus('Upload successful!');
                 setProcessing(true)
             } catch (error) {
                 console.error("Failed to upload recording: ", error);
