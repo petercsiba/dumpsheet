@@ -97,22 +97,22 @@ export default function VoiceRecorder() {
         }
         console.log(`startRecording`)
         try {
+            // TODO(P1, hack): setTimeout for the demo to refresh that part of the screen
+            // * The theory is that requesting the mike blocks syncing with quick-time
+            setTimeout(() => {
+                console.log("setRecordingStartTime")
+                setRecordingStartTime(Date.now());
+            }, 500); // 200ms delay
+
             const stream = await navigator.mediaDevices.getUserMedia({audio: true, video: false})
             const recorder = new RecordRTC(stream, {
                 type: 'audio',
                 mimeType: 'audio/webm'
             })
+
+            console.log("setRecording")
             setStream(stream)
-
-            // TODO(P1, hack): setTimeout for the demo to refresh that part of the screen
-            // * The theory is that requesting the mike blocks syncing with quick-time
-            setTimeout(() => {
-                console.log("setRecording")
-                setRecording(recorder);
-                setRecordingStartTime(Date.now());
-            }, 200); // 200ms delay
-
-            console.log("startRecording")
+            setRecording(recorder);
             recorder.startRecording()
         } catch (error) {
             console.error("Failed to start recording: ", error)
@@ -242,10 +242,10 @@ export default function VoiceRecorder() {
             { /* audioURL && <AudioPlayer audioURL={audioURL} duration={duration} /> <br/> */}
             {!Boolean(uploadStatus) && <button
                 className="btn-white p-0"
-                onClick={recording ? stopRecording : startRecording}
+                onClick={recordingStartTime ? stopRecording : startRecording}
                 disabled={Boolean(uploadStatus)}
             >
-                {recording
+                {recordingStartTime
                     ? <StopRecordingButton/>
                     : <StartRecordingButton/>
                 }
