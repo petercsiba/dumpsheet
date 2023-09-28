@@ -109,14 +109,15 @@ class HubspotDataEntry:
 
 
 def extract_and_sync_contact_with_follow_up(
-    client: HubspotClient, gpt_client: OpenAiClient, text: str
+    client: HubspotClient, gpt_client: OpenAiClient, text: str, local_hack=False
 ) -> HubspotDataEntry:
     contact_form = FormDefinition(CONTACT_FIELDS)
     contact_data = extract_form_data(gpt_client, contact_form, text)
-    # Just mock new contact for every run
     # TODO(P1, ux): Figure out if you can create contacts without a communication channel
-    contact_data[FieldNames.EMAIL.value] = f"example{int(time.time())}@gmail.com"
-    contact_data[FieldNames.PHONE.value] = f"+1{int(time.time())}"
+    if local_hack:
+        # Just mock new contact for every run
+        contact_data[FieldNames.EMAIL.value] = f"example{int(time.time())}@gmail.com"
+        contact_data[FieldNames.PHONE.value] = f"+1{int(time.time())}"
     contact_response = client.crm_contact_create(contact_data)
     contact_id = contact_response.hs_object_id
 
@@ -153,7 +154,7 @@ def extract_and_sync_contact_with_follow_up(
     )
 
 
-test_data = """
+test_data1 = """
 Okay, I just talked to Jen Jennifer Ma Jen is interested in our product
 Jen's phone number is 703-887-5647 She called me today,
 and she would like to get her Tax or business development team in her
@@ -172,6 +173,22 @@ So we should schedule the demo sometime next week
 And it's it's my my action to come up with a good proposals when to do it next wee
 """
 
+test_data2 = """
+All right, I Just got a call from Joe earner w er and er Joe His number is 714-313-3752
+He is he lives in Bay Area in Fremont and And Joe is Interested in Voxana as well he wants to start using the
+The product very soon. He lives in, California His Company is Supplying widgets to Tesla factory And H
+e has a team of 20 Business development Representatives who are
+Who are in touch with potential clients all around the u.s. He is
+ He would like to understand more about how quickly we can deliver
+ and what kind of pricing we're going to have he's very interesting to know if he just pays per seats
+ or per number of Users Or if There's any usage pricing Also there they might be migrating to Salesforce soon.
+ So he's interested to know if Even then we'll be able to support them after the migration he If this works out,
+ he would be getting like 15 seats And Joe I Should he needs a little bit of time.
+ They have some firefighting in it in a company going on But I should reach Back to him end of October
+ right before Halloween he said And he also suggested He gave me contacts to max from Seed factory and
+ Max could be potentially also interested. So I should just quickly follow up with Joe to to get us
+ the introduction with max so that we can Get the ball rolling
+"""
 
 if __name__ == "__main__":
     with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
@@ -209,5 +226,5 @@ if __name__ == "__main__":
         test_gpt_client = OpenAiClient()
 
         extract_and_sync_contact_with_follow_up(
-            test_hs_client, test_gpt_client, test_data
+            test_hs_client, test_gpt_client, test_data2, local_hack=True
         )

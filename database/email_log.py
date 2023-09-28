@@ -14,7 +14,8 @@ class EmailLog(BaseEmailLog):
         db_table = "email_log"
 
     def get_recipient_first_name(self):
-        return self.recipient_full_name.split()[0]
+        # Somehow self.recipient_full_name is None
+        return str(self.recipient_full_name).split()[0]
 
     def fill_in_account(self):
         if self.account is None:

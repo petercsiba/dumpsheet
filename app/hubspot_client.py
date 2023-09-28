@@ -62,11 +62,15 @@ class HubspotClient:
                     f"reusing cached access token valid until {self.expires_at_cache}"
                 )
 
-        # TODO(P1, effectivity): The TZ comparison seems to be not working.
-        if self.expires_at_cache is None or self.expires_at_cache.astimezone(
-            pytz.UTC
-        ) < datetime.datetime.now(pytz.UTC):
-            print(f"gonna refresh token for organization {self.organization_id}")
+        now = datetime.datetime.now(pytz.UTC)
+        if (
+            self.expires_at_cache is None
+            or self.expires_at_cache.astimezone(pytz.UTC) < now
+        ):
+            print(
+                f"gonna refresh token for organization {self.organization_id} "
+                f"cause expires at {self.expires_at_cache} and now is {now}"
+            )
             try:
                 organization = BaseOrganization.get_by_id(self.organization_id)
 
@@ -80,10 +84,9 @@ class HubspotClient:
                 )
                 organization.hubspot_access_token = tokens.access_token
                 organization.hubspot_refresh_token = tokens.refresh_token
-                # We subtract 60 seconds to make more real.
-                organization.hubspot_expires_at = (
-                    datetime.datetime.now()
-                    + datetime.timedelta(seconds=tokens.expires_in - 60)
+                # We subtract 300 seconds to make more real.
+                organization.hubspot_expires_at = now + datetime.timedelta(
+                    seconds=tokens.expires_in - 300
                 )
                 organization.save()
 

@@ -217,6 +217,7 @@ def lambda_handler_wrapper(event, context):
         object_metadata = s3_get_object_response["Metadata"]
         # Get the phone number and proper name from the metadata
         # NOTE: the metadata names are case-insensitive, but Amazon S3 returns them in lowercase.
+        # NOTE: KeyError: 'callsid' - likely you re-uploaded the file to this bucket without the metadata.
         call_sid = object_metadata["callsid"]
         phone_number = object_metadata["phonenumber"]
         proper_name = object_metadata["propername"]
