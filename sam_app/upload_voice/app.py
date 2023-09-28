@@ -310,6 +310,7 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
         "arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/hubspot/client_secret-ApsPp3",
         "HUBSPOT_CLIENT_SECRET",
     )
+    # TODO(p2, devx): This piece of code is also in HubspotClient.authorize_from_code
     api_client = HubSpot()
     try:
         tokens = api_client.auth.oauth.tokens_api.create(
@@ -355,7 +356,9 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
 
     return craft_response(
         200,
-        body={"info": "Hubspot Connected - thank you for using Voxana.AI"},
+        body={
+            "info": f"Hubspot Connected to account {account_id} - thank you for using Voxana.AI"
+        },
         headers={
             "Location": f"https://app.voxana.ai?hubspot_status=success&account_id={account_id}"
         },

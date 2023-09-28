@@ -133,7 +133,7 @@ def extract_and_sync_contact_with_follow_up(
     client: HubspotClient,
     gpt_client: OpenAiClient,
     text: str,
-    hubspot_owner_id: Optional[str] = None,
+    hubspot_owner_id: Optional[int] = None,
     local_hack=False,
 ) -> HubspotDataEntry:
     # When too little text, then don't even try.
@@ -292,6 +292,14 @@ if __name__ == "__main__":
             )
 
         test_hs_client = HubspotClient(organization_id)
+        # In case we need to re-authorize the app
+        # TODO(P1, devx): redirect URI does not match initial auth code URI
+        # * To bypass, go to the auth link (e.g. from the app)
+        # * Change the state=account_id:ef9a7607-866f-4e22-b6c0-9eb594df4bd7
+        # * Copy the refresh_token from prod to local, from organization 00000000-0000-0000-0000-000000000000
+        # test_hs_client.authorize_from_code(organization_id, "a0e8ad21-ff4a-4ccf-a3e6-fdb52b212099")
+
+        test_hs_client.list_owners()
 
         # FOR CODE GEN
         # props = test_hs_client.list_custom_properties(object_type="contact")
@@ -301,13 +309,11 @@ if __name__ == "__main__":
 
         test_gpt_client = OpenAiClient()
 
-        peter_voxana_user_id = (
-            52619471  # Same for our HS instance and the Dev HS instance
-        )
+        peter_voxana_user_id = 550982168
         extract_and_sync_contact_with_follow_up(
             test_hs_client,
             test_gpt_client,
             test_data2,
-            hubspot_owner_id="52619471",
+            hubspot_owner_id=peter_voxana_user_id,
             local_hack=True,
         )

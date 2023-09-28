@@ -71,6 +71,38 @@ class HubspotClient:
         except Exception as e:
             print(f"WARNING: HubspotClient cannot access refresh token {e}")
 
+    # TODO(p2, devx): This is copy-pasted to upload_voice/app.py
+    def authorize_from_code(self, organization_id: uuid.UUID, authorization_code: str):
+        tokens = None
+        try:
+            tokens = self.api_client.auth.oauth.tokens_api.create(
+                grant_type="authorization_code",
+                redirect_uri=HUBSPOT_REDIRECT_URL,
+                client_id=HUBSPOT_CLIENT_ID,
+                client_secret=HUBSPOT_CLIENT_SECRET,
+                # This is a one-time authorization code to get access and refresh tokens - so don't screw up.
+                code=authorization_code,
+            )
+        except oauth.ApiException as e:
+            print(f"ERROR: HubspotClient cannot create authorize with oauth {e}")
+
+        org = BaseOrganization.get_by_id(organization_id)
+        now = datetime.datetime.now()
+        org.hubspot_linked_at = now
+        org.hubspot_access_token = tokens.access_token
+        try:
+            uuid.UUID(str(tokens.refresh_token))
+        except Exception as e:
+            print(
+                f"WARNING: expected refresh_token to be an UUID, got {type(tokens.refresh_token)}: {e}"
+            )
+        org.hubspot_refresh_token = tokens.refresh_token
+        # We subtract 60 seconds to make more real.
+        org.hubspot_expires_at = now + datetime.timedelta(
+            seconds=tokens.expires_in - 60
+        )
+        org.save()
+
     # TODO(P0, bug): We have to somehow use the refresh token to get new access_tokens
     # https://legacydocs.hubspot.com/docs/methods/oauth2/oauth2-quickstart#refreshing-oauth-20-tokens
     # From Auth0 docs:
@@ -89,7 +121,6 @@ class HubspotClient:
                 print(
                     f"reusing cached access token valid until {self.expires_at_cache}"
                 )
-        self.api_client.crm.owners
 
         now = datetime.datetime.now(pytz.UTC)
         if (
@@ -259,4 +290,13 @@ class HubspotClient:
             return response
         except Exception as e:
             print(f"Exception when listing custom properties: {e}")
+            return None
+
+    def list_owners(self):
+        try:
+            response = self.api_client.crm.owners.get_all()
+            print(f"list_owners returned: {response}")
+            return response
+        except Exception as e:
+            print(f"Exception while listing all owners: {e}")
             return None
