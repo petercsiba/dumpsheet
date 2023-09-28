@@ -29,13 +29,10 @@ export default function Home() {
                             <div
                                 className="w-full h-full sm:h-auto sm:w-2/5 max-w-sm p-5 bg-white shadow flex flex-col text-base">
 
-                                <div className="flex flex-col items-center py-8">
-                                    <Image
-                                        src="/images/tell-me-what-to-draft.png"
-                                        alt="tell me what to draft heading"
-                                        width={300}
-                                        height={30}
-                                    />
+                                <div className="flex flex-col items-center py-4">
+                                    <h2 className="text-3xl font-bold text-gray-800 leading-tight tracking-wide text-center">
+                                        Tell me about your meeting
+                                    </h2>
                                 </div>
                                 <div className="pt-4">
                                     <VoiceRecorderWithNoSSR/>
@@ -52,8 +49,8 @@ export default function Home() {
                             </div>
                         </div>
                     </div>
+                    <ConnectHubspotButton></ConnectHubspotButton>
                 </div>
-                <ConnectHubspotButton></ConnectHubspotButton>
             </AccountProvider>
         </>
     )

@@ -628,6 +628,16 @@ video {
   padding-bottom: 2rem;
 }
 
+.py-6 {
+  padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
+}
+
+.py-4 {
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
 .pb-2 {
   padding-bottom: 0.5rem;
 }
@@ -666,8 +676,21 @@ video {
   line-height: 1.5rem;
 }
 
+.text-3xl {
+  font-size: 1.875rem;
+  line-height: 2.25rem;
+}
+
 .font-bold {
   font-weight: 700;
+}
+
+.leading-tight {
+  line-height: 1.25;
+}
+
+.tracking-wide {
+  letter-spacing: 0.025em;
 }
 
 .text-red-500 {
@@ -678,6 +701,11 @@ video {
 .text-white {
   --tw-text-opacity: 1;
   color: rgb(240 240 235 / var(--tw-text-opacity));
+}
+
+.text-gray-800 {
+  --tw-text-opacity: 1;
+  color: rgb(31 41 55 / var(--tw-text-opacity));
 }
 
 .shadow {
