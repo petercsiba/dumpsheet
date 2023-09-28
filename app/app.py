@@ -281,6 +281,7 @@ def lambda_handler(event, context):
     try:
         lambda_handler_wrapper(event, context)
     except Exception as err:
+        # TODO(P1, ux): Would be nice to notify the user - OR we get really fast into fixing it.
         send_technical_failure_email(err, _event_idempotency_id(event))
 
 
