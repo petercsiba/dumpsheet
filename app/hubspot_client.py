@@ -38,6 +38,8 @@ class ApiSingleResponse:
         # but we ignore it for now
 
 
+# Quite nice API monitoring here: https://app.hubspot.com/developer/43920988/application/2150554/monitoring/api
+# TODO(P2, research): Figure out what are CRM Cards good for.
 class HubspotClient:
     def __init__(self, organization_id: uuid.UUID):
         print(

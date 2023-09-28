@@ -1,9 +1,8 @@
 import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import phonenumbers
-from hubspot.crm.contacts import SimplePublicObjectWithAssociations
 from hubspot.crm.properties import ModelProperty, Option
 
 
@@ -127,6 +126,16 @@ class FieldDefinition:
             hubspot_defined=str(self.hubspot_defined),
         )
 
+    def _has_options(self):
+        return self.field_type in ["radio", "select"]
+
+    def display_value(self, value):
+        if not self._has_options():
+            return value
+
+        option_labels = {option.value: option.label for option in self.options}
+        return option_labels.get(value, str(value))
+
     def validate_and_fix(self, value: Optional[Any]) -> Any:
         if value is None:
             return None
@@ -141,7 +150,7 @@ class FieldDefinition:
             return self._validate_number(value)
         if self.field_type == "phonenumber":
             return self._validate_phonenumber(value)
-        if self.field_type in ["radio", "select"]:
+        if self._has_options():
             return self._validate_select(value, self.options)
         print(f"WARNING: No validator for field type {self.field_type}: {value}")
         return None
@@ -237,36 +246,38 @@ class FormDefinition:
 class HubspotObject:
     def __init__(
         self,
-        obj_name: str,
         form: FormDefinition,
     ):
-        self.obj_name = obj_name
         self.form = form
         self.data = {}  # you can just plug into properties
 
     @classmethod
-    def from_api_response(
+    def from_api_response_props(
         cls,
-        obj_name: str,
-        fields: Dict[str, FieldDefinition],
-        response: SimplePublicObjectWithAssociations,
+        form: FormDefinition,
+        response_props: Dict[str, Any],
     ):
-        result = HubspotObject(obj_name, FormDefinition(fields))
-        for field_name, value in response.properties.items():
+        result = HubspotObject(form)
+        for field_name, value in response_props.items():
             result.set_field_value(field_name, value)
         return result
 
-    # TODO(P0, feature): from_gpt_response, need to massage output field names, and option responses
-
     def set_field_value(self, field_name: str, value: Any, raise_key_error=False):
         if field_name in self.form.fields.keys():
-            # TODO(P1, consistency): We can use field.field_type to validate input type.
+            # field: FieldDefinition = self.form.fields[field_name]
+            # self.data[field_name] = field.validate_and_fix(value)
             self.data[field_name] = value
         else:
             if raise_key_error:
                 raise KeyError(
                     f"Field '{field_name}' does not exist on HubspotContact."
                 )
+
+    def get_value(self, field_name: str) -> str:
+        return self.form.fields[field_name].display_value(self.data.get(field_name))
+
+    def get_field_display_label_with_value(self, field_name) -> Tuple[str, Any]:
+        return self.form.fields[field_name].label, self.get_value(field_name)
 
 
 class AssociationType(Enum):
@@ -474,7 +485,7 @@ CALL_FIELDS = {
         name="hs_call_body",
         field_type="html",
         label="Call notes",
-        description="The description of the call, including the summary of it.",
+        description="Summary of the call transcript, use short paragraphs or bullet points.",
         options=[],
         group_name="call",
         hubspot_defined=True,

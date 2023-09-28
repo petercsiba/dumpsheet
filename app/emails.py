@@ -10,7 +10,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import parseaddr
-from typing import Any, Dict, List
+from typing import List
 from uuid import UUID
 
 import boto3
@@ -18,6 +18,7 @@ from bs4 import BeautifulSoup
 
 from app.datashare import PersonDataEntry
 from app.hubspot_dump import HubspotDataEntry
+from app.hubspot_models import HubspotObject
 from common.aws_utils import is_running_in_aws
 from common.config import (
     DEBUG_RECIPIENTS,
@@ -360,10 +361,11 @@ def _summary_table_row(key: str, value: str, cell_tag="td") -> str:
     )
 
 
-def _hubspot_dict_to_table(data: Dict[str, Any]) -> str:
-    # TODO(ux): Might need to sort this by form definition
+def _hubspot_obj_to_table(obj: HubspotObject) -> str:
+    # TODO(P1, ux): Might need to sort this by form definition
     rows = []
-    for key, value in data.items():
+    for field_name in obj.data.keys():
+        key, value = obj.get_field_display_label_with_value(field_name)
         rows.append(_summary_table_row(key, value))
     rows_html = "".join(rows)
     return (
@@ -395,13 +397,15 @@ def send_hubspot_result(
     {signature}
     """.format(
         heading_contact=_format_heading("Contact Data"),
-        contact=_hubspot_dict_to_table(data.contact_props),
+        contact=_hubspot_obj_to_table(data.contact),
         heading_call=_format_heading("Call Data"),
-        call=_hubspot_dict_to_table(data.call_props),
-        heading_task=_format_heading("Heading Data"),
-        task=_hubspot_dict_to_table(data.task_props),
+        call=_hubspot_obj_to_table(data.call),
+        heading_task=_format_heading("Task Data"),
+        task=_hubspot_obj_to_table(data.task),
         signature=add_signature(),
     )
+    # TODO(P1): Remove
+    print(email_params.body_text)
     return send_email(params=email_params)
 
 
