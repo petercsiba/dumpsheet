@@ -1,5 +1,9 @@
 import datetime
+import json
+import re
+import time
 import uuid
+from http import HTTPStatus
 from typing import List, Optional
 
 import pytz
@@ -7,6 +11,7 @@ from hubspot import HubSpot
 from hubspot.auth import oauth
 from hubspot.crm import contacts
 from hubspot.crm.contacts import SimplePublicObjectInputForCreate
+from hubspot.crm.objects import AssociationSpec, calls, tasks
 from hubspot.crm.properties import Option
 
 from app.hubspot_models import (
@@ -15,7 +20,9 @@ from app.hubspot_models import (
     GPT_IGNORE_LIST,
     GPT_MAX_NUM_OPTION_FIELDS,
     TASK_FIELDS,
+    AssociationType,
     FieldDefinition,
+    FieldNames,
     FormDefinition,
 )
 from common.config import HUBSPOT_CLIENT_ID, HUBSPOT_CLIENT_SECRET, HUBSPOT_REDIRECT_URL
@@ -23,6 +30,28 @@ from common.openai_client import OpenAiClient, gpt_response_to_json
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.models import BaseAccount, BaseOnboarding, BaseOrganization
 from database.organization import ORGANIZATION_ROLE_ADMIN
+
+
+class ApiSingleResponse:
+    def __init__(self, status, data, hs_object_id=None):
+        self.status = status
+        # Set options fields
+        self.hs_object_id = hs_object_id
+        self.properties = None
+        self.error = None
+
+        if 200 <= self.status < 300:
+            # asserting it is SimplePublicObject
+            self.properties = data.properties
+            if bool(self.properties):
+                self.hs_object_id = self.properties.get(FieldNames.HS_OBJECT_ID)
+            if self.hs_object_id is None:
+                self.hs_object_id = data.id
+        else:
+            self.error = data
+
+        # `data` has more, like ['archived', 'archived_at', 'created_at', 'properties_with_history', ...]
+        # but we ignore it for now
 
 
 class HubspotClient:
@@ -75,18 +104,41 @@ class HubspotClient:
             except oauth.ApiException as e:
                 print(f"Exception when fetching access token: {e}")
 
-    def crm_contact_create(self, props):
+    def _handle_exception(
+        self, endpoint: str, e: contacts.ApiException, request_body=None
+    ) -> ApiSingleResponse:
+        body = json.loads(e.body)
+        msg = body.get("message", str(e))
+        req = (
+            f"request_body: {str(request_body)}"
+            if bool(request_body)
+            else "no request body"
+        )
+        hs_object_id = None
+        if e.status == HTTPStatus.CONFLICT:
+            match = re.search(r"Existing ID:\s*(\d+)", msg)
+            if match:
+                hs_object_id = int(match.group(1))
+            # TODO(P1, reliability): Refetch object and return it
+
+        print(
+            f"ERROR Hubspot API call HTTP {e.status} for {endpoint} with {req}: {msg}"
+        )
+        return ApiSingleResponse(
+            e.status, body.get("message", str(e)), hs_object_id=hs_object_id
+        )
+
+    def crm_contact_create(self, props) -> ApiSingleResponse:
         self._ensure_token_fresh()
+        request_body = SimplePublicObjectInputForCreate(properties=props)
         try:
-            simple_public_object_input_for_create = SimplePublicObjectInputForCreate(
-                properties=props
-            )
             api_response = self.api_client.crm.contacts.basic_api.create(
-                simple_public_object_input_for_create=simple_public_object_input_for_create
+                simple_public_object_input_for_create=request_body
             )
-            print(f"Contact created: {api_response}")
+            print(f"Contact created ({type(api_response)}): {api_response}")
+            return ApiSingleResponse(HTTPStatus.OK, api_response)
         except contacts.ApiException as e:
-            print(f"Exception when creating contact: {e}")
+            return self._handle_exception("contact create", e, request_body)
 
     def crm_contact_get_all(self):
         self._ensure_token_fresh()
@@ -94,33 +146,64 @@ class HubspotClient:
             # Handles the pagination with default limit = 100
             return self.api_client.crm.contacts.get_all()
         except contacts.ApiException as e:
-            print(f"Exception when creating contact: {e}")
+            return self._handle_exception("contact get_all", e)
 
-    def crm_call_create(self, props, associations=None):
+    def crm_call_create(self, props) -> ApiSingleResponse:
         self._ensure_token_fresh()
+        request_body = SimplePublicObjectInputForCreate(
+            properties=props,
+        )
         try:
             api_response = self.api_client.crm.objects.calls.basic_api.create(
-                simple_public_object_input_for_create=SimplePublicObjectInputForCreate(
-                    properties=props,
-                    associations=associations,
-                )
+                simple_public_object_input_for_create=request_body
             )
             print(f"Call created: {api_response}")
-        except contacts.ApiException as e:
-            print(f"Exception when creating call: {e}")
+            return ApiSingleResponse(HTTPStatus.OK, api_response)
+        except calls.ApiException as e:
+            return self._handle_exception("call create", e, request_body)
 
-    def crm_task_create(self, props, associations=None):
+    def crm_task_create(self, props) -> ApiSingleResponse:
         self._ensure_token_fresh()
+        request_body = SimplePublicObjectInputForCreate(
+            properties=props,
+        )
         try:
             api_response = self.api_client.crm.objects.tasks.basic_api.create(
-                simple_public_object_input_for_create=SimplePublicObjectInputForCreate(
-                    properties=props,
-                    associations=associations,
-                )
+                simple_public_object_input_for_create=request_body
             )
             print(f"Task created: {api_response}")
-        except contacts.ApiException as e:
-            print(f"Exception when creating task: {e}")
+            return ApiSingleResponse(HTTPStatus.OK, api_response)
+        except tasks.ApiException as e:
+            return self._handle_exception("create task", e, request_body)
+
+    # https://community.hubspot.com/t5/APIs-Integrations/Creating-associations-in-hubspot-api-nodejs-new-version/td-p/803292
+    # TODO(P1, devx): We can derive from_type and to_type from assoc_type
+    def crm_association_create(
+        self,
+        from_type: str,
+        from_id: int,
+        to_type: str,
+        to_id: int,
+        assoc_type: AssociationType,
+    ):
+        # TODO(P1, reliability): Handle error without code failing
+        self._ensure_token_fresh()
+        api_response = self.api_client.crm.associations.v4.basic_api.create(
+            object_type=from_type,
+            object_id=from_id,
+            to_object_type=to_type,
+            to_object_id=to_id,
+            association_spec=[
+                AssociationSpec(
+                    # ["HUBSPOT_DEFINED", "USER_DEFINED", "INTEGRATOR_DEFINED"]
+                    association_category="HUBSPOT_DEFINED",
+                    association_type_id=assoc_type.value,
+                )
+            ],
+        )
+        print(f"Association created: {api_response}")
+        # Example: {from_object_type_id '0-1', to_object_type_id: '0-27' ... }
+        return api_response
 
     def list_custom_properties(self, object_type="contact"):
         properties_api = self.api_client.crm.properties.core_api
@@ -255,12 +338,25 @@ if __name__ == "__main__":
         gpt_client = OpenAiClient()
         contact_form = FormDefinition(CONTACT_FIELDS)
         contact_data = extract_form_data(gpt_client, contact_form, test_data)
-        client.crm_contact_create(contact_data)
+        # Just mock new contact for every run
+        contact_data[FieldNames.EMAIL.value] = f"example{int(time.time())}@gmail.com"
+        contact_data[FieldNames.PHONE.value] = f"+1{int(time.time())}"
+        contact_response = client.crm_contact_create(contact_data)
+        contact_id = contact_response.hs_object_id
 
         call_form = FormDefinition(CALL_FIELDS)
         call_data = extract_form_data(gpt_client, call_form, test_data)
-        client.crm_call_create(call_data)
+        call_response = client.crm_call_create(call_data)
+        call_id = call_response.hs_object_id
 
         task_form = FormDefinition(TASK_FIELDS)
         task_data = extract_form_data(gpt_client, task_form, test_data)
-        client.crm_task_create(task_data)
+        task_response = client.crm_task_create(task_data)
+        task_id = task_response.hs_object_id
+
+        client.crm_association_create(
+            "contact", contact_id, "call", call_id, AssociationType.CONTACT_TO_CALL
+        )
+        client.crm_association_create(
+            "contact", contact_id, "task", task_id, AssociationType.CONTACT_TO_TASK
+        )
