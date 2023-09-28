@@ -255,8 +255,11 @@ class HubspotObject:
     def from_api_response_props(
         cls,
         form: FormDefinition,
-        response_props: Dict[str, Any],
-    ):
+        response_props: Optional[Dict[str, Any]],
+    ) -> Optional["HubspotObject"]:
+        if response_props is None:
+            return None
+
         result = HubspotObject(form)
         for field_name, value in response_props.items():
             result.set_field_value(field_name, value)

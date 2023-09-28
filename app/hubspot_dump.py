@@ -94,11 +94,15 @@ def extract_form_data(
 
 @dataclass
 class HubspotDataEntry:
-    contact: HubspotObject
-    call: HubspotObject
-    task: HubspotObject
+    contact: Optional[HubspotObject]
+    call: Optional[HubspotObject]
+    task: Optional[HubspotObject]
     contact_to_call_result: Dict[str, Any]
     contact_to_task_result: Dict[str, Any]
+
+    gpt_contact: Optional[HubspotObject]
+    gpt_call: Optional[HubspotObject]
+    gpt_task: Optional[HubspotObject]
 
     def contact_name(self):
         first_name = self.contact.get_value(FieldNames.FIRSTNAME.value)
@@ -132,12 +136,16 @@ def extract_and_sync_contact_with_follow_up(
     task_response = client.crm_task_create(task_data)
     task_id = task_response.hs_object_id
 
-    contact_to_call_result = client.crm_association_create(
-        "contact", contact_id, "call", call_id, AssociationType.CONTACT_TO_CALL
-    )
-    contact_to_task_result = client.crm_association_create(
-        "contact", contact_id, "task", task_id, AssociationType.CONTACT_TO_TASK
-    )
+    contact_to_call_result = None
+    if bool(contact_id) and bool(call_id):
+        contact_to_call_result = client.crm_association_create(
+            "contact", contact_id, "call", call_id, AssociationType.CONTACT_TO_CALL
+        )
+    contact_to_task_result = None
+    if bool(contact_id) and bool(task_id):
+        contact_to_task_result = client.crm_association_create(
+            "contact", contact_id, "task", task_id, AssociationType.CONTACT_TO_TASK
+        )
     # There are a few columns sets for the same object_type:
     # * the GPT extracted ones (call_data)
     # * the Hubspot returned (there can be a lot of metadata, even repeated values)
@@ -151,6 +159,9 @@ def extract_and_sync_contact_with_follow_up(
         task=HubspotObject.from_api_response_props(task_form, task_response.properties),
         contact_to_call_result=contact_to_call_result,
         contact_to_task_result=contact_to_task_result,
+        gpt_contact=HubspotObject.from_api_response_props(contact_form, contact_data),
+        gpt_call=HubspotObject.from_api_response_props(call_form, call_data),
+        gpt_task=HubspotObject.from_api_response_props(task_form, task_data),
     )
 
 

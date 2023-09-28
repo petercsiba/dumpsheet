@@ -16,6 +16,7 @@ from common.config import HUBSPOT_CLIENT_ID, HUBSPOT_CLIENT_SECRET, HUBSPOT_REDI
 from database.models import BaseOrganization
 
 
+# API Responses are just hard in general - this class tried to make it simpler but some complexity is oversimplified.
 class ApiSingleResponse:
     def __init__(self, status, data, hs_object_id=None):
         self.status = status
@@ -25,12 +26,13 @@ class ApiSingleResponse:
         self.error = None
 
         if 200 <= self.status < 300:
-            # asserting it is SimplePublicObject
-            self.properties = data.properties
-            if bool(self.properties):
-                self.hs_object_id = self.properties.get(FieldNames.HS_OBJECT_ID)
-            if self.hs_object_id is None:
-                self.hs_object_id = data.id
+            if data is not None:
+                # asserting it is SimplePublicObject
+                self.properties = data.properties
+                if bool(self.properties):
+                    self.hs_object_id = self.properties.get(FieldNames.HS_OBJECT_ID)
+                if self.hs_object_id is None:
+                    self.hs_object_id = data.id
         else:
             self.error = data
 
@@ -52,7 +54,7 @@ class HubspotClient:
 
     # TODO(P0, bug): We have to somehow use the refresh token to get new access_tokens
     # https://legacydocs.hubspot.com/docs/methods/oauth2/oauth2-quickstart#refreshing-oauth-20-tokens
-    def _ensure_token_fresh(self):
+    def _ensure_token_fresh(self) -> ApiSingleResponse:
         if self.expires_at_cache is None:
             organization = BaseOrganization.get_by_id(self.organization_id)
             self.expires_at_cache = organization.hubspot_expires_at
@@ -94,7 +96,9 @@ class HubspotClient:
                 self.api_client.access_token = organization.hubspot_access_token
                 print(f"token refreshed, expires at {self.expires_at_cache}")
             except oauth.ApiException as e:
-                print(f"Exception when fetching access token: {e}")
+                print(f"ERROR when fetching access token: {e}")
+                return self._handle_exception("oauth refresh", e)
+        return ApiSingleResponse(200, None)
 
     def _handle_exception(
         self, endpoint: str, e: contacts.ApiException, request_body=None
@@ -120,8 +124,12 @@ class HubspotClient:
             e.status, body.get("message", str(e)), hs_object_id=hs_object_id
         )
 
+    # TODO(P1, devx): Refactor these functions into one as they almost the same
     def crm_contact_create(self, props) -> ApiSingleResponse:
-        self._ensure_token_fresh()
+        token_result = self._ensure_token_fresh()
+        if token_result.status != 200:
+            return token_result
+
         request_body = SimplePublicObjectInputForCreate(properties=props)
         try:
             api_response = self.api_client.crm.contacts.basic_api.create(
@@ -141,7 +149,10 @@ class HubspotClient:
             return self._handle_exception("contact get_all", e)
 
     def crm_call_create(self, props) -> ApiSingleResponse:
-        self._ensure_token_fresh()
+        token_result = self._ensure_token_fresh()
+        if token_result.status != 200:
+            return token_result
+
         request_body = SimplePublicObjectInputForCreate(
             properties=props,
         )
@@ -155,7 +166,10 @@ class HubspotClient:
             return self._handle_exception("call create", e, request_body)
 
     def crm_task_create(self, props) -> ApiSingleResponse:
-        self._ensure_token_fresh()
+        token_result = self._ensure_token_fresh()
+        if token_result.status != 200:
+            return token_result
+
         request_body = SimplePublicObjectInputForCreate(
             properties=props,
         )

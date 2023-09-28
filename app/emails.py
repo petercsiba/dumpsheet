@@ -10,7 +10,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import parseaddr
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 import boto3
@@ -361,7 +361,7 @@ def _summary_table_row(key: str, value: str, cell_tag="td") -> str:
     )
 
 
-def _hubspot_obj_to_table(obj: HubspotObject) -> str:
+def _hubspot_obj_to_table(obj: Optional[HubspotObject]) -> str:
     # TODO(P1, ux): Might need to sort this by form definition
     rows = []
     for field_name in obj.data.keys():
@@ -373,6 +373,20 @@ def _hubspot_obj_to_table(obj: HubspotObject) -> str:
             rows_html=rows_html
         )
     )
+
+
+def _hubspot_objs_maybe_to_table(
+    obj: Optional[HubspotObject], gpt_obj: Optional[HubspotObject]
+) -> str:
+    if obj is None:
+        result = "<p>Could not sync data to HubSpot</p>"
+        if gpt_obj is None:
+            result = "<p>Could not parse data to HubSpot</p>"
+        else:
+            result += _hubspot_obj_to_table(gpt_obj)
+    else:
+        result = _hubspot_obj_to_table(obj)
+    return result
 
 
 def send_hubspot_result(
@@ -397,11 +411,11 @@ def send_hubspot_result(
     {signature}
     """.format(
         heading_contact=_format_heading("Contact Data"),
-        contact=_hubspot_obj_to_table(data.contact),
+        contact=_hubspot_objs_maybe_to_table(data.contact, data.gpt_contact),
         heading_call=_format_heading("Call Data"),
-        call=_hubspot_obj_to_table(data.call),
+        call=_hubspot_objs_maybe_to_table(data.call, data.gpt_call),
         heading_task=_format_heading("Task Data"),
-        task=_hubspot_obj_to_table(data.task),
+        task=_hubspot_objs_maybe_to_table(data.task, data.gpt_task),
         signature=add_signature(),
     )
     # TODO(P1): Remove
