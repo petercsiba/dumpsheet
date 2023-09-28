@@ -48,12 +48,12 @@ export default function Home() {
                                         height={30}
                                     />
                                 </div>
-                                <ConnectHubspotButton></ConnectHubspotButton>
 
                             </div>
                         </div>
                     </div>
                 </div>
+                <ConnectHubspotButton></ConnectHubspotButton>
             </AccountProvider>
         </>
     )
