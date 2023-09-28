@@ -3,7 +3,9 @@ import HubspotLogo from '../public/images/hubspot-logo.svg'
 import {useAccount} from "@/contexts/AccountContext";
 
 const HUBSPOT_CLIENT_ID: string = "501ffe58-5d49-47ff-b41f-627fccc28715";
-const HUBSPOT_SCOPES: string = "oauth crm.objects.contacts.read crm.objects.contacts.write";
+// When changed - the Hubspot owners need to re-auth with Voxana
+// Can be changed in the app admin: https://app.hubspot.com/developer/43920988/application/2150554
+const HUBSPOT_SCOPES: string = "oauth crm.objects.contacts.read crm.objects.contacts.write crm.objects.owners.read";
 const HUBSPOT_REDIRECT_URI: string = "https://api.voxana.ai/hubspot/oauth/redirect";
 // const HUBSPOT_OPTIONAL_SCOPE: string = encodeURIComponent("automation");
 
