@@ -28,7 +28,7 @@ class FieldNames(Enum):
     INDUSTRY = "industry"
     # Contact: Lifecycle and Marketing
     LIFECYCLESTAGE = "lifecyclestage"
-    LEADSTATUS = "leadstatus"
+    HS_LEAD_STATUS = "hs_lead_status"
     RECENT_CONVERSION_EVENT_NAME = "recent_conversion_event_name"
     # Calls:
     HS_CALL_BODY = "hs_call_body"
@@ -450,6 +450,24 @@ CONTACT_FIELDS = {
             Option(label="Other", value="other"),
         ],
         group_name="contactinformation",
+        hubspot_defined=True,
+    ),
+    "hs_lead_status": FieldDefinition(
+        name="hs_lead_status",
+        field_type="radio",
+        label="Lead Status",
+        description="The contact's sales, prospecting or outreach status",
+        options=[
+            Option(label="New", value="NEW"),
+            Option(label="Open", value="OPEN"),
+            Option(label="In Progress", value="IN_PROGRESS"),
+            Option(label="Open Deal", value="OPEN_DEAL"),
+            Option(label="Unqualified", value="UNQUALIFIED"),
+            Option(label="Attempted to Contact", value="ATTEMPTED_TO_CONTACT"),
+            Option(label="Connected", value="CONNECTED"),
+            Option(label="Bad Timing", value="BAD_TIMING"),
+        ],
+        group_name="sales_properties",
         hubspot_defined=True,
     ),
     "company": FieldDefinition(
