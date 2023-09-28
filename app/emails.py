@@ -286,22 +286,11 @@ def send_email(params: EmailLog) -> bool:
 
 
 def _format_heading(heading: str) -> str:
-    # Calculate the number of dashes needed on each side
-    num_dashes_each_side = (40 - len(heading) - 2) // 2
-
-    # Ensure there are at least 5 dashes on each side
-    num_dashes_each_side = max(num_dashes_each_side, 5)
-
-    # Construct the formatted string
-    formatted = (
-        "-" * num_dashes_each_side + " " + heading + " " + "-" * num_dashes_each_side
+    style = (
+        "font-family: Arial, sans-serif; font-size: 24px; "
+        "font-weight: bold; color: #000000; margin: 0; padding: 10px 0;"
     )
-
-    # In case of an odd number of dashes, add one more dash to the end
-    if len(formatted) < 80:
-        formatted += "-"
-
-    return f"<p>{formatted}</p>"
+    return f'<h2 style="{style}">{heading}</h2>'
 
 
 def add_signature():
