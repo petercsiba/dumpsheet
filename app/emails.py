@@ -10,7 +10,7 @@ from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import parseaddr
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from uuid import UUID
 
 import boto3
@@ -377,19 +377,16 @@ def _hubspot_obj_to_table(obj: Optional[HubspotObject]) -> str:
 
 def _hubspot_objs_maybe_to_table(
     obj: Optional[HubspotObject], gpt_obj: Optional[HubspotObject]
-) -> Tuple[str, str]:
+) -> str:
     if obj is None:
-        result = "<p>Could not sync data to HubSpot</p>"
+        result = "<p>Could not sync data to HubSpot (API error)</p>"
         if gpt_obj is None:
-            suffix = "parse-error"
-            result = "<p>Could not parse data to HubSpot</p>"
+            result = "<p>Could not parse data into structure (GPT error)</p>"
         else:
-            suffix = "synx-error"
             result += _hubspot_obj_to_table(gpt_obj)
     else:
-        suffix = "success"
         result = _hubspot_obj_to_table(obj)
-    return result, suffix
+    return result
 
 
 def send_hubspot_result(
@@ -398,18 +395,30 @@ def send_hubspot_result(
     acc: BaseAccount = BaseAccount.get_by_id(account_id)
     org: BaseOrganization = BaseOrganization.get_by_id(acc.organization_id)
     person_name = data.contact_name()
-
-    contact_table, idempotency_id_suffix = _hubspot_objs_maybe_to_table(
-        data.contact, data.gpt_contact
-    )
-    call_table, _ = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
-    task_table, _ = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
+    idempotency_id_suffix = data.state
 
     email_params = EmailLog.get_email_reply_params_for_account_id(
         account_id=account_id,
         idempotency_id=f"{idempotency_id_prefix}-result-{idempotency_id_suffix}",
         subject=f"HubSpot Data Entry for {person_name} into {org.name}",
     )
+
+    if data.state in ["short", "incomplete"]:
+        email_params.body_text = """
+        <p>Note is {reason} - please enter more information.</p>
+        {heading_note}
+        <p>{note}</p>
+        """.format(
+            reason=data.state,
+            heading_note="Your note as I understood it",
+            note=data.transcript,
+        )
+        return send_email(params=email_params)
+
+    # success / error with partial results
+    contact_table = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
+    call_table = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
+    task_table = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
     email_params.body_text = """
     {heading_contact}
     <p>{contact}</p>
@@ -427,8 +436,6 @@ def send_hubspot_result(
         task=task_table,
         signature=add_signature(),
     )
-    # TODO(P1): Remove
-    print(email_params.body_text)
     return send_email(params=email_params)
 
 

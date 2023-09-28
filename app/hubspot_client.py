@@ -25,7 +25,7 @@ class ApiSingleResponse:
         self.properties = {}
         self.error = None
 
-        if 200 <= self.status < 300:
+        if self.is_success():
             if data is not None:
                 # asserting it is SimplePublicObject
                 self.properties = data.properties
@@ -39,8 +39,11 @@ class ApiSingleResponse:
         # `data` has more, like ['archived', 'archived_at', 'created_at', 'properties_with_history', ...]
         # but we ignore it for now
 
+    def is_success(self):
+        return 200 <= self.status < 300
+
     def get_props_if_ok(self):
-        return self.properties if 200 <= self.status < 300 else None
+        return self.properties if self.is_success() else None
 
 
 # Quite nice API monitoring here: https://app.hubspot.com/developer/43920988/application/2150554/monitoring/api
