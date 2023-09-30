@@ -1,4 +1,5 @@
 # TODO(P0, devx): Migrate this to Flask, the AWS SAM for lambdas is just crazy shit show.
+#  -- This script evolved into essentially an onboarding server endpoint.
 import datetime
 import json
 import os
@@ -15,9 +16,11 @@ from hubspot.auth import oauth
 # NOTE: There are a few copies of the "database" module around this repo.
 # for IDE, doing ".database" would point to "backend/sam_app/upload_voice/database".
 # Ideally, we would set up an AWS Lambda Layer, but I failed to achieve this.
-from database import account, data_entry, models, organization
+from database import account, data_entry, models
 from database.client import connect_to_postgres_i_will_call_disconnect_i_promise
 from database.models import BaseDataEntry, BaseEmailLog
+from database.oauth_data import OauthData
+from database.pipeline import DESTINATION_HUBSPOT_ID, Pipeline
 
 s3 = boto3.client("s3")
 
@@ -334,30 +337,32 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
         # api_client.access_token = access_token
         account_id = uuid.UUID("3776ef1f-23a0-43e8-b275-ba45e5af9dea")
 
-    org = organization.Organization.get_or_create_for_account_id(
-        account_id, "auto-generated please fill in"
+    pipeline = Pipeline.get_or_create_for_destination_as_admin(
+        account_id, DESTINATION_HUBSPOT_ID, "auto-generated please fill in"
     )
-    now = datetime.datetime.now()
-    org.hubspot_linked_at = now
-    org.hubspot_access_token = tokens.access_token
-    try:
-        uuid.UUID(str(tokens.refresh_token))
-    except Exception as e:
-        print(
-            f"WARNING: expected refresh_token to be an UUID, got {type(tokens.refresh_token)}: {e}"
-        )
-    org.hubspot_refresh_token = tokens.refresh_token
-    # We subtract 60 seconds to make more real.
-    org.hubspot_expires_at = now + datetime.timedelta(seconds=tokens.expires_in - 60)
-    org.save()
-    print(
-        f"Success linking hubspot token for account {account_id}, good til {org.hubspot_expires_at}"
+    OauthData.update_safely(
+        pipeline.oauth_data_id,
+        access_token=tokens.access_token,
+        refresh_token=tokens.refresh_token,
+        expires_in=tokens.expires_in,
     )
 
+    # We put this into a `try` block as it's optional to go through
+    owners_response = None
+    try:
+        owners_response = api_client.crm.owners.get_all()
+        account.Account.get_or_onboard_for_hubspot(
+            organization_id=pipeline.organization_id, owners_response=owners_response
+        )
+    except Exception as e:
+        print(
+            f"WARNING: Cannot got or onboard owners cause {e}, response: {owners_response}"
+        )
+
     return craft_response(
-        200,
+        302,
         body={
-            "info": f"Hubspot Connected to account {account_id} - thank you for using Voxana.AI"
+            "info": f"Hubspot Connected to account {account_id}. Redirecting to app.voxana.ai ..."
         },
         headers={
             "Location": f"https://app.voxana.ai?hubspot_status=success&account_id={account_id}"
@@ -426,10 +431,15 @@ def lambda_handler(event, context):
     # Set the allowed origin in the response to the origin of the request if it's in the list of allowed origins
     # Some callers like twilio-functions don't need CORS.
     allowed_origin = origin if origin in ALLOWED_ORIGINS else "unknown"
-    response["headers"] = {
-        "Access-Control-Allow-Credentials": True,
-        "Access-Control-Allow-Headers": "Content-Type",  # mostly for OPTIONS
-        "Access-Control-Allow-Methods": "GET,POST",  # mostly for OPTIONS
-        "Access-Control-Allow-Origin": allowed_origin,
-    }
+    if response["headers"] is None:
+        response["headers"] = {}
+
+    response["headers"]["Access-Control-Allow-Credentials"] = True
+    response["headers"][
+        "Access-Control-Allow-Headers"
+    ] = "Content-Type"  # mostly for OPTIONS
+    response["headers"][
+        "Access-Control-Allow-Methods"
+    ] = "GET,POST"  # mostly for OPTIONS
+    response["headers"]["Access-Control-Allow-Origin"] = allowed_origin
     return response

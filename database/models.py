@@ -15,6 +15,7 @@ class BaseModel(Model):
         database = database_proxy
 
 
+# Possible reference cycle: account
 class BaseOrganization(BaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     hubspot_access_token = TextField(null=True)
@@ -23,6 +24,8 @@ class BaseOrganization(BaseModel):
     hubspot_refresh_token = TextField(null=True)
     id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
     name = TextField()
+    # To overcome ForeignKeyField circular dependency
+    owner_account_id = UUIDField(null=True)
 
     class Meta:
         schema = "public"
@@ -108,6 +111,18 @@ class BaseDataEntry(BaseModel):
         table_name = "data_entry"
 
 
+class BaseDestination(BaseModel):
+    created_at = DateTimeField(constraints=[SQL("DEFAULT now()")], null=True)
+    id = BigAutoField()
+    install_url = TextField(null=True)
+    name = TextField()
+    setup_info_url = TextField(null=True)
+
+    class Meta:
+        schema = "public"
+        table_name = "destination"
+
+
 class BaseEmailLog(BaseModel):
     account = ForeignKeyField(
         column_name="account_id", field="id", model=BaseAccount, null=True
@@ -131,6 +146,41 @@ class BaseEmailLog(BaseModel):
         schema = "public"
         table_name = "email_log"
         indexes = ((("recipient", "idempotency_id"), True),)
+
+
+class BaseOauthData(BaseModel):
+    access_token = TextField(null=True)
+    created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
+    expires_at = DateTimeField(null=True)
+    id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
+    refresh_token = TextField(null=True)
+    refreshed_at = DateTimeField(null=True)
+    token_type = TextField()
+
+    class Meta:
+        schema = "public"
+        table_name = "oauth_data"
+
+
+# Possible reference cycle: oauth_data
+class BasePipeline(BaseModel):
+    created_at = DateTimeField(constraints=[SQL("DEFAULT now()")], null=True)
+    destination = ForeignKeyField(
+        column_name="destination_id", field="id", model=BaseDestination
+    )
+    id = BigAutoField()
+    oauth_data = ForeignKeyField(
+        column_name="oauth_data_id", field="id", model=BaseOauthData, null=True
+    )
+    organization = ForeignKeyField(
+        column_name="organization_id", field="id", model=BaseOrganization
+    )
+    state = TextField(constraints=[SQL("DEFAULT 'initiated'::text")])
+
+    class Meta:
+        schema = "public"
+        table_name = "pipeline"
+        indexes = ((("organization", "destination"), True),)
 
 
 class BaseOnboarding(BaseModel):

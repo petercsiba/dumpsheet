@@ -43,6 +43,7 @@ def process_email_input(
     account = Account.get_or_onboard_for_email(
         email=base_email_params.recipient,
         full_name=base_email_params.recipient_full_name,
+        utm_source="email_input",
     )
 
     inserted_id = (

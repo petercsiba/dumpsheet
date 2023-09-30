@@ -1,10 +1,13 @@
 import random
 import string
-from typing import Optional
+import uuid
+from typing import List, Optional
 
+from hubspot.crm.owners import PublicOwner
 from peewee import DoesNotExist
 
 from database.models import BaseAccount, BaseOnboarding
+from database.organization import ORGANIZATION_ROLE_CONTRIBUTOR
 from database.user import User
 
 
@@ -117,6 +120,7 @@ class Account(BaseAccount):
     @staticmethod
     def get_or_onboard_for_email(
         email: str,
+        utm_source: str,
         # TODO(P1, features): Actually support sign up by phone
         # phone: Optional[str] = None,
         # temp_password: Optional[str] = None,
@@ -141,7 +145,10 @@ class Account(BaseAccount):
             .execute()
         )
         BaseOnboarding.insert(
-            email=email, account_id=account_id, **onboarding_kwargs
+            email=email,
+            account_id=account_id,
+            utm_source=utm_source,
+            **onboarding_kwargs,
         ).execute()
         account = Account.get_by_id(account_id)
         print(f"onboarded account {account}")
@@ -159,7 +166,9 @@ class Account(BaseAccount):
 
         print(f"onboarding new account for ip_address {ip_address}")
         account_id = BaseAccount.insert().execute()
-        BaseOnboarding.insert(ip_address=ip_address, account_id=account_id).execute()
+        BaseOnboarding.insert(
+            ip_address=ip_address, account_id=account_id, utm_source="ip_address"
+        ).execute()
         account = Account.get_by_id(account_id)
         return account
 
@@ -202,8 +211,52 @@ class Account(BaseAccount):
             .execute()
         )
         BaseOnboarding.insert(
-            phone=phone, account_id=account_id, **onboarding_kwargs
+            phone=phone, account_id=account_id, utm_source="phone", **onboarding_kwargs
         ).execute()
         account = Account.get_by_id(account_id)
         print(f"onboarded account {account}")
         return account
+
+    # TODO(P3, devx): There might be a better place for_hubspot function, as this depends on Hubspot.
+    @staticmethod
+    def get_or_onboard_for_hubspot(
+        organization_id: uuid.UUID, owners_response: Optional[List[PublicOwner]]
+    ):
+        if owners_response is None or not isinstance(owners_response, list):
+            print(
+                f"WARNING: Unexpected owners_response {type(owners_response)}: {owners_response}"
+            )
+            return
+
+        print(
+            f"Gonna onboard up to {len(owners_response)} hubspot accounts to organization {organization_id}"
+        )
+        for owner in owners_response:
+            if not isinstance(owner, PublicOwner):
+                print(f"WARNING: Unexpected owner structure {type(owner)}: {owner}")
+                continue
+
+            # Since the no-login onboarding is already quite complex, we will just do the simple thing here.
+            full_name = f"{owner.first_name} {owner.last_name}"
+            acc = Account.get_or_onboard_for_email(
+                email=owner.email,
+                full_name=full_name,
+                utm_source="hubspot_app",
+            )
+            # TODO(P1, devx): Feels like Account<->Organization should have a link object to - with metadata.
+            if acc.organization_id is None:
+                acc.organization_id = organization_id
+            if acc.organization_role is None:  # to not over-write an "admin"
+                acc.organization_role = ORGANIZATION_ROLE_CONTRIBUTOR
+            # TODO(P1, devx): This we need to move to an Account <-> Pipe link object once we support more destinations.
+            #   Ideally, we can just store the entire thing.
+            if acc.organization_user_id is None:
+                acc.organization_user_id = owner.id  # not user_id
+            acc.save()
+            print(
+                f"Hubspot owner creation success - yielded account {acc} for email {owner.email}"
+            )
+
+        print(
+            f"Done onboarding {len(owners_response)} hubspot accounts to organization {organization_id}"
+        )

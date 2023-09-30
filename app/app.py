@@ -34,7 +34,8 @@ from database.client import (
     connect_to_postgres_i_will_call_disconnect_i_promise,
 )
 from database.models import BaseAccount, BaseDataEntry, BaseOrganization
-from database.organization import ORGANIZATION_ROLE_ADMIN
+from database.organization import ORGANIZATION_ROLE_OWNER, Organization
+from database.pipeline import DESTINATION_HUBSPOT_ID
 from input.app_upload import process_app_upload
 from input.call import process_voice_recording_input
 from input.email import process_email_input
@@ -149,8 +150,14 @@ def process_transcript_for_organization(
     gpt_client: OpenAiClient,
     data_entry: BaseDataEntry,
 ) -> HubspotDataEntry:
+    acc: Account = Account.get_by_id(data_entry.account_id)
+    # TODO(P1, ux): Maybe we should wait_for_email_updated_on_data_entry
+    #   But then might be better to update without email confirmations.
     data = extract_and_sync_contact_with_follow_up(
-        hs_client, gpt_client, data_entry.output_transcript
+        hs_client,
+        gpt_client,
+        data_entry.output_transcript,
+        hubspot_owner_id=acc.organization_user_id,
     )
 
     send_hubspot_result(data_entry.account, data_entry.idempotency_id, data)
@@ -246,7 +253,12 @@ def lambda_handler_wrapper(event, context):
     acc: BaseAccount = BaseAccount.get_by_id(data_entry.account_id)
     if bool(acc.organization):
         print("Account is part of an organization, will sync data directly there")
-        hs_client = HubspotClient(acc.organization_id)
+        org = Organization.get_by_id(
+            acc.organization_id
+        )  # acc.organization is of type BaseOrganization
+        hs_client = HubspotClient(
+            org.get_oauth_data_id_for_destination(DESTINATION_HUBSPOT_ID)
+        )
         process_transcript_for_organization(
             hs_client=hs_client,
             gpt_client=gpt_client,
@@ -298,7 +310,9 @@ if __name__ == "__main__":
         test_case = "app"  # FOR EASY TEST CASE SWITCHING
         orig_data_entry = None
         if test_case == "app":
-            app_account = Account.get_or_onboard_for_email("test@voxana.ai")
+            app_account = Account.get_or_onboard_for_email(
+                "test@voxana.ai", utm_source="test"
+            )
             app_data_entry_id = BaseDataEntry.insert(
                 account=app_account,
                 display_name="test_display_name",
@@ -351,7 +365,7 @@ if __name__ == "__main__":
 
         # since we have one TestHubspot integration, all accounts have to be part of the same organization
         # (alternatively we can mock the entire HubspotClient)
-        existing_organization: BaseOrganization = BaseOrganization.get_or_none(
+        existing_organization: Organization = BaseOrganization.get_or_none(
             BaseOrganization.name == "testing locally"
         )
         if bool(existing_organization):  # Feel free to hardcode by-pass this
@@ -363,10 +377,14 @@ if __name__ == "__main__":
             ):
                 print("INFO: Linking account to existing organization")
                 acc.organization_id = existing_organization.id
-                acc.organization_role = ORGANIZATION_ROLE_ADMIN
+                acc.organization_role = ORGANIZATION_ROLE_OWNER
                 acc.save()
 
-            hs_client = HubspotClient(existing_organization.id)
+            hs_client = HubspotClient(
+                existing_organization.get_oauth_data_id_for_destination(
+                    DESTINATION_HUBSPOT_ID
+                )
+            )
             process_transcript_for_organization(
                 hs_client=hs_client,
                 gpt_client=open_ai_client,

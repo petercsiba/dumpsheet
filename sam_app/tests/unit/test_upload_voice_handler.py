@@ -123,7 +123,10 @@ def test_lambda_handler_post_upload_voice(db_connection):
     updated_account = Account.get_by_id(orig_account.id)
     assert updated_account.get_email() == expected_email
     assert Account.get_by_email_or_none(expected_email).id == orig_account.id
-    assert Account.get_or_onboard_for_email(expected_email).id == orig_account.id
+    assert (
+        Account.get_or_onboard_for_email(expected_email, utm_source="test").id
+        == orig_account.id
+    )
 
     # Cannot reset email to other just like that
     req = get_event_fixture(

@@ -41,8 +41,14 @@ data = data.replace(
     'schema = "auth"\n        table_name = "users"',
 )
 
-
 data = data.replace("BaseBaseModel", "BaseModel")
 
 with open(file_name, "w") as file:
     file.write(data)
+
+# NOTE: For reference cycles leading to "Possible reference cycle: account" in comments
+#   and "NameError: name 'BaseAccount' is not defined" during run-time there are some workarounds.
+# https://docs.peewee-orm.com/en/latest/peewee/models.html#circular-foreign-key-dependencies
+# P1(devx): Update model gen to handle these.
+if "Possible reference cycle" in data:
+    print("WARNING: There are reference cycle your program might NOT run")

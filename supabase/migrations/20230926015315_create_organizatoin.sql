@@ -8,6 +8,8 @@ create table
     constraint organization_pkey primary key (id)
   ) tablespace pg_default;
 
+  ALTER TABLE public.organization ENABLE ROW LEVEL SECURITY;
+
 -- ACCOUNT TABLE UPDATES
   alter table public.account add column organization_id uuid null;
   alter table public.account add column organization_role text null;
