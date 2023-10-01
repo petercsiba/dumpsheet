@@ -334,9 +334,22 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     )
 
     # NOTE: admin_account_id can be None
-    pipeline = Pipeline.get_or_create_for_destination_as_admin(
-        admin_account_id, DESTINATION_HUBSPOT_ID, "auto-generated please fill in"
+    # TODO(p0, onboarding): So if you authorize through Hubspot twice, you would end up with two organizations.
+    #   Although we would keep any existing account -> organization links so might be fine-ish.
+    existing_oauth_data = OauthData.get_or_none(
+        OauthData.refresh_token == tokens.refresh_token
     )
+    if existing_oauth_data is None:
+        pipeline = Pipeline.get_or_create_for_destination_as_admin(
+            admin_account_id, DESTINATION_HUBSPOT_ID, "auto-generated please fill in"
+        )
+    else:
+        # If the refresh token matches the existing one - we assume it's just a re-authorization of the same thing.
+        print(
+            "INFO: Refresh token already stored - we assume the organization was already onboarded."
+        )
+        pipeline = Pipeline.get(Pipeline.oauth_data_id == existing_oauth_data.id)
+
     OauthData.update_safely(
         pipeline.oauth_data_id,
         access_token=tokens.access_token,

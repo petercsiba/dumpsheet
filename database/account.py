@@ -1,7 +1,7 @@
 import random
 import string
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from hubspot.crm.owners import PublicOwner
 from peewee import DoesNotExist
@@ -221,15 +221,17 @@ class Account(BaseAccount):
     @staticmethod
     def get_or_onboard_for_hubspot(
         organization_id: uuid.UUID, owners_response: Optional[List[PublicOwner]]
-    ):
+    ) -> Tuple[int, int]:
         if owners_response is None or not isinstance(owners_response, list):
             print(
                 f"WARNING: Unexpected owners_response {type(owners_response)}: {owners_response}"
             )
-            return
+            return None
 
+        owners_count = len(owners_response)
+        new_account_organization_links = 0
         print(
-            f"Gonna onboard up to {len(owners_response)} hubspot accounts to organization {organization_id}"
+            f"Gonna onboard up to {owners_count} hubspot accounts to organization {organization_id}"
         )
         for owner in owners_response:
             if not isinstance(owner, PublicOwner):
@@ -246,6 +248,7 @@ class Account(BaseAccount):
             # TODO(P1, devx): Feels like Account<->Organization should have a link object to - with metadata.
             if acc.organization_id is None:
                 acc.organization_id = organization_id
+                new_account_organization_links += 1
             if acc.organization_role is None:  # to not over-write an "admin"
                 acc.organization_role = ORGANIZATION_ROLE_CONTRIBUTOR
             # TODO(P1, devx): This we need to move to an Account <-> Pipe link object once we support more destinations.
@@ -258,5 +261,10 @@ class Account(BaseAccount):
             )
 
         print(
-            f"Done onboarding {len(owners_response)} hubspot accounts to organization {organization_id}"
+            f"Onboarded {new_account_organization_links} out of {owners_count} hubspot accounts for {organization_id}"
         )
+        if new_account_organization_links != owners_count:
+            print(
+                "WARNING: The new links does NOT match all owners count - organization might already exist."
+            )
+        return new_account_organization_links, len(owners_response)
