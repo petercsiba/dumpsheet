@@ -436,6 +436,9 @@ def lambda_handler(event, context):
     else:
         raise NotImplementedError(api_endpoint)
 
+    if "headers" not in response or response["headers"] is None:
+        response["headers"] = {}
+
     # Add the CORS stuff here, as I couldn't figure out it in template.yaml nor API Gateway conf.
     # Extract the origin from the request headers
     origin = event["headers"].get("origin", "unknown")
@@ -443,8 +446,6 @@ def lambda_handler(event, context):
     # Set the allowed origin in the response to the origin of the request if it's in the list of allowed origins
     # Some callers like twilio-functions don't need CORS.
     allowed_origin = origin if origin in ALLOWED_ORIGINS else "unknown"
-    if "headers" not in response or response["headers"] is None:
-        response["headers"] = {}
 
     response["headers"]["Access-Control-Allow-Credentials"] = True
     response["headers"][
@@ -454,4 +455,6 @@ def lambda_handler(event, context):
         "Access-Control-Allow-Methods"
     ] = "GET,POST"  # mostly for OPTIONS
     response["headers"]["Access-Control-Allow-Origin"] = allowed_origin
+
+    print(f"response: {response}")
     return response
