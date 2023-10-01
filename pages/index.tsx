@@ -39,15 +39,6 @@ export default function Home() {
                                 <div className="pt-4">
                                     <VoiceRecorderWithNoSSR/>
                                 </div>
-                                <div className="flex flex-col items-center py-8">
-                                    <Image
-                                        src="/images/voxana-ai-logo-transparent.png"
-                                        alt="Voxana AI Logo"
-                                        width={150}
-                                        height={30}
-                                    />
-                                </div>
-
                             </div>
                         </div>
                     </div>
