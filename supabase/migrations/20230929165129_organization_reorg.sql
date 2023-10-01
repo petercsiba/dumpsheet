@@ -21,6 +21,19 @@ INSERT INTO public.destination (
     1, 'hubspot', 'https://app.hubspot.com/oauth/authorize?client_id=501ffe58-5d49-47ff-b41f-627fccc28715&scope=oauth%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.owners.read&redirect_uri=https%3A%2F%2Fapi.voxana.ai%2Fhubspot%2Foauth%2Fredirect&state=accountId%3Anull'
 );
 
+create table
+  public.oauth_data (
+    id uuid not null default gen_random_uuid (),
+    token_type text not null,
+    access_token text null,
+    refresh_token text null,
+    refreshed_at timestamp with time zone null,
+    expires_at timestamp with time zone null,
+    created_at timestamp with time zone not null default now(),
+    constraint oauth_data_pkey primary key (id),
+  ) tablespace pg_default;
+ALTER TABLE public.oauth_data ENABLE ROW LEVEL SECURITY;
+
 -- in the ETL world usually encompasses all of Pipeline, Workflow (Transformation), Connector (or Adapter).
 create table
   public.pipeline (
@@ -37,16 +50,3 @@ create table
     UNIQUE(organization_id, destination_id)
   ) tablespace pg_default;
 ALTER TABLE public.pipeline ENABLE ROW LEVEL SECURITY;
-
-create table
-  public.oauth_data (
-    id uuid not null default gen_random_uuid (),
-    token_type text not null,
-    access_token text null,
-    refresh_token text null,
-    refreshed_at timestamp with time zone null,
-    expires_at timestamp with time zone null,
-    created_at timestamp with time zone not null default now(),
-    constraint oauth_data_pkey primary key (id),
-  ) tablespace pg_default;
-ALTER TABLE public.oauth_data ENABLE ROW LEVEL SECURITY;
