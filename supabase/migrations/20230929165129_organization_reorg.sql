@@ -33,7 +33,6 @@ create table
     constraint pipeline_pkey primary key (id),
     constraint pipeline_organization_id_fkey foreign key (organization_id) references organization (id) on delete cascade,
     constraint pipeline_destination_id_fkey foreign key (destination_id) references destination (id) on delete restrict,
-    constraint pipeline_onwer_id_fkey foreign key (onwer_id) references account (id) on delete restrict,
     constraint pipeline_oauth_data_id_fkey foreign key (oauth_data_id) references oauth_data (id) on delete set null,
     UNIQUE(organization_id, destination_id)
   ) tablespace pg_default;

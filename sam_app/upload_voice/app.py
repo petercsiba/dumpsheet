@@ -431,7 +431,7 @@ def lambda_handler(event, context):
     # Set the allowed origin in the response to the origin of the request if it's in the list of allowed origins
     # Some callers like twilio-functions don't need CORS.
     allowed_origin = origin if origin in ALLOWED_ORIGINS else "unknown"
-    if response["headers"] is None:
+    if "headers" not in response or response["headers"] is None:
         response["headers"] = {}
 
     response["headers"]["Access-Control-Allow-Credentials"] = True
