@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 from database.models import BasePipeline
 from database.oauth_data import OauthData
@@ -15,7 +16,7 @@ class Pipeline(BasePipeline):
 
     @staticmethod
     def get_or_create_for_destination_as_admin(
-        admin_account_id: uuid.UUID,
+        admin_account_id: Optional[uuid.UUID],
         destination_id: int,
         org_name: str,
     ) -> "Pipeline":

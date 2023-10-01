@@ -313,7 +313,7 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
         "arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/hubspot/client_secret-ApsPp3",
         "HUBSPOT_CLIENT_SECRET",
     )
-    # TODO(p2, devx): This piece of code is also in HubspotClient.authorize_from_code
+    # TODO(p2, devx): We should move this into app.HubspotClient once our deployments are more consolidated.
     api_client = HubSpot()
     try:
         tokens = api_client.auth.oauth.tokens_api.create(
@@ -329,16 +329,13 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
             500, f"Exception when fetching access token from HubSpot: {e}"
         )
 
-    account_id = _parse_account_id_from_state_param(
+    admin_account_id = _parse_account_id_from_state_param(
         event["queryStringParameters"].get("state", None)
     )
-    if account_id is None:
-        # TODO(P1, devx): Replace with onboarding as we have through email, we can fetch email from Hubspot API
-        # api_client.access_token = access_token
-        account_id = uuid.UUID("3776ef1f-23a0-43e8-b275-ba45e5af9dea")
 
+    # NOTE: admin_account_id can be None
     pipeline = Pipeline.get_or_create_for_destination_as_admin(
-        account_id, DESTINATION_HUBSPOT_ID, "auto-generated please fill in"
+        admin_account_id, DESTINATION_HUBSPOT_ID, "auto-generated please fill in"
     )
     OauthData.update_safely(
         pipeline.oauth_data_id,
@@ -346,26 +343,28 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
         refresh_token=tokens.refresh_token,
         expires_in=tokens.expires_in,
     )
+    api_client.access_token = tokens.access_token
 
     # We put this into a `try` block as it's optional to go through
     owners_response = None
     try:
+        # TODO(P1, ux): Ideally, we can somehow derive the user connecting Voxana with Hubspot and make them admin.
         owners_response = api_client.crm.owners.get_all()
         account.Account.get_or_onboard_for_hubspot(
             organization_id=pipeline.organization_id, owners_response=owners_response
         )
     except Exception as e:
         print(
-            f"WARNING: Cannot got or onboard owners cause {e}, response: {owners_response}"
+            f"WARNING: Cannot get or onboard owners cause {e}, response: {owners_response}"
         )
 
     return craft_response(
         302,
         body={
-            "info": f"Hubspot Connected to account {account_id}. Redirecting to app.voxana.ai ..."
+            "info": f"Hubspot Connected to organization {pipeline.organization_id}. Redirecting to app.voxana.ai ..."
         },
         headers={
-            "Location": f"https://app.voxana.ai?hubspot_status=success&account_id={account_id}"
+            "Location": f"https://app.voxana.ai?hubspot_status=success&account_id={admin_account_id}"
         },
     )
 

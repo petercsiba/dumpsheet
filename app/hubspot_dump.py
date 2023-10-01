@@ -311,7 +311,7 @@ if __name__ == "__main__":
             )
         except Exception as e:
             print(
-                f"WARNING: Cannot got or onboard owners cause {e}, response: {owners_response}"
+                f"WARNING: Cannot get or onboard owners cause {e}, response: {owners_response}"
             )
 
         # FOR CODE GEN

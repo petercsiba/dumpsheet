@@ -13,12 +13,13 @@ class Organization(BaseOrganization):
 
     @staticmethod
     def get_or_create_for_account_id(
-        account_id: uuid.UUID,
+        account_id: Optional[uuid.UUID],
         name: str,
     ) -> "Organization":
-        acc: BaseAccount = BaseAccount.get_by_id(account_id)
+        acc: BaseAccount = BaseAccount.get_or_none(BaseAccount.id == account_id)
+        existing_org_id: Optional[uuid.UUID] = acc.id if bool(acc) else None
         organization: Optional[BaseOrganization] = BaseOrganization.get_or_none(
-            BaseOrganization.id == acc.organization_id
+            BaseOrganization.id == existing_org_id
         )
         if bool(organization):
             return organization
@@ -27,10 +28,12 @@ class Organization(BaseOrganization):
         organization_id = BaseOrganization.insert(
             owner_account_id=account_id, name=name
         ).execute()
-        print(f"updating account and becoming {ORGANIZATION_ROLE_OWNER}")
-        acc.organization_id = organization_id
-        acc.organization_role = ORGANIZATION_ROLE_OWNER
-        acc.save()
+
+        if bool(acc):
+            print(f"updating account and becoming {ORGANIZATION_ROLE_OWNER}")
+            acc.organization_id = organization_id
+            acc.organization_role = ORGANIZATION_ROLE_OWNER
+            acc.save()
 
         return BaseOrganization.get_by_id(organization_id)
 
