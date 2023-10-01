@@ -5,6 +5,7 @@ import Image from 'next/image';
 import {useSession, useSupabaseClient} from '@supabase/auth-helpers-react'
 import {AccountProvider} from "@/contexts/AccountContext";
 import ConnectHubspotButton from "@/components/ConnectHubspotButton";
+import Banner from "@/components/Banner";
 
 const VoiceRecorderWithNoSSR = dynamic(() => import('@/components/VoiceRecorder'), {
     ssr: false
@@ -23,6 +24,7 @@ export default function Home() {
                     <meta name="viewport" content="width=device-width, initial-scale=1"/>
                     <link rel="icon" href="/favicon.ico"/>
                 </Head>
+                <Banner></Banner>
                 <div className="w-full h-full bg-gray-200">
                     <div className="min-w-full min-h-screen flex items-center justify-center">
                         <div className="w-full h-full flex justify-center items-center p-4">
