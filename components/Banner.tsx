@@ -7,7 +7,7 @@ const Banner = () => {
 
     return (
         <div>
-            <div className="w-full bg-green-500 flex items-center justify-center mt-4">
+            <div className="w-full bg-green-500 flex items-center justify-center mt-4 pb-4">
                 <div className="flex flex-col items-center px-8">
                     <Image
                         src="/images/voxana-logo-text-rectangle.png"
@@ -25,14 +25,18 @@ const Banner = () => {
             {hubspot_status === 'success' && (
                 <div className="w-full bg-green-500 p-4 flex items-center justify-center">
                     <span className="text-black font-semibold px-2">
-                        Successfully connected to HubSpot! Lets do your first recording
+                        Successfully connected to <span style={{
+                        backgroundColor: '#FF7A59'
+                        }}>HubSpot!</span> Lets do your first recording
                     </span>
                 </div>
             )}
             {hubspot_status === 'failure' && (
                 <div className="w-full bg-red-500 p-4 flex items-center justify-center">
                     <span className="text-black font-semibold px-2">
-                        Failed to connect to HubSpot! Please reach out to support@voxana.ai
+                        Failed to connect to <span style={{
+                        backgroundColor: '#FF7A59'
+                    }}>HubSpot!</span> Please reach out to support@voxana.ai
                     </span>
                 </div>
             )}
