@@ -43,6 +43,17 @@ data = data.replace(
 
 data = data.replace("BaseBaseModel", "BaseModel")
 
+
+# Hacks for circular deps
+pattern = re.compile(r"    owner_account = ForeignKeyField\([\s\S]*?\)", re.MULTILINE)
+
+# Text to replace with
+replacement_text = """    # To overcome ForeignKeyField circular dependency
+    owner_account_id = UUIDField(null=True)"""
+
+# Replace
+data = re.sub(pattern, replacement_text, data)
+
 with open(file_name, "w") as file:
     file.write(data)
 

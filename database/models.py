@@ -162,7 +162,25 @@ class BaseOauthData(BaseModel):
         table_name = "oauth_data"
 
 
-# Possible reference cycle: oauth_data
+class BaseOnboarding(BaseModel):
+    account = ForeignKeyField(
+        column_name="account_id", field="id", model=BaseAccount, null=True
+    )
+    created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
+    email = TextField(null=True)
+    id = BigAutoField()
+    ip_address = TextField(null=True)
+    phone = TextField(null=True, unique=True)
+    phone_carrier_info = TextField(null=True)
+    referer = TextField(null=True)
+    utm_source = TextField(null=True)
+
+    class Meta:
+        schema = "public"
+        table_name = "onboarding"
+        indexes = ((("ip_address", "email"), True),)
+
+
 class BasePipeline(BaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")], null=True)
     destination = ForeignKeyField(
@@ -181,25 +199,6 @@ class BasePipeline(BaseModel):
         schema = "public"
         table_name = "pipeline"
         indexes = ((("organization", "destination"), True),)
-
-
-class BaseOnboarding(BaseModel):
-    account = ForeignKeyField(
-        column_name="account_id", field="id", model=BaseAccount, null=True
-    )
-    created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
-    email = TextField(null=True)
-    id = BigAutoField()
-    ip_address = TextField(null=True)
-    phone = TextField(null=True, unique=True)
-    phone_carrier_info = TextField(null=True)
-    referer = TextField(null=True)
-    utm_source = TextField(null=True)
-
-    class Meta:
-        schema = "public"
-        table_name = "onboarding"
-        indexes = ((("ip_address", "email"), True),)
 
 
 class BasePromptLog(BaseModel):
