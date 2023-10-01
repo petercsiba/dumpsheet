@@ -558,6 +558,10 @@ video {
   margin-top: 1rem;
 }
 
+.mt-\[-105px\] {
+  margin-top: -105px;
+}
+
 .inline-block {
   display: inline-block;
 }
@@ -608,6 +612,10 @@ video {
 
 .justify-center {
   justify-content: center;
+}
+
+.overflow-hidden {
+  overflow: hidden;
 }
 
 .rounded {
