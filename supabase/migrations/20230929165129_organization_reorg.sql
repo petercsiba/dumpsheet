@@ -30,7 +30,7 @@ create table
     refreshed_at timestamp with time zone null,
     expires_at timestamp with time zone null,
     created_at timestamp with time zone not null default now(),
-    constraint oauth_data_pkey primary key (id),
+    constraint oauth_data_pkey primary key (id)
   ) tablespace pg_default;
 ALTER TABLE public.oauth_data ENABLE ROW LEVEL SECURITY;
 
