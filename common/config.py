@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+ENV = os.environ.get("ENV")  # prod, local
+
 # AWS stuff
 DEFAULT_REGION = "us-west-2"
 

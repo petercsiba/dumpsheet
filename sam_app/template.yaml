@@ -80,6 +80,9 @@ Resources:
       # Empirically verified that this seems to be NOT needed?! Maybe yes actually after clean SAM build.
       # Discussed more, seems like this is resolved at stack creation (build?).
       # Environment:
+      Environment:
+        Variables:
+          ENV: prod
 #        Variables:
 #          POSTGRES_LOGIN_URL_FROM_ENV: !Sub '{{resolve:secretsmanager:prod/supabase/postgres-login-url:SecretString}}'
       Events:
