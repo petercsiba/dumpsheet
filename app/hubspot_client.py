@@ -20,6 +20,7 @@ from common.config import (
     HUBSPOT_CLIENT_SECRET,
     HUBSPOT_REDIRECT_URL,
 )
+from database.account import Account
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.oauth_data import OauthData
 
@@ -287,7 +288,15 @@ if __name__ == "__main__":
             refresh_token=ADMIN_CONSOLE_HUBSPOT_REFRESH_TOKEN,
         ).execute()
         client = HubspotClient(oauth_data_id=oauth_data_id)
-        client.list_owners()
+        # owners_response = client.list_owners()
+        # Account.get_or_onboard_for_hubspot(
+        #     uuid.UUID("8b0bfb51-5552-4408-bedd-87d6e1261e86"), owners_response
+        # )
+        print(
+            Account.get_by_id(
+                uuid.UUID("dd1e45e6-afd1-48c6-968a-521d1af15262")
+            ).__dict__
+        )
 
         contact_props = {
             "firstname": "Laurel",
@@ -304,4 +313,4 @@ if __name__ == "__main__":
             "industry": None,
             "hubspot_owner_id": 466328885,
         }
-        client.crm_contact_create(contact_props)
+        # client.crm_contact_create(contact_props)
