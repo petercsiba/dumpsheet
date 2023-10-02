@@ -76,9 +76,12 @@ def wait_for_sms_email_update():
 
 # We use data_entry_id, as the underlying account_id can change in the demo onboarding flow
 # Yeah, I know it's kinda junk - we try to track how users come to the platform and merge same emails.
-def wait_for_email_updated_on_data_entry(data_entry_id: UUID) -> bool:
+# NOTE: Maximum Lambda run-time is 15 minutes, so waiting longer does not make sense.
+def wait_for_email_updated_on_data_entry(
+    data_entry_id: UUID, max_wait_seconds: int = 10 * 60
+) -> bool:
     start_time = time.time()
-    end_time = start_time + 10 * 60  # 10 minutes later
+    end_time = start_time + max_wait_seconds
 
     while time.time() < end_time:
         updated_data_entry = BaseDataEntry.get_by_id(data_entry_id)
@@ -105,8 +108,6 @@ def process_transcript_from_data_entry(
         gpt_client, full_transcript=data_entry.output_transcript
     )
 
-    # TODO(P0, monitoring): We should catch exceptions thrown to the main function, and do a poor mans opsgenie
-    #   to send an "alert" email.
     if not wait_for_email_updated_on_data_entry(data_entry.id):
         raise ValueError(
             f"email missing for data_entry {data_entry.id} - cannot process"
@@ -160,7 +161,14 @@ def process_transcript_for_organization(
         hubspot_owner_id=acc.organization_user_id,
     )
 
-    send_hubspot_result(data_entry.account, data_entry.idempotency_id, data)
+    # To process and upload the Hubspot entries, we do not need an email address.
+    # But to send a confirmation, we do need one.
+    if wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=5 * 60):
+        send_hubspot_result(data_entry.account, data_entry.idempotency_id, data)
+    else:
+        print(
+            f"WARNING: email missing for data_entry {data_entry.id} - cannot send results email"
+        )
 
     return data
 
