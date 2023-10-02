@@ -232,7 +232,8 @@ def lambda_handler_wrapper(event, context):
         print(
             f"Received voicemail from {phone_number}, {proper_name} and {carrier_info}"
         )
-
+        # TODO(P1, admin): We should store the data_entry ASAP with all the metadata,
+        #   so we can re-run the stuff easier.
         data_entry = process_voice_recording_input(
             gpt_client=gpt_client,
             twilio_client=twilio_client,

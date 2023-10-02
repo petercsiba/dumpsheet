@@ -14,7 +14,13 @@ from hubspot.crm.objects import AssociationSpec, calls, tasks
 from hubspot.crm.owners import PublicOwner
 
 from app.hubspot_models import AssociationType, FieldNames
-from common.config import HUBSPOT_CLIENT_ID, HUBSPOT_CLIENT_SECRET, HUBSPOT_REDIRECT_URL
+from common.config import (
+    ADMIN_CONSOLE_HUBSPOT_REFRESH_TOKEN,
+    HUBSPOT_CLIENT_ID,
+    HUBSPOT_CLIENT_SECRET,
+    HUBSPOT_REDIRECT_URL,
+)
+from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.oauth_data import OauthData
 
 
@@ -137,6 +143,8 @@ class HubspotClient:
     def _handle_exception(
         self, endpoint: str, e: contacts.ApiException, request_body=None
     ) -> ApiSingleResponse:
+        # TODO(P1, reliability): Would be nice to have some kind of a best-effort retry mechanism in case of failure
+        #   e.g. it's better to upload 90% of fields, than 0% (e.g. INVALID_OWNER_ID strip that field an try again)
         body = json.loads(e.body)
         msg = body.get("message", str(e))
         req = (
@@ -267,3 +275,14 @@ class HubspotClient:
         except Exception as e:
             print(f"Exception while listing all owners: {e}")
             return None
+
+
+# Essentially an admin console, please do NOT check-in refresh tokens.
+if __name__ == "__main__":
+    with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
+        oauth_data_id = OauthData.insert(
+            token_type="oauth",
+            refresh_token=ADMIN_CONSOLE_HUBSPOT_REFRESH_TOKEN,
+        ).execute()
+        client = HubspotClient(oauth_data_id=oauth_data_id)
+        client.list_owners()

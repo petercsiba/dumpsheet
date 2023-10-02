@@ -253,8 +253,7 @@ class Account(BaseAccount):
                 acc.organization_role = ORGANIZATION_ROLE_CONTRIBUTOR
             # TODO(P1, devx): This we need to move to an Account <-> Pipe link object once we support more destinations.
             #   Ideally, we can just store the entire thing.
-            if acc.organization_user_id is None:
-                acc.organization_user_id = owner.id  # not user_id
+            acc.organization_user_id = owner.id  # not user_id, we allow overwrites
             acc.save()
             print(
                 f"Hubspot owner creation success - yielded account {acc} for email {owner.email}"
