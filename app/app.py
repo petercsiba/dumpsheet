@@ -260,7 +260,7 @@ def lambda_handler_wrapper(event, context):
 
     # Second Lambda
     acc: BaseAccount = BaseAccount.get_by_id(data_entry.account_id)
-    print(f"gonna process transcript for account {acc}")
+    print(f"gonna process transcript for account {acc.__dict__}")
     if bool(acc.organization):
         print("Account is part of an organization, will sync data directly there")
         org = Organization.get_by_id(
