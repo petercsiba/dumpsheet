@@ -196,6 +196,7 @@ export default function VoiceRecorder() {
                 await uploadRecording(audioBlob);
 
                 setUploadSuccess(true);
+                // TODO(P1, ux): Move this text into the heading of the box.
                 setUploadStatus('Upload successful!');
                 setProcessing(true)
             } catch (error) {

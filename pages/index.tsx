@@ -14,11 +14,27 @@ const VoiceRecorderWithNoSSR = dynamic(() => import('@/components/VoiceRecorder'
 export default function Home() {
     const session = useSession()
     const supabase = useSupabaseClient()
+    const isProduction = process.env.NODE_ENV === 'production';
 
     return (
         <>
             <AccountProvider>
                 <Head>
+                    {isProduction && (
+                        <>
+                            <script async src="https://www.googletagmanager.com/gtag/js?id=G-5M87782QY3"></script>
+                            <script dangerouslySetInnerHTML={{
+                                __html: `
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'G-5M87782QY3');
+              `
+                            }}>
+                            </script>
+                        </>
+                    )}
+
                     <title>Voxana AI - Your Executive Assistant</title>
                     <meta name="description" content="Voxana AI - Your Voice, Turned into Action"/>
                     <meta name="viewport" content="width=device-width, initial-scale=1"/>
