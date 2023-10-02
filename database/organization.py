@@ -16,8 +16,11 @@ class Organization(BaseOrganization):
         account_id: Optional[uuid.UUID],
         name: str,
     ) -> "Organization":
+        print(f"ger or create organization for account_id {account_id}")
         acc: BaseAccount = BaseAccount.get_or_none(BaseAccount.id == account_id)
-        existing_org_id: Optional[uuid.UUID] = acc.id if bool(acc) else None
+        existing_org_id: Optional[uuid.UUID] = (
+            acc.organization_id if bool(acc) else None
+        )
         organization: Optional[BaseOrganization] = BaseOrganization.get_or_none(
             BaseOrganization.id == existing_org_id
         )
