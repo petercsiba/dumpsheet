@@ -35,8 +35,8 @@ export default function Home() {
                         </>
                     )}
 
-                    <title>Voxana AI - Your Executive Assistant</title>
-                    <meta name="description" content="Voxana AI - Your Voice, Turned into Action"/>
+                    <title>Voxana AI - Voice Data Entry into your CRM</title>
+                    <meta name="description" content="Voxana AI - Talkers gonna talk. Voxana creates contacts, follow ups and notes just from your voice. Throw away the keyboard and go for a walk-and-talk with your CRM!"/>
                     <meta name="viewport" content="width=device-width, initial-scale=1"/>
                     <link rel="icon" href="/favicon.ico"/>
                 </Head>
