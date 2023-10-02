@@ -5,8 +5,6 @@ from typing import Any, Generator, Optional
 from dotenv import load_dotenv
 from peewee import DatabaseProxy, OperationalError, PostgresqlDatabase
 
-from common.config import ENV
-
 # The DatabaseProxy simply defers the configuration of the database until a later time,
 # but all interaction with the database (like connecting) should be done via the actual Database instance.
 database_proxy = DatabaseProxy()
@@ -15,6 +13,7 @@ _postgres: Optional[PostgresqlDatabase] = None
 load_dotenv()
 # NOTE: We try to keep the dependencies low here as we deploy these to AWS Lambda
 # Also available in AWS Secrets Manager under prod/database/postgres-login-url
+ENV = os.environ.get("ENV")  # prod, local
 POSTGRES_LOGIN_URL_FROM_ENV = os.environ.get("POSTGRES_LOGIN_URL_FROM_ENV")
 
 
