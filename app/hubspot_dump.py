@@ -1,6 +1,7 @@
 import datetime
 import time
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import Any, Dict, List, Optional
 
 from hubspot.crm.properties import Option
@@ -97,9 +98,7 @@ def extract_form_data(
 @dataclass
 class HubspotDataEntry:
     transcript: str
-    state: str = (
-        "new"  # "short", "incomplete", "error_gpt", "error_hubspot_sync", "success"
-    )
+    state: str = "new"  # "short", "incomplete", "error_gpt", "error_hubspot_sync", "warning_already_created", "success"
 
     contact: Optional[HubspotObject] = None
     call: Optional[HubspotObject] = None
@@ -130,6 +129,17 @@ def _count_set_fields(form_data: Dict[str, Any]) -> int:
     return sum(1 for value in form_data.values() if value is not None)
 
 
+# TODO(P1, devx): REFACTOR: We should wrap this into a HubspotObject for extra validation,
+#  * essentially take that code from extract_form_data and put it there.
+def _maybe_add_hubspot_owner_id(form_data, hubspot_owner_id):
+    if bool(form_data) and bool(hubspot_owner_id):
+        try:
+            int_hubspot_owner_id = int(hubspot_owner_id)
+            form_data[FieldNames.HUBSPOT_OWNER_ID.value] = int_hubspot_owner_id
+        except Exception:
+            pass
+
+
 # TODO: hubspot_owner_id might need to be int
 def extract_and_sync_contact_with_follow_up(
     client: HubspotClient,
@@ -148,8 +158,7 @@ def extract_and_sync_contact_with_follow_up(
 
     contact_form = FormDefinition(CONTACT_FIELDS)
     contact_data = extract_form_data(gpt_client, contact_form, text)
-    if bool(contact_data) and bool(hubspot_owner_id):
-        contact_data[FieldNames.HUBSPOT_OWNER_ID.value] = hubspot_owner_id
+    _maybe_add_hubspot_owner_id(contact_data, hubspot_owner_id)
     # When it would yield too little information, rather skip and make them re-enter.
     if _count_set_fields(contact_data) <= 1:
         print(
@@ -173,16 +182,14 @@ def extract_and_sync_contact_with_follow_up(
 
     call_form = FormDefinition(CALL_FIELDS)
     call_data = extract_form_data(gpt_client, call_form, text)
-    if bool(call_data) and bool(hubspot_owner_id):
-        call_data[FieldNames.HUBSPOT_OWNER_ID.value] = hubspot_owner_id
+    _maybe_add_hubspot_owner_id(call_data, hubspot_owner_id)
     call_response = client.crm_call_create(call_data)
     call_id = call_response.hs_object_id
 
     # TODO(P1, ux): Sometimes, there might be no task.
     task_form = FormDefinition(TASK_FIELDS)
     task_data = extract_form_data(gpt_client, task_form, text)
-    if bool(call_data) and bool(hubspot_owner_id):
-        call_data[FieldNames.HUBSPOT_OWNER_ID.value] = hubspot_owner_id
+    _maybe_add_hubspot_owner_id(task_data, hubspot_owner_id)
     task_response = client.crm_task_create(task_data)
     task_id = task_response.hs_object_id
 
@@ -206,6 +213,8 @@ def extract_and_sync_contact_with_follow_up(
     else:
         if contact_data is None or call_data is None or task_data is None:
             state = "error_gpt"
+        elif contact_response.status == HTTPStatus.CONFLICT:
+            state = "warning_already_created"
         else:
             state = "error_hubspot_sync"
     # There are a few columns sets for the same object_type:

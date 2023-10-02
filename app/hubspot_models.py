@@ -14,8 +14,9 @@ class FieldNames(Enum):
     # Common object fields; There are also createdate, lastmodifieddate, updated_at which we ignore.
     # HS_ACTIVITY_TYPE = "hs_activity_type"
     HS_OBJECT_ID = "hs_object_id"
-    # TODO: We will need to somehow map their emails / account to HS account.
-    HUBSPOT_OWNER_ID = "hubspot_owner_id"
+    HUBSPOT_OWNER_ID = (
+        "hubspot_owner_id"  # NOTE: Stored as `str` in the DB, while presented as `int`.
+    )
     HS_TIMESTAMP = "hs_timestamp"
     # Contact: Top-level
     EMAIL = "email"
@@ -403,7 +404,7 @@ CONTACT_FIELDS = {
     ),
     "hubspot_owner_id": FieldDefinition(
         name="hubspot_owner_id",
-        field_type="select",
+        field_type="number",
         label="Contact owner",
         description=(
             "The owner of a contact. This can be any HubSpot user or Salesforce integration user, "
@@ -642,7 +643,7 @@ CALL_FIELDS = {
     ),
     "hubspot_owner_id": FieldDefinition(
         name="hubspot_owner_id",
-        field_type="select",
+        field_type="number",
         label="Activity assigned to",
         description=(
             "The user that the activity is assigned to in HubSpot. "
@@ -743,7 +744,7 @@ TASK_FIELDS = {
     ),
     "hubspot_owner_id": FieldDefinition(
         name="hubspot_owner_id",
-        field_type="select",
+        field_type="number",
         label="Assigned to",
         description=(
             "The user that the task is assigned to in HubSpot. "

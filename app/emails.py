@@ -404,11 +404,21 @@ def send_hubspot_result(
         )
         return send_email(params=email_params)
 
+    extra_info_map = {
+        "error_gpt": "We had problems transforming your into a HubSpot Contact",
+        "error_hubspot_sync": "We encountered problems while syncing your data to HubSpot",
+        "warning_already_created": "Note: The contact was already created in HubSpot",
+    }
+    extra_info = ""
+    if data.state in extra_info_map:
+        extra_info = f"<b>{extra_info_map[data.state]}</b>"
+
     # success / error with partial results
     contact_table = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
     call_table = _hubspot_objs_maybe_to_table(data.call, data.gpt_call)
     task_table = _hubspot_objs_maybe_to_table(data.task, data.gpt_task)
     email_params.body_text = """
+    {extra_info}
     {heading_contact}
     <p>{contact}</p>
     {heading_call}
@@ -417,6 +427,7 @@ def send_hubspot_result(
     <p>{task}</p>
     {signature}
     """.format(
+        extra_info=extra_info,
         heading_contact=_format_heading("Contact Data"),
         contact=contact_table,
         heading_call=_format_heading("Call Data"),

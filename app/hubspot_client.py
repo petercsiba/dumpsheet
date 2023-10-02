@@ -147,8 +147,10 @@ class HubspotClient:
         #   e.g. it's better to upload 90% of fields, than 0% (e.g. INVALID_OWNER_ID strip that field an try again)
         body = json.loads(e.body)
         msg = body.get("message", str(e))
+        # TODO(P1, security): We should strip PII from here one day
+        printable_request_body = str(request_body).replace("\n", " ")
         req = (
-            f"request_body: {str(request_body)}"
+            f"request_body: {printable_request_body}"
             if bool(request_body)
             else "no request body"
         )
@@ -286,3 +288,20 @@ if __name__ == "__main__":
         ).execute()
         client = HubspotClient(oauth_data_id=oauth_data_id)
         client.list_owners()
+
+        contact_props = {
+            "firstname": "Laurel",
+            "lastname": "Skwirko",
+            "email": "laurel.skwirko@ucop.edu",
+            "phone": "+14159997234",
+            "city": None,
+            "state": "California",
+            "country": None,
+            "jobtitle": "Marketing Communication and Information Technology Services",
+            "lifecyclestage": None,
+            "hs_lead_status": None,
+            "company": "University of California",
+            "industry": None,
+            "hubspot_owner_id": 466328885,
+        }
+        client.crm_contact_create(contact_props)
