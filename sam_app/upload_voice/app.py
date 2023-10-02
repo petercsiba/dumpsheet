@@ -448,13 +448,10 @@ def lambda_handler(event, context):
     allowed_origin = origin if origin in ALLOWED_ORIGINS else "unknown"
 
     response["headers"]["Access-Control-Allow-Credentials"] = True
-    response["headers"][
-        "Access-Control-Allow-Headers"
-    ] = "Content-Type"  # mostly for OPTIONS
-    response["headers"][
-        "Access-Control-Allow-Methods"
-    ] = "GET,POST"  # mostly for OPTIONS
     response["headers"]["Access-Control-Allow-Origin"] = allowed_origin
+    # Rest of them mostly for OPTIONS
+    response["headers"]["Access-Control-Allow-Headers"] = "Content-Type"
+    response["headers"]["Access-Control-Allow-Methods"] = "GET,POST"
 
     print(f"response: {response}")
     return response

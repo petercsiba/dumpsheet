@@ -29,7 +29,7 @@ class FieldNames(Enum):
     # Contact: Lifecycle and Marketing
     LIFECYCLESTAGE = "lifecyclestage"
     HS_LEAD_STATUS = "hs_lead_status"
-    RECENT_CONVERSION_EVENT_NAME = "recent_conversion_event_name"
+    # RECENT_CONVERSION_EVENT_NAME = "recent_conversion_event_name"  # property is a calculated value, cannot be set
     # Calls:
     HS_CALL_BODY = "hs_call_body"
     HS_CALL_CALLEE_OBJECT_ID = "hs_call_callee_object_id"
@@ -341,15 +341,6 @@ class AssociationType(Enum):
 
 
 CONTACT_FIELDS = {
-    "recent_conversion_event_name": FieldDefinition(
-        name="recent_conversion_event_name",
-        field_type="text",
-        label="Recent Conversion",
-        description="The last form this contact submitted",
-        options=[],
-        group_name="conversioninformation",
-        hubspot_defined=True,
-    ),
     "firstname": FieldDefinition(
         name="firstname",
         field_type="text",
