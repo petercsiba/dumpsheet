@@ -133,6 +133,8 @@ def handle_get_request_for_presigned_url(event) -> Dict:
     except NoCredentialsError:
         return craft_error(500, "error generating presigned URL: No AWS Credentials")
 
+    # NOTE: To allow extra headers you need to allow-list them in the CORS policy
+    # https://chat.openai.com/share/4e0034b2-4012-4ef9-97dc-e41b66bec335
     account_id = event["headers"].get("X-Account-Id", None)
     if account_id:
         print(f"Received account_id: {account_id}")
@@ -451,7 +453,7 @@ def lambda_handler(event, context):
     response["headers"]["Access-Control-Allow-Credentials"] = True
     response["headers"]["Access-Control-Allow-Origin"] = allowed_origin
     # Rest of them mostly for OPTIONS
-    response["headers"]["Access-Control-Allow-Headers"] = "Content-Type"
+    response["headers"]["Access-Control-Allow-Headers"] = "Content-Type,x-account-id"
     response["headers"]["Access-Control-Allow-Methods"] = "GET,POST"
 
     print(f"response: {response}")
