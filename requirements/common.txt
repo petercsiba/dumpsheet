@@ -7,6 +7,7 @@ phonenumbers
 plotly
 psycopg2[binary,pool]
 python-dotenv
+python-dateutil
 pytz
 requests_oauthlib
 supabase

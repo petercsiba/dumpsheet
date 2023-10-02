@@ -4,6 +4,8 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 import phonenumbers
+import pytz
+from dateutil import parser
 from hubspot.crm.properties import ModelProperty, Option
 
 
@@ -159,17 +161,28 @@ class FieldDefinition:
 
     def _validation_error(self, expected: str, value: Any):
         print(
-            f"WARNING: Invalid {self.field_type} format for {self.group_name}.{self.name} "
-            f"expected {expected} given (type={type(value)}): {value}"
+            f"WARNING: Invalid format for {self.group_name}.{self.name} "
+            f"expected {expected} (type={self.field_type}) given {value} (type={type(value)})"
         )
 
+    # In JavaScript, date is actually a timestamp which ideally should be human-readable and ISO 8601
     def _validate_date(self, value: Any):
         try:
-            datetime.datetime.strptime(value, "%Y-%m-%d")
-        except ValueError:
-            self._validation_error("YYYY-MM-DD", value)
-            return None
-        return value
+            parsed_date = parser.parse(value)
+
+            # Convert to UTC if the datetime object is naive
+            if (
+                parsed_date.tzinfo is None
+                or parsed_date.tzinfo.utcoffset(parsed_date) is None
+            ):
+                parsed_date = parsed_date.replace(tzinfo=pytz.UTC)
+
+            return parsed_date
+
+        except (TypeError, ValueError):
+            self._validation_error("timestamp", value)
+            # If parsing fails or input is None, default to the current date-time in UTC
+            return datetime.datetime.now(pytz.UTC)
 
     def _validate_html(self, value: Any):
         return self._validate_text(value)
@@ -210,6 +223,15 @@ class FieldDefinition:
         if isinstance(value, dict):
             if "value" in value:
                 return self._validate_select(value["value"], options)
+
+        # And sometimes we get `'hs_task_status': ['Not Started', 'NOT_STARTED']`
+        if isinstance(value, (list, tuple)):
+            if len(value) == 2:
+                return self._validate_select(value[1], options)
+            print(
+                f"WARNING: Un-expected number of list items for an options field: {value}"
+            )
+            return self._validate_select(value[0], options)
 
         self._validation_error("unexpected format", value)
         return None
@@ -732,3 +754,15 @@ TASK_FIELDS = {
         custom_field=False,
     ),
 }
+
+
+# Poor mans test
+if __name__ == "__main__":
+    ts_field = CALL_FIELDS["hs_timestamp"]
+    print("validate: " + str(ts_field.validate_and_fix("2023-10-01T00:00:00.000Z")))
+
+    select_field = TASK_FIELDS["hs_task_status"]
+    print(
+        "validate: "
+        + str(select_field.validate_and_fix(["Not Started", "NOT_STARTED"]))
+    )
