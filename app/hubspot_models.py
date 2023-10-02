@@ -1,3 +1,4 @@
+# TODO(P1, reliability): Some fields are required while can be hard to GPT generate - we should default set.
 import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
@@ -68,7 +69,7 @@ class FieldDefinition:
         description: Optional[str] = None,
         options: Optional[List[Option]] = None,
         group_name: Optional[str] = None,
-        hubspot_defined: Optional[bool] = None,
+        custom_field: Optional[bool] = None,
         **kwargs,
     ):
         self.name = name
@@ -77,7 +78,7 @@ class FieldDefinition:
         self.description = description
         self.options = options
         self.group_name = group_name
-        self.hubspot_defined = hubspot_defined
+        self.custom_field = custom_field
 
     # Code-gen
     @classmethod
@@ -89,7 +90,8 @@ class FieldDefinition:
             description=response.description,
             options=response.options,
             group_name=response.group_name,
-            hubspot_defined=response.hubspot_defined,
+            custom_field=response.hubspot_defined
+            is False,  # only if non-none and set to False it is a custom field
         )
 
     @classmethod
@@ -115,7 +117,7 @@ class FieldDefinition:
             description={description},
             options={options},
             group_name={group_name},
-            hubspot_defined={hubspot_defined}
+            custom_field={custom_field}
         )""".format(
             name=self.name,
             field_type=self.field_type,
@@ -123,7 +125,7 @@ class FieldDefinition:
             description=FieldDefinition._none_or_quoted_str(self.description),
             options=FieldDefinition._gen_options(self.options),
             group_name=FieldDefinition._none_or_quoted_str(self.group_name),
-            hubspot_defined=str(self.hubspot_defined),
+            custom_field=str(self.custom_field),
         )
 
     def _has_options(self):
@@ -348,7 +350,7 @@ CONTACT_FIELDS = {
         description="A contact's first name",
         options=[],
         group_name="contactinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "lastname": FieldDefinition(
         name="lastname",
@@ -357,7 +359,7 @@ CONTACT_FIELDS = {
         description="A contact's last name",
         options=[],
         group_name="contactinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "email": FieldDefinition(
         name="email",
@@ -366,7 +368,7 @@ CONTACT_FIELDS = {
         description="A contact's email address",
         options=[],
         group_name="contactinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "phone": FieldDefinition(
         name="phone",
@@ -375,7 +377,7 @@ CONTACT_FIELDS = {
         description="A contact's primary phone number",
         options=[],
         group_name="contactinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hubspot_owner_id": FieldDefinition(
         name="hubspot_owner_id",
@@ -387,7 +389,7 @@ CONTACT_FIELDS = {
         ),
         options=[],
         group_name="sales_properties",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "city": FieldDefinition(
         name="city",
@@ -396,7 +398,7 @@ CONTACT_FIELDS = {
         description="A contact's city of residence",
         options=[],
         group_name="contactinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "state": FieldDefinition(
         name="state",
@@ -405,7 +407,7 @@ CONTACT_FIELDS = {
         description="The contact's state of residence.",
         options=[],
         group_name="contactinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "country": FieldDefinition(
         name="country",
@@ -414,7 +416,7 @@ CONTACT_FIELDS = {
         description="The contact's country/region of residence.",
         options=[],
         group_name="contactinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "jobtitle": FieldDefinition(
         name="jobtitle",
@@ -423,7 +425,7 @@ CONTACT_FIELDS = {
         description="A contact's job title",
         options=[],
         group_name="contactinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "lifecyclestage": FieldDefinition(
         name="lifecyclestage",
@@ -441,7 +443,7 @@ CONTACT_FIELDS = {
             Option(label="Other", value="other"),
         ],
         group_name="contactinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_lead_status": FieldDefinition(
         name="hs_lead_status",
@@ -459,7 +461,7 @@ CONTACT_FIELDS = {
             Option(label="Bad Timing", value="BAD_TIMING"),
         ],
         group_name="sales_properties",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "company": FieldDefinition(
         name="company",
@@ -471,7 +473,7 @@ CONTACT_FIELDS = {
         ),
         options=[],
         group_name="contactinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "industry": FieldDefinition(
         name="industry",
@@ -480,7 +482,7 @@ CONTACT_FIELDS = {
         description="The Industry a contact is in",
         options=[],
         group_name="contactinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
 }
 
@@ -501,7 +503,7 @@ CALL_FIELDS = {
         description="Summary of the call transcript, use short paragraphs or bullet points.",
         options=[],
         group_name="call",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_call_callee_object_id": FieldDefinition(
         name="hs_call_callee_object_id",
@@ -513,7 +515,7 @@ CALL_FIELDS = {
         ),
         options=[],
         group_name="call",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_call_direction": FieldDefinition(
         name="hs_call_direction",
@@ -525,7 +527,7 @@ CALL_FIELDS = {
             Option(label="Outbound", value="OUTBOUND"),
         ],
         group_name="call",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     # TODO(P1, fullness): Seems ignored by GPT
     "hs_call_disposition": FieldDefinition(
@@ -546,7 +548,7 @@ CALL_FIELDS = {
             Option(label="Wrong number", value="17b47fee-58de-441e-a44c-c6300d46f273"),
         ],
         group_name="call",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_call_from_number": FieldDefinition(
         name="hs_call_from_number",
@@ -555,7 +557,7 @@ CALL_FIELDS = {
         description="The phone number of the person that initiated the call",
         options=[],
         group_name="call",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_call_status": FieldDefinition(
         name="hs_call_status",
@@ -576,7 +578,7 @@ CALL_FIELDS = {
             Option(label="Ringing", value="RINGING"),
         ],
         group_name="call",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_call_title": FieldDefinition(
         name="hs_call_title",
@@ -585,7 +587,7 @@ CALL_FIELDS = {
         description="The title of the call",
         options=[],
         group_name="call",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_call_to_number": FieldDefinition(
         name="hs_call_to_number",
@@ -594,7 +596,7 @@ CALL_FIELDS = {
         description="The phone number of the person that was called",
         options=[],
         group_name="call",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_object_id": FieldDefinition(
         name="hs_object_id",
@@ -605,7 +607,7 @@ CALL_FIELDS = {
         ),
         options=[],
         group_name="callinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_timestamp": FieldDefinition(
         name="hs_timestamp",
@@ -614,7 +616,7 @@ CALL_FIELDS = {
         description="The date that an engagement occurred",
         options=[],
         group_name="engagement",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hubspot_owner_id": FieldDefinition(
         name="hubspot_owner_id",
@@ -626,7 +628,7 @@ CALL_FIELDS = {
         ),
         options=[],
         group_name="engagement",
-        hubspot_defined=True,
+        custom_field=False,
     ),
 }
 
@@ -640,7 +642,7 @@ TASK_FIELDS = {
         ),
         options=[],
         group_name="taskinformation",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_task_body": FieldDefinition(
         name="hs_task_body",
@@ -649,7 +651,7 @@ TASK_FIELDS = {
         description="Action items in short bullet points",
         options=[],
         group_name="task",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_task_priority": FieldDefinition(
         name="hs_task_priority",
@@ -663,7 +665,7 @@ TASK_FIELDS = {
             Option(label="High", value="HIGH"),
         ],
         group_name="task",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_task_status": FieldDefinition(
         name="hs_task_status",
@@ -678,7 +680,7 @@ TASK_FIELDS = {
             Option(label="Waiting", value="WAITING"),
         ],
         group_name="task",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_task_subject": FieldDefinition(
         name="hs_task_subject",
@@ -687,7 +689,7 @@ TASK_FIELDS = {
         description="The title of the task",
         options=[],
         group_name="task",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_task_type": FieldDefinition(
         name="hs_task_type",
@@ -706,7 +708,7 @@ TASK_FIELDS = {
             Option(label="To Do", value="TODO"),
         ],
         group_name="task",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hs_timestamp": FieldDefinition(
         name="hs_timestamp",
@@ -715,7 +717,7 @@ TASK_FIELDS = {
         description="The due date of the task",
         options=[],
         group_name="engagement",
-        hubspot_defined=True,
+        custom_field=False,
     ),
     "hubspot_owner_id": FieldDefinition(
         name="hubspot_owner_id",
@@ -727,6 +729,6 @@ TASK_FIELDS = {
         ),
         options=[],
         group_name="engagement",
-        hubspot_defined=True,
+        custom_field=False,
     ),
 }

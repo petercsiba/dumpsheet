@@ -317,8 +317,8 @@ if __name__ == "__main__":
         # FOR CODE GEN
         # props = test_hs_client.list_custom_properties(object_type="contact")
         # contact_def = FormDefinition.from_properties_api_response(props.results)
-        # # print(f"contact_def gpt prompt: {contact_def.to_gpt_prompt()}")
         # print(f"contact_def to_python_definition: {contact_def.to_python_definition()}")
+        # exit()
 
         test_gpt_client = OpenAiClient()
 
