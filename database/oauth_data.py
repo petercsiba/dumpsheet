@@ -2,6 +2,8 @@ import datetime
 import uuid
 from typing import Optional
 
+import pytz
+
 from database.models import BaseOauthData
 
 
@@ -37,6 +39,7 @@ class OauthData(BaseOauthData):
         oauth_data = BaseOauthData.get_by_id(oauth_data_id)
         oauth_data.refresh_token = refresh_token
         oauth_data.access_token = access_token
+        oauth_data.refreshed_at = datetime.datetime.now(pytz.UTC)
         oauth_data.expires_at = expires_at
         oauth_data.save()
 
