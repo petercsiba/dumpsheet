@@ -50,3 +50,28 @@ create table
     UNIQUE(organization_id, destination_id)
   ) tablespace pg_default;
 ALTER TABLE public.pipeline ENABLE ROW LEVEL SECURITY;
+
+-- DATA MIGRATION
+-- Supabase AI is experimental and may produce incorrect answers
+-- Always verify the output before executing
+
+-- First, Insert into the oauth_data table
+--do $$
+--DECLARE
+--  org_record public.organization%ROWTYPE;
+--  new_oauth_id UUID;
+--BEGIN
+--  FOR org_record IN SELECT * FROM public.organization WHERE hubspot_refresh_token IS NOT NULL LOOP
+--
+--    -- Create a new oauth_data record based on the organization
+--    INSERT INTO public.oauth_data (token_type, access_token, refresh_token, refreshed_at, expires_at)
+--    VALUES ('oauth', org_record.hubspot_access_token, org_record.hubspot_refresh_token, NULL, org_record.hubspot_expires_at)
+--    ON CONFLICT DO NOTHING
+--    RETURNING id INTO new_oauth_id;
+--
+--    -- Create a new pipeline record linking to the new oauth_data record
+--    INSERT INTO public.pipeline (organization_id, destination_id, oauth_data_id, state)
+--    VALUES (org_record.id, 1, new_oauth_id, 'initiated');
+--
+--  END LOOP;
+--END $$;
