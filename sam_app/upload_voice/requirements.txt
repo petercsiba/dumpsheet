@@ -1,5 +1,6 @@
 hubspot-api-client
 python-dotenv
+pytz
 # boto3
 # botocore
 # https://stackoverflow.com/questions/76414514/cannot-import-name-default-ciphers-from-urllib3-util-ssl-on-aws-lambda-us
