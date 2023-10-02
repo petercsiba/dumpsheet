@@ -287,7 +287,7 @@ def send_email(params: EmailLog) -> bool:
 
 def _format_heading(heading: str) -> str:
     style = (
-        "font-family: Arial, sans-serif; font-size: 24px; "
+        "font-family: Arial, sans-serif; font-size: 16px; "
         "font-weight: bold; color: #000000; margin: 0; padding: 10px 0;"
     )
     return f'<h2 style="{style}">{heading}</h2>'
