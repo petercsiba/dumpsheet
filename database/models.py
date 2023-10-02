@@ -18,10 +18,6 @@ class BaseModel(Model):
 # Possible reference cycle: account
 class BaseOrganization(BaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
-    hubspot_access_token = TextField(null=True)
-    hubspot_expires_at = DateTimeField(null=True)
-    hubspot_linked_at = DateTimeField(null=True)
-    hubspot_refresh_token = TextField(null=True)
     id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
     name = TextField()
     # To overcome ForeignKeyField circular dependency

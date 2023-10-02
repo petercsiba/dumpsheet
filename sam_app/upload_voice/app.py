@@ -329,16 +329,17 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
             500, f"Exception when fetching access token from HubSpot: {e}"
         )
 
+    # NOTE: admin_account_id can be None
     admin_account_id = _parse_account_id_from_state_param(
         event["queryStringParameters"].get("state", None)
     )
 
-    # NOTE: admin_account_id can be None
-    # TODO(p0, onboarding): So if you authorize through Hubspot twice, you would end up with two organizations.
+    # TODO(P1, onboarding): So if you authorize through Hubspot twice, you would end up with two organizations.
     #   Although we would keep any existing account -> organization links so might be fine-ish.
     existing_oauth_data = OauthData.get_or_none(
         OauthData.refresh_token == tokens.refresh_token
     )
+    # NOTE: refresh_token *should* be unique, but clearly it is the same for both main VoxanaAI and DEV orgs :/
     if existing_oauth_data is None:
         pipeline = Pipeline.get_or_create_for_destination_as_admin(
             admin_account_id, DESTINATION_HUBSPOT_ID, "auto-generated please fill in"
