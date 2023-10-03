@@ -5,7 +5,7 @@ import json
 import os
 import re
 import uuid
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import boto3
 import peewee  # noqa
@@ -18,7 +18,7 @@ from hubspot.auth import oauth
 # Ideally, we would set up an AWS Lambda Layer, but I failed to achieve this.
 from database import account, data_entry, models
 from database.client import connect_to_postgres_i_will_call_disconnect_i_promise
-from database.models import BaseDataEntry, BaseEmailLog
+from database.models import BaseDataEntry, BaseEmailLog, BaseOrganization
 from database.oauth_data import OauthData
 from database.pipeline import DESTINATION_HUBSPOT_ID, Pipeline
 
@@ -29,6 +29,8 @@ HUBSPOT_APP_ID = "2150554"
 HUBSPOT_CLIENT_ID = "501ffe58-5d49-47ff-b41f-627fccc28715"
 HUBSPOT_REDIRECT_URL = "https://api.voxana.ai/hubspot/oauth/redirect"
 TWILIO_FUNCTIONS_API_KEY = "twilio-functions-super-secret-key-123"
+
+DEFAULT_ORG_NAME = "organization name"
 
 # AWS Lambda Execution Context feature - this should save about 1 second on subsequent invocations.
 secrets_cache = {}
@@ -304,6 +306,41 @@ def _parse_account_id_from_state_param(param: Optional[str]) -> Optional[uuid.UU
     return account_id
 
 
+def _get_domain_from_email(email):
+    try:
+        domain_full = email.split("@")[1]
+        domain_name = domain_full.split(".")[0]
+        return domain_name
+    except IndexError:
+        print(f"WARNING: Invalid email format for {email}")
+        return None
+
+
+# Just a nice-to-have
+def _best_effort_set_org_if_needed(new_accounts: List[account.Account]):
+    for acc in new_accounts:
+        org: BaseOrganization = BaseOrganization.get_or_none(acc.organization_id)
+        if bool(org) and org.name == DEFAULT_ORG_NAME:
+            acc_email = acc.get_email()
+            org_name = _get_domain_from_email(acc_email)
+            if org_name not in [
+                "gmail",
+                "yahoo",
+                "outlook",
+                "icloud",
+                "aol",
+                "hotmail",
+                "zoho",
+                "protonmail",
+            ]:
+                org.name = org_name
+                org.save()
+                print(
+                    f"Assumed organization name {org_name} from user email {acc_email}"
+                )
+                return
+
+
 def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     print(f"HUBSPOT OAUTH REDIRECT EVENT: {event}")
 
@@ -344,7 +381,7 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     # NOTE: refresh_token *should* be unique, but clearly it is the same for both main VoxanaAI and DEV orgs :/
     if existing_oauth_data is None:
         pipeline = Pipeline.get_or_create_for_destination_as_admin(
-            admin_account_id, DESTINATION_HUBSPOT_ID, "auto-generated please fill in"
+            admin_account_id, DESTINATION_HUBSPOT_ID, DEFAULT_ORG_NAME
         )
     else:
         # If the refresh token matches the existing one - we assume it's just a re-authorization of the same thing.
@@ -366,9 +403,10 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     try:
         # TODO(P1, ux): Ideally, we can somehow derive the user connecting Voxana with Hubspot and make them admin.
         owners_response = api_client.crm.owners.get_all()
-        account.Account.get_or_onboard_for_hubspot(
+        new_accounts = account.Account.get_or_onboard_for_hubspot(
             organization_id=pipeline.organization_id, owners_response=owners_response
         )
+        _best_effort_set_org_if_needed(new_accounts)
     except Exception as e:
         print(
             f"WARNING: Cannot get or onboard owners cause {e}, response: {owners_response}"

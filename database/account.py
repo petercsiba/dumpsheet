@@ -1,7 +1,7 @@
 import random
 import string
 import uuid
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from hubspot.crm.owners import PublicOwner
 from peewee import DoesNotExist
@@ -221,7 +221,7 @@ class Account(BaseAccount):
     @staticmethod
     def get_or_onboard_for_hubspot(
         organization_id: uuid.UUID, owners_response: Optional[List[PublicOwner]]
-    ) -> Tuple[int, int]:
+    ) -> List["Account"]:
         if owners_response is None or not isinstance(owners_response, list):
             print(
                 f"WARNING: Unexpected owners_response {type(owners_response)}: {owners_response}"
@@ -233,6 +233,8 @@ class Account(BaseAccount):
         print(
             f"Gonna onboard up to {owners_count} hubspot accounts to organization {organization_id}"
         )
+
+        new_accounts = []
         for owner in owners_response:
             if not isinstance(owner, PublicOwner):
                 print(f"WARNING: Unexpected owner structure {type(owner)}: {owner}")
@@ -255,6 +257,7 @@ class Account(BaseAccount):
             #   Ideally, we can just store the entire thing.
             acc.organization_user_id = owner.id  # not user_id, we allow overwrites
             acc.save()
+            new_accounts.append(acc)
             print(
                 f"Hubspot owner creation success - yielded account {acc} for email {owner.email}"
             )
@@ -266,4 +269,5 @@ class Account(BaseAccount):
             print(
                 "WARNING: The new links does NOT match all owners count - organization might already exist."
             )
-        return new_account_organization_links, len(owners_response)
+
+        return new_accounts
