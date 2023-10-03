@@ -6,13 +6,9 @@ from typing import List, Optional
 from hubspot.crm.owners import PublicOwner
 from peewee import DoesNotExist
 
+from database.constants import ACCOUNT_STATE_PENDING, ORGANIZATION_ROLE_CONTRIBUTOR
 from database.models import BaseAccount, BaseOnboarding
-from database.organization import ORGANIZATION_ROLE_CONTRIBUTOR
 from database.user import User
-
-ACCOUNT_STATE_ACTIVE = "active"  # for primary account
-ACCOUNT_STATE_PENDING = "pending"  # for un-confirmed onboarding
-ACCOUNT_STATE_MERGED = "merged"  # soft delete cause many implications
 
 
 def generate_temp_password(length=8):
@@ -224,7 +220,7 @@ class Account(BaseAccount):
         print(f"onboarded account {account}")
         return account
 
-    # TODO(P3, devx): There might be a better place for_hubspot function, as this depends on Hubspot.
+    # TODO(P2, devx): There might be a better place for_hubspot function, as this depends on Hubspot.
     @staticmethod
     def get_or_onboard_for_hubspot(
         organization_id: uuid.UUID, owners_response: Optional[List[PublicOwner]]
@@ -233,7 +229,7 @@ class Account(BaseAccount):
             print(
                 f"WARNING: Unexpected owners_response {type(owners_response)}: {owners_response}"
             )
-            return None
+            return []
 
         owners_count = len(owners_response)
         new_account_organization_links = 0

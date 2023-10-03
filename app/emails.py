@@ -29,7 +29,8 @@ from common.config import (
 )
 from common.storage_utils import pretty_filesize_path
 from database.email_log import EmailLog
-from database.models import BaseAccount, BaseOrganization
+from database.models import BaseAccount
+from database.organization import Organization
 
 
 def sanitize_filename(filename: str) -> str:
@@ -287,7 +288,7 @@ def send_email(params: EmailLog) -> bool:
 
 def _format_heading(heading: str) -> str:
     style = (
-        "font-family: Arial, sans-serif; font-size: 16px; "
+        "font-family: Arial, sans-serif; font-size: 14px; "
         "font-weight: bold; color: #000000; margin: 0; padding: 10px 0;"
     )
     return f'<h2 style="{style}">{heading}</h2>'
@@ -382,7 +383,7 @@ def send_hubspot_result(
     account_id: UUID, idempotency_id_prefix: str, data: HubspotDataEntry
 ) -> bool:
     acc: BaseAccount = BaseAccount.get_by_id(account_id)
-    org: BaseOrganization = BaseOrganization.get_by_id(acc.organization_id)
+    org: Organization = Organization.get_by_id(acc.organization_id)
     person_name = data.contact_name()
     idempotency_id_suffix = data.state
 

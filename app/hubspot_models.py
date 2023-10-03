@@ -27,7 +27,7 @@ class FieldNames(Enum):
     STATE = "state"
     COUNTRY = "country"
     # Contact: Job info
-    COMPANY = "company"
+    COMPANY = "company"  # NOTE: WOW, HubSpot prospecting tool has a database of companies which gets auto-filled.
     JOBTITLE = "jobtitle"
     INDUSTRY = "industry"
     # Contact: Lifecycle and Marketing
@@ -73,7 +73,6 @@ class FieldDefinition:
         options: Optional[List[Option]] = None,
         group_name: Optional[str] = None,
         custom_field: Optional[bool] = None,
-        **kwargs,
     ):
         self.name = name
         self.field_type = field_type
@@ -98,11 +97,11 @@ class FieldDefinition:
         )
 
     @classmethod
-    def _none_or_quoted_str(self, value: Optional[str]) -> str:
+    def _none_or_quoted_str(cls, value: Optional[str]) -> str:
         return f'"{value}"' if isinstance(value, str) else "None"
 
     @classmethod
-    def _gen_options(self, options: Optional[list[Option]]) -> str:
+    def _gen_options(cls, options: Optional[list[Option]]) -> str:
         if isinstance(options, list):
             options_definitions = [
                 f'Option(label="{opt.label}", value="{opt.value}")' for opt in options
@@ -248,6 +247,7 @@ class FieldDefinition:
 # Mostly used for code-gen
 class FormDefinition:
     def __init__(self, fields: Dict[str, FieldDefinition]):
+        # TODO(P1, ux): We should maintain the sort-order of the input, e.g. now first and last name aren't neighbors
         # TODO(P1, correctness): I imagine we would need a GPT intro / context string
         self.fields = {k: v for k, v in fields.items() if k in ALLOWED_FIELDS}
 
@@ -267,25 +267,44 @@ class FormDefinition:
         )
 
 
+class ObjectType(Enum):
+    CONTACT = "0-1"
+    COMPANY = "0-2"
+    TASK = "0-27"
+    CALL = "0-48"
+
+
 # This class will act as the value storage
 class HubspotObject:
     def __init__(
         self,
+        hub_id: Optional[str],
+        object_type: ObjectType,
         form: FormDefinition,
     ):
+        self.hub_id = None
+        try:
+            if hub_id is not None:
+                self.hub_id = int(hub_id)
+        except ValueError as e:
+            print(f"WARNING: invalid hub_id {hub_id} given, expected int: {e}")
+
+        self.object_type = object_type
         self.form = form
         self.data = {}  # you can just plug into properties
 
     @classmethod
     def from_api_response_props(
         cls,
+        hub_id: Optional[str],
+        object_type: ObjectType,
         form: FormDefinition,
         response_props: Optional[Dict[str, Any]],
     ) -> Optional["HubspotObject"]:
         if response_props is None:
             return None
 
-        result = HubspotObject(form)
+        result = HubspotObject(hub_id=hub_id, object_type=object_type, form=form)
         for field_name, value in response_props.items():
             result.set_field_value(field_name, value)
         return result
@@ -306,9 +325,30 @@ class HubspotObject:
         return self.form.fields[field_name].display_value(self.data.get(field_name))
 
     def get_field_display_label_with_value(self, field_name) -> Tuple[str, Any]:
-        return self.form.fields[field_name].label, self.get_value(field_name)
+        value = None
+        if field_name == FieldNames.HS_OBJECT_ID.value:
+            # TODO(P2, devx): This should be outside of here, but the complexity is getting harder to manage
+            link_href = self.get_link()
+            if bool(link_href):
+                value = f'<a href="{self.get_link()}">{self.get_value(field_name)}</a>'
+
+        if value is None:
+            value = self.get_value(field_name)
+
+        return self.form.fields[field_name].label, value
+
+    def get_link(self) -> Optional[str]:
+        if self.hub_id is None:
+            return None
+
+        object_id = self.get_value(FieldNames.HS_OBJECT_ID.value)
+        if bool(object_id):
+            return f"https://app.hubspot.com/contacts/{self.hub_id}/record/{self.object_type.value}/{object_id}/"
+
+        return None
 
 
+# TODO(P1, devx): Create an Enum with the need for ".value"
 class AssociationType(Enum):
     # Contact to object
     CONTACT_TO_COMPANY = 279
@@ -366,6 +406,17 @@ class AssociationType(Enum):
 
 
 CONTACT_FIELDS = {
+    "hs_object_id": FieldDefinition(
+        name="hs_object_id",
+        field_type="number",
+        label="Record ID",
+        description=(
+            "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
+        ),
+        options=[],
+        group_name="contactinformation",
+        custom_field=False,
+    ),
     "firstname": FieldDefinition(
         name="firstname",
         field_type="text",
@@ -519,6 +570,17 @@ CALL_FIELDS = {
     #     group_name="engagement",
     #     hubspot_defined=True,
     # ),
+    "hs_object_id": FieldDefinition(
+        name="hs_object_id",
+        field_type="number",
+        label="Record ID",
+        description=(
+            "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
+        ),
+        options=[],
+        group_name="callinformation",
+        custom_field=False,
+    ),
     "hs_call_body": FieldDefinition(
         name="hs_call_body",
         field_type="html",
@@ -619,17 +681,6 @@ CALL_FIELDS = {
         description="The phone number of the person that was called",
         options=[],
         group_name="call",
-        custom_field=False,
-    ),
-    "hs_object_id": FieldDefinition(
-        name="hs_object_id",
-        field_type="number",
-        label="Record ID",
-        description=(
-            "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
-        ),
-        options=[],
-        group_name="callinformation",
         custom_field=False,
     ),
     "hs_timestamp": FieldDefinition(

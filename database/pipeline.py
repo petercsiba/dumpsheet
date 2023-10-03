@@ -5,8 +5,6 @@ from database.models import BasePipeline
 from database.oauth_data import OauthData
 from database.organization import Organization
 
-DESTINATION_HUBSPOT_ID = 1
-
 STATE_INITIATED = "initiated"
 
 

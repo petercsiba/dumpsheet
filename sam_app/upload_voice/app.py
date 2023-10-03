@@ -5,7 +5,7 @@ import json
 import os
 import re
 import uuid
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import boto3
 import peewee  # noqa
@@ -17,15 +17,16 @@ from hubspot.auth import oauth
 # for IDE, doing ".database" would point to "backend/sam_app/upload_voice/database".
 # Ideally, we would set up an AWS Lambda Layer, but I failed to achieve this.
 from database import account, data_entry, models
-from database.account import (
+from database.client import connect_to_postgres_i_will_call_disconnect_i_promise
+from database.constants import (
     ACCOUNT_STATE_ACTIVE,
     ACCOUNT_STATE_MERGED,
     ACCOUNT_STATE_PENDING,
+    DESTINATION_HUBSPOT_ID,
 )
-from database.client import connect_to_postgres_i_will_call_disconnect_i_promise
 from database.models import BaseDataEntry, BaseEmailLog, BaseOrganization
 from database.oauth_data import OauthData
-from database.pipeline import DESTINATION_HUBSPOT_ID, Pipeline
+from database.pipeline import Pipeline
 
 s3 = boto3.client("s3")
 
@@ -323,41 +324,6 @@ def _parse_account_id_from_state_param(param: Optional[str]) -> Optional[uuid.UU
     return account_id
 
 
-def _get_domain_from_email(email):
-    try:
-        domain_full = email.split("@")[1]
-        domain_name = domain_full.split(".")[0]
-        return domain_name
-    except IndexError:
-        print(f"WARNING: Invalid email format for {email}")
-        return None
-
-
-# Just a nice-to-have
-def _best_effort_set_org_if_needed(new_accounts: List[account.Account]):
-    for acc in new_accounts:
-        org: BaseOrganization = BaseOrganization.get_or_none(acc.organization_id)
-        if bool(org) and org.name == DEFAULT_ORG_NAME:
-            acc_email = acc.get_email()
-            org_name = _get_domain_from_email(acc_email)
-            if org_name not in [
-                "gmail",
-                "yahoo",
-                "outlook",
-                "icloud",
-                "aol",
-                "hotmail",
-                "zoho",
-                "protonmail",
-            ]:
-                org.name = org_name
-                org.save()
-                print(
-                    f"Assumed organization name {org_name} from user email {acc_email}"
-                )
-                return
-
-
 def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     print(f"HUBSPOT OAUTH REDIRECT EVENT: {event}")
 
@@ -418,12 +384,34 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     # We put this into a `try` block as it's optional to go through
     owners_response = None
     try:
-        # TODO(P1, ux): Ideally, we can somehow derive the user connecting Voxana with Hubspot and make them admin.
+        # List[PublicOwner]
         owners_response = api_client.crm.owners.get_all()
-        new_accounts = account.Account.get_or_onboard_for_hubspot(
+        account.Account.get_or_onboard_for_hubspot(
             organization_id=pipeline.organization_id, owners_response=owners_response
         )
-        _best_effort_set_org_if_needed(new_accounts)
+
+        # AccessTokenInfoResponse
+        org_metadata = api_client.auth.oauth.access_tokens_api.get(
+            api_client.access_token
+        )
+        if pipeline.external_org_id is None:
+            pipeline.external_org_id = org_metadata.hub_id
+            print(f"setting pipeline.external_org_id to {pipeline.external_org_id}")
+            pipeline.save()
+
+        org: BaseOrganization = BaseOrganization.get_by_id(pipeline.organization_id)
+        if org.name is None:
+            org.name = org_metadata.hub_domain
+            print(f"setting org.name to {org.name}")
+            org.save()
+
+        if org.owner_account_id is None:
+            print(f"might set org owner to {org_metadata.user}")
+            acc_for_email = account.Account.get_by_email_or_none(org_metadata.user)
+            if acc_for_email is not None:
+                print(f"setting org owner to {acc_for_email.id}")
+                org.owner_account_id = acc_for_email.id
+
     except Exception as e:
         print(
             f"WARNING: Cannot get or onboard owners cause {e}, response: {owners_response}"

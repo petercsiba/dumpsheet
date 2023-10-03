@@ -185,6 +185,7 @@ class BasePipeline(BaseModel):
     destination = ForeignKeyField(
         column_name="destination_id", field="id", model=BaseDestination
     )
+    external_org_id = TextField(null=True)
     id = BigAutoField()
     oauth_data = ForeignKeyField(
         column_name="oauth_data_id", field="id", model=BaseOauthData, null=True

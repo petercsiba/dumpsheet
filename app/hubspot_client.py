@@ -8,6 +8,7 @@ from typing import List, Optional
 import pytz
 from hubspot import HubSpot
 from hubspot.auth import oauth
+from hubspot.auth.oauth import AccessTokenInfoResponse
 from hubspot.crm import contacts
 from hubspot.crm.contacts import SimplePublicObjectInputForCreate
 from hubspot.crm.objects import AssociationSpec, calls, tasks
@@ -261,6 +262,7 @@ class HubspotClient:
         return api_response
 
     def list_custom_properties(self, object_type="contact"):
+        self._ensure_token_fresh()
         properties_api = self.api_client.crm.properties.core_api
         try:
             response = properties_api.get_all(object_type=object_type)
@@ -271,12 +273,29 @@ class HubspotClient:
             return None
 
     def list_owners(self) -> Optional[List[PublicOwner]]:
+        self._ensure_token_fresh()
         try:
             response = self.api_client.crm.owners.get_all()
             print(f"list_owners returned: {response}")
             return response
         except Exception as e:
             print(f"Exception while listing all owners: {e}")
+            return None
+
+    def get_hubspot_account_metadata(self) -> Optional[AccessTokenInfoResponse]:
+        self._ensure_token_fresh()
+        # A bit weird you need to provide the access token in the body when you have it in headers but shrug
+        try:
+            response = self.api_client.auth.oauth.access_tokens_api.get(
+                self.api_client.access_token
+            )
+            if bool(response):
+                # We call with it, we don't need it (and especially don't want to be logged).
+                response.token = None
+            print(f"get_hubspot_account_metadata returned: {response}")
+            return response
+        except Exception as e:
+            print(f"Exception while get_hubspot_account_metadata: {e}")
             return None
 
 

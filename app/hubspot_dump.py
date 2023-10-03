@@ -19,13 +19,15 @@ from app.hubspot_models import (
     FieldNames,
     FormDefinition,
     HubspotObject,
+    ObjectType,
 )
 from common.openai_client import OpenAiClient, gpt_response_to_json
 from database.account import Account
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
+from database.constants import DESTINATION_HUBSPOT_ID
 from database.models import BaseOrganization
 from database.oauth_data import OauthData
-from database.pipeline import DESTINATION_HUBSPOT_ID, Pipeline
+from database.pipeline import Pipeline
 
 
 # Main reason to separate Definition from Values is that we can generate GPT prompts in a generic-ish way.
@@ -222,6 +224,8 @@ def extract_and_sync_contact_with_follow_up(
             state = "warning_already_created"
         else:
             state = "error_hubspot_sync"
+
+    hub_id = pipeline.external_org_id
     # There are a few columns sets for the same object_type:
     # * the GPT extracted ones (call_data)
     # * the Hubspot returned (there can be a lot of metadata, even repeated values)
@@ -231,19 +235,26 @@ def extract_and_sync_contact_with_follow_up(
         transcript=text,
         state=state,
         contact=HubspotObject.from_api_response_props(
-            contact_form, contact_response.get_props_if_ok()
+            hub_id, ObjectType.CONTACT, contact_form, contact_response.get_props_if_ok()
         ),
         call=HubspotObject.from_api_response_props(
-            call_form, call_response.get_props_if_ok()
+            hub_id, ObjectType.CALL, call_form, call_response.get_props_if_ok()
         ),
         task=HubspotObject.from_api_response_props(
-            task_form, task_response.get_props_if_ok()
+            hub_id, ObjectType.TASK, task_form, task_response.get_props_if_ok()
         ),
         contact_to_call_result=contact_to_call_result,
         contact_to_task_result=contact_to_task_result,
-        gpt_contact=HubspotObject.from_api_response_props(contact_form, contact_data),
-        gpt_call=HubspotObject.from_api_response_props(call_form, call_data),
-        gpt_task=HubspotObject.from_api_response_props(task_form, task_data),
+        # TODO(P2, devx): This feels more like a new FormObject
+        gpt_contact=HubspotObject.from_api_response_props(
+            hub_id, ObjectType.CONTACT, contact_form, contact_data
+        ),
+        gpt_call=HubspotObject.from_api_response_props(
+            hub_id, ObjectType.CALL, call_form, call_data
+        ),
+        gpt_task=HubspotObject.from_api_response_props(
+            hub_id, ObjectType.TASK, task_form, task_data
+        ),
     )
 
 
@@ -295,7 +306,7 @@ if __name__ == "__main__":
         )
         if bool(fixture_exists):
             organization_id = fixture_exists.id
-            pipeline = Pipeline.get(BaseOrganization.id == organization_id)
+            pipeline = Pipeline.get(Pipeline.organization_id == organization_id)
             print(f"reusing testing fixture for organization {organization_id}")
         else:
             pipeline = Pipeline.get_or_create_for_destination_as_admin(
@@ -308,12 +319,12 @@ if __name__ == "__main__":
             #   which will fill stuff for org_id 00000000-0000-0000-0000-000000000000
             #   where you can copy the tokens from
             # https://app.hubspot.com/oauth/authorize?client_id=501ffe58-5d49-47ff-b41f-627fccc28715&scope=oauth%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.owners.read&redirect_uri=https%3A%2F%2Fapi.voxana.ai%2Fhubspot%2Foauth%2Fredirect&state=accountId%3Aef9a7607-866f-4e22-b6c0-9eb594df4bd7
-            # TODO(P1, devx): redirect URI does not match initial auth code URI
-            # Fixtures from prod
-            OauthData.update_safely(
-                oauth_data_id=pipeline.oauth_data_id,
-                refresh_token="9ce60291-2261-48a5-8ddb-e26c9bf59845",  # TestApp - hardcoded each time
-            )
+        # TODO(P1, devx): redirect URI does not match initial auth code URI
+        # Fixtures from prod
+        OauthData.update_safely(
+            oauth_data_id=pipeline.oauth_data_id,
+            refresh_token="9ce60291-2261-48a5-8ddb-e26c9bf59845",  # TestApp - hardcoded each time
+        )
 
         test_hs_client = HubspotClient(pipeline.oauth_data_id)
         # We put this into a `try` block as it's optional to go through
@@ -323,6 +334,7 @@ if __name__ == "__main__":
             Account.get_or_onboard_for_hubspot(
                 pipeline.organization_id, owners_response
             )
+            test_hs_client.get_hubspot_account_metadata()
         except Exception as e:
             print(
                 f"WARNING: Cannot get or onboard owners cause {e}, response: {owners_response}"
@@ -337,10 +349,18 @@ if __name__ == "__main__":
         test_gpt_client = OpenAiClient()
 
         peter_voxana_user_id = 550982168
-        extract_and_sync_contact_with_follow_up(
+        hs_data_entry = extract_and_sync_contact_with_follow_up(
             test_hs_client,
             test_gpt_client,
             test_data2,
             hubspot_owner_id=peter_voxana_user_id,
             local_hack=True,
+        )
+
+        from app.emails import send_hubspot_result
+
+        send_hubspot_result(
+            account_id=acc.id,
+            idempotency_id_prefix=str(time.time()),
+            data=hs_data_entry,
         )

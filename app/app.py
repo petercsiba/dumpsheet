@@ -33,9 +33,9 @@ from database.client import (
     connect_to_postgres,
     connect_to_postgres_i_will_call_disconnect_i_promise,
 )
+from database.constants import DESTINATION_HUBSPOT_ID
 from database.models import BaseAccount, BaseDataEntry, BaseOrganization
 from database.organization import ORGANIZATION_ROLE_OWNER, Organization
-from database.pipeline import DESTINATION_HUBSPOT_ID
 from input.app_upload import process_app_upload
 from input.call import process_voice_recording_input
 from input.email import process_email_input
