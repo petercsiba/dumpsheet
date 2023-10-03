@@ -171,7 +171,7 @@ class FieldDefinition:
         try:
             parsed_date = parser.parse(value)
 
-            # Convert to UTC if the datetime object is naive
+            # Convert to 1pm PST in UTC if the datetime object is naive
             if (
                 parsed_date.tzinfo is None
                 or parsed_date.tzinfo.utcoffset(parsed_date) is None
@@ -655,6 +655,7 @@ CALL_FIELDS = {
     ),
 }
 
+# https://community.hubspot.com/t5/APIs-Integrations/Create-TASK-engagement-with-due-date-and-reminder-via-API/m-p/235759#M14655
 TASK_FIELDS = {
     "hs_object_id": FieldDefinition(
         name="hs_object_id",

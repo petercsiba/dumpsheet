@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional
 
+import pytz
 from hubspot.crm.properties import Option
 
 from app.hubspot_client import HubspotClient
@@ -60,17 +61,21 @@ def form_definition_to_gpt_prompt(form: FormDefinition) -> str:
 def extract_form_data(
     gpt_client: OpenAiClient, form: FormDefinition, text: str
 ) -> Dict[str, Any]:
+    # Get the current UTC time and then convert it to local time.
+    local_now = datetime.datetime.now(pytz.timezone("America/Los_Angeles"))
     gpt_query = """
     Fill in the following form definition with field labels, description and type / value list:
     {form_fields}
     Based off this note:
     {note}
     Return as a valid JSON format mapping field labels to values, for unknown just use null.
-    Today is {today}
+    Current time is {now_with_hours_and_tz}
     """.format(
         form_fields=form_definition_to_gpt_prompt(form),
         note=text,
-        today=datetime.date.today(),
+        # We omit minutes for 1. UX and 2. better caching of especially local test/research runs.
+        # 2023-10-03 02:30 PM PDT
+        now_with_hours_and_tz=local_now.strftime("%Y-%m-%d %I %p %Z"),
     )
     raw_response = gpt_client.run_prompt(gpt_query)
     form_data_raw = gpt_response_to_json(raw_response)
