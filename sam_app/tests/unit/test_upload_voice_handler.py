@@ -6,7 +6,7 @@ from uuid import UUID
 import pytest
 
 from common.config import ENV
-from database.account import Account
+from database.account import ACCOUNT_STATE_MERGED, Account
 from database.client import (
     POSTGRES_LOGIN_URL_FROM_ENV,
     connect_to_postgres_i_will_call_disconnect_i_promise,
@@ -182,6 +182,10 @@ def test_lambda_handler_post_upload_voice_new_account_same_email(db_connection):
     # Data entry was updated
     updated_data_entry = BaseDataEntry.get_by_id(new_data_entry_id)
     assert updated_data_entry.account_id == orig_account.id
+
+    new_account_updated: Account = Account.get_by_id(new_account.id)
+    assert new_account_updated.merged_into_id == orig_account.id
+    assert new_account_updated.state == ACCOUNT_STATE_MERGED
 
 
 def test_lambda_handler_call_set_email(db_connection):

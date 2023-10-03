@@ -45,14 +45,18 @@ data = data.replace("BaseBaseModel", "BaseModel")
 
 
 # Hacks for circular deps
-pattern = re.compile(r"    owner_account = ForeignKeyField\([\s\S]*?\)", re.MULTILINE)
+circular_deps_fields = ["owner_account", "merged_into"]
+for field_name in circular_deps_fields:
+    pattern = re.compile(
+        f"    {field_name}" + r" = ForeignKeyField\([\s\S]*?\)", re.MULTILINE
+    )
 
-# Text to replace with
-replacement_text = """    # To overcome ForeignKeyField circular dependency
-    owner_account_id = UUIDField(null=True)"""
+    # Text to replace with
+    replacement_text = f"""    # To overcome ForeignKeyField circular dependency
+    {field_name}_id = UUIDField(null=True)"""
 
-# Replace
-data = re.sub(pattern, replacement_text, data)
+    # Replace
+    data = re.sub(pattern, replacement_text, data)
 
 with open(file_name, "w") as file:
     file.write(data)

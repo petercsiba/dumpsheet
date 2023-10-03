@@ -17,6 +17,11 @@ from hubspot.auth import oauth
 # for IDE, doing ".database" would point to "backend/sam_app/upload_voice/database".
 # Ideally, we would set up an AWS Lambda Layer, but I failed to achieve this.
 from database import account, data_entry, models
+from database.account import (
+    ACCOUNT_STATE_ACTIVE,
+    ACCOUNT_STATE_MERGED,
+    ACCOUNT_STATE_PENDING,
+)
 from database.client import connect_to_postgres_i_will_call_disconnect_i_promise
 from database.models import BaseDataEntry, BaseEmailLog, BaseOrganization
 from database.oauth_data import OauthData
@@ -187,7 +192,7 @@ def handle_post_request_for_update_email(event: Dict) -> Dict:
     print(f"handle_post_request_for_update_email {email}:{account_id}")
 
     print(f"looking for account with id {account_id}")
-    acc = account.Account.get_or_none(account.Account.id == account_id)
+    acc: account.Account = account.Account.get_or_none(account.Account.id == account_id)
     if acc is None:
         return craft_error(404, "account not found")
     existing_email = acc.get_email()
@@ -209,29 +214,37 @@ def handle_post_request_for_update_email(event: Dict) -> Dict:
             return craft_error(
                 409, "requested account is claimed by a different a email address"
             )
+        new_account_id = acc_for_email.id
         try:
             # Different accounts, same email.
             # account.Account.merge_in(acc_for_email.id, account_id)
-            new_account_id = acc_for_email.id
             onboarding.account_id = new_account_id
             onboarding.email = email
             onboarding.save()
-            num_de = (
-                BaseDataEntry.update(account_id=new_account_id)
-                .where(BaseDataEntry.account_id == account_id)
-                .execute()
+            de_update_query = BaseDataEntry.update(account_id=new_account_id).where(
+                BaseDataEntry.account_id == account_id
             )
+            print(f"DataEntry update query: {de_update_query.sql}")
+            num_de = de_update_query.execute()
             num_el = (
                 BaseEmailLog.update(account_id=new_account_id)
                 .where(BaseEmailLog.account_id == account_id)
                 .execute()
             )
+            acc.state = ACCOUNT_STATE_MERGED
+            acc.merged_into_id = new_account_id
+            acc.save()
             print(
                 f"Updated 1 onboardings, {num_de} data entries and {num_el} email logs"
             )
-            return craft_info(200, "account merged into existing")
+            return craft_info(
+                200, f"account {account_id} merged into existing {new_account_id}"
+            )
         except Exception as e:
-            return craft_error(500, f"could not merge accounts cause {e}")
+            return craft_error(
+                500,
+                f"could not merge accounts {account_id} -> {new_account_id} cause {e}",
+            )
 
     # 2. Vice-versa, prevent overriding emails for existing acc by checking that account if already has claimed email
     if bool(existing_email):
@@ -244,6 +257,10 @@ def handle_post_request_for_update_email(event: Dict) -> Dict:
     # This means existing_account has NO associated User, AND the email is un-used,
     onboarding.email = email
     onboarding.save()
+    if acc.state == ACCOUNT_STATE_PENDING:
+        acc.state = ACCOUNT_STATE_ACTIVE
+        acc.save()
+
     return craft_info(200, "account email updated")
 
 

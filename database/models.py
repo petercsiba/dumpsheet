@@ -74,11 +74,14 @@ class BaseAccount(BaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     full_name = TextField(null=True)
     id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
+    # To overcome ForeignKeyField circular dependency
+    merged_into_id = UUIDField(null=True)
     organization = ForeignKeyField(
         column_name="organization_id", field="id", model=BaseOrganization, null=True
     )
     organization_role = TextField(null=True)
     organization_user_id = TextField(null=True)
+    state = TextField(constraints=[SQL("DEFAULT 'active'::text")])
     user = ForeignKeyField(
         column_name="user_id", field="id", model=BaseUsers, null=True
     )

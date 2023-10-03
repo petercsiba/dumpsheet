@@ -86,8 +86,18 @@ def wait_for_email_updated_on_data_entry(
     while time.time() < end_time:
         updated_data_entry = BaseDataEntry.get_by_id(data_entry_id)
         account_id = updated_data_entry.account_id
-        if Account.get_by_id(account_id).get_email() is not None:
+        acc: Account = Account.get_by_id(account_id)
+        if acc.get_email() is not None:
             print(f"account {account_id} has email set")
+
+            # TODO(P2, hack): This is the multi-channel onboarding flow account consolidation hack
+            if bool(acc.merged_into_id) and account_id != acc.merged_into_id:
+                print(
+                    f"fixing up data entry to redirect account_id {account_id} to {acc.merged_into_id}"
+                )
+                updated_data_entry.account_id = acc.merged_into_id
+                updated_data_entry.save()
+
             return True
 
         # Wait for 10 seconds

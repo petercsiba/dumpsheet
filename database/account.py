@@ -10,6 +10,10 @@ from database.models import BaseAccount, BaseOnboarding
 from database.organization import ORGANIZATION_ROLE_CONTRIBUTOR
 from database.user import User
 
+ACCOUNT_STATE_ACTIVE = "active"  # for primary account
+ACCOUNT_STATE_PENDING = "pending"  # for un-confirmed onboarding
+ACCOUNT_STATE_MERGED = "merged"  # soft delete cause many implications
+
 
 def generate_temp_password(length=8):
     # Define the characters we'll use to generate the password
@@ -29,6 +33,10 @@ class Account(BaseAccount):
     def get_email(self) -> Optional[str]:
         if bool(self.user):
             return User.get_by_id(self.user).email
+
+        if bool(self.merged_into_id):
+            assert self.merged_into_id != self.id
+            return Account.get_by_id(self.merged_into_id).get_email()
 
         try:
             onboarding_email = (
@@ -165,7 +173,7 @@ class Account(BaseAccount):
             return Account.get_by_id(onboarding.account_id)
 
         print(f"onboarding new account for ip_address {ip_address}")
-        account_id = BaseAccount.insert().execute()
+        account_id = BaseAccount.insert(state=ACCOUNT_STATE_PENDING).execute()
         BaseOnboarding.insert(
             ip_address=ip_address, account_id=account_id, utm_source="ip_address"
         ).execute()
@@ -201,7 +209,6 @@ class Account(BaseAccount):
             return account
 
         print(f"onboarding account for phone {phone}")
-        # TODO(ux, P1): We should support multi-channel onboarding (identity management is tough!)
         account_id = (
             BaseAccount.insert(
                 user=None,  # only during sign up
