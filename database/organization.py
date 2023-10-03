@@ -1,7 +1,7 @@
 import uuid
 from typing import Optional
 
-from database.constants import DESTINATION_HUBSPOT_ID, ORGANIZATION_ROLE_OWNER
+from database.constants import ORGANIZATION_ROLE_OWNER
 from database.models import BaseAccount, BaseOrganization, BasePipeline
 
 
@@ -12,7 +12,7 @@ class Organization(BaseOrganization):
     @staticmethod
     def get_or_create_for_account_id(
         account_id: Optional[uuid.UUID],
-        name: str,
+        name: Optional[str],
     ) -> "Organization":
         print(f"ger or create organization for account_id {account_id}")
         acc: BaseAccount = BaseAccount.get_or_none(BaseAccount.id == account_id)
@@ -44,11 +44,3 @@ class Organization(BaseOrganization):
             and BasePipeline.destination_id == destination_id
         )
         return pipeline.oauth_data_id
-
-    def get_pipeline_for_destination(
-        self, destination_id=DESTINATION_HUBSPOT_ID
-    ) -> Optional[BasePipeline]:
-        return BasePipeline.get_or_none(
-            BasePipeline.organization_id == self.id
-            and BasePipeline.destination_id == destination_id
-        )

@@ -23,9 +23,13 @@ from database.constants import (
     ACCOUNT_STATE_MERGED,
     ACCOUNT_STATE_PENDING,
     DESTINATION_HUBSPOT_ID,
+    OAUTH_DATA_TOKEN_TYPE_OAUTH,
+    ORGANIZATION_ROLE_CONTRIBUTOR,
+    ORGANIZATION_ROLE_OWNER,
 )
-from database.models import BaseDataEntry, BaseEmailLog, BaseOrganization
+from database.models import BaseDataEntry, BaseEmailLog
 from database.oauth_data import OauthData
+from database.organization import Organization
 from database.pipeline import Pipeline
 
 s3 = boto3.client("s3")
@@ -35,8 +39,6 @@ HUBSPOT_APP_ID = "2150554"
 HUBSPOT_CLIENT_ID = "501ffe58-5d49-47ff-b41f-627fccc28715"
 HUBSPOT_REDIRECT_URL = "https://api.voxana.ai/hubspot/oauth/redirect"
 TWILIO_FUNCTIONS_API_KEY = "twilio-functions-super-secret-key-123"
-
-DEFAULT_ORG_NAME = "organization name"
 
 # AWS Lambda Execution Context feature - this should save about 1 second on subsequent invocations.
 secrets_cache = {}
@@ -327,6 +329,7 @@ def _parse_account_id_from_state_param(param: Optional[str]) -> Optional[uuid.UU
 def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     print(f"HUBSPOT OAUTH REDIRECT EVENT: {event}")
 
+    # == FIRST, we deal with the OAUTH stuff.
     authorization_code = event["queryStringParameters"].get("code", "")
     if not authorization_code:
         craft_error(400, "Missing authorization code")
@@ -350,72 +353,124 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
         return craft_error(
             500, f"Exception when fetching access token from HubSpot: {e}"
         )
+    api_client.access_token = tokens.access_token
 
-    # NOTE: admin_account_id can be None
-    admin_account_id = _parse_account_id_from_state_param(
-        event["queryStringParameters"].get("state", None)
-    )
-
-    # TODO(P1, onboarding): So if you authorize through Hubspot twice, you would end up with two organizations.
-    #   Although we would keep any existing account -> organization links so might be fine-ish.
-    existing_oauth_data = OauthData.get_or_none(
-        OauthData.refresh_token == tokens.refresh_token
-    )
-    # NOTE: refresh_token *should* be unique, but clearly it is the same for both main VoxanaAI and DEV orgs :/
-    if existing_oauth_data is None:
-        pipeline = Pipeline.get_or_create_for_destination_as_admin(
-            admin_account_id, DESTINATION_HUBSPOT_ID, DEFAULT_ORG_NAME
-        )
-    else:
-        # If the refresh token matches the existing one - we assume it's just a re-authorization of the same thing.
-        print(
-            "INFO: Refresh token already stored - we assume the organization was already onboarded."
-        )
-        pipeline = Pipeline.get(Pipeline.oauth_data_id == existing_oauth_data.id)
-
-    OauthData.update_safely(
-        pipeline.oauth_data_id,
+    # We rather have multiple OauthData entries for the same refresh_token then trying to have a normalized structure.
+    oauth_data_id = OauthData.insert(
+        token_type=OAUTH_DATA_TOKEN_TYPE_OAUTH,
         access_token=tokens.access_token,
         refresh_token=tokens.refresh_token,
         expires_in=tokens.expires_in,
     )
-    api_client.access_token = tokens.access_token
 
-    # We put this into a `try` block as it's optional to go through
-    owners_response = None
-    try:
-        # List[PublicOwner]
-        owners_response = api_client.crm.owners.get_all()
-        account.Account.get_or_onboard_for_hubspot(
-            organization_id=pipeline.organization_id, owners_response=owners_response
-        )
+    # == SECOND, we check all their accounts to see if they are part of any organization already
+    # List[PublicOwner]
+    owners_response = api_client.crm.owners.get_all()
+    accounts = account.Account.get_or_onboard_for_hubspot(
+        owners_response=owners_response
+    )
+    assert len(accounts) > 0
 
-        # AccessTokenInfoResponse
-        org_metadata = api_client.auth.oauth.access_tokens_api.get(
-            api_client.access_token
-        )
-        if pipeline.external_org_id is None:
-            pipeline.external_org_id = org_metadata.hub_id
-            print(f"setting pipeline.external_org_id to {pipeline.external_org_id}")
-            pipeline.save()
+    accounts_with_no_org_id = []
+    unique_org_ids = set()
+    for acc in accounts:
+        if acc.organization_id is None:
+            accounts_with_no_org_id.append(acc)
+        else:
+            unique_org_ids.update(acc.organization_id)
+    print(
+        f"Success fetching Hubspot owners data, total count {len(accounts)} "
+        f"from which accounts with no orgs {len(accounts_with_no_org_id)}"
+    )
 
-        org: BaseOrganization = BaseOrganization.get_by_id(pipeline.organization_id)
-        if org.name is None:
-            org.name = org_metadata.hub_domain
-            print(f"setting org.name to {org.name}")
-            org.save()
-
-        if org.owner_account_id is None:
-            print(f"might set org owner to {org_metadata.user}")
-            acc_for_email = account.Account.get_by_email_or_none(org_metadata.user)
-            if acc_for_email is not None:
-                print(f"setting org owner to {acc_for_email.id}")
-                org.owner_account_id = acc_for_email.id
-
-    except Exception as e:
+    if len(unique_org_ids) == 0:
+        print("Org onboard: None of the Hubspot accounts have a organization")
+    elif len(unique_org_ids) == 1:
         print(
-            f"WARNING: Cannot get or onboard owners cause {e}, response: {owners_response}"
+            f"Org onboard: Found one organization among Hubspot accounts: {unique_org_ids}"
         )
+    else:
+        print(
+            f"WARNING: Potential trouble linking HubSpot organization when accounts have multiple orgs {unique_org_ids}"
+        )
+
+    # == THIRD, we check through HubId if an organization already exists (as an idempotency_key).
+    # AccessTokenInfoResponse
+    org_metadata = api_client.auth.oauth.access_tokens_api.get(api_client.access_token)
+    external_org_id = org_metadata.hub_id
+    external_org_admin_email = org_metadata.user
+    external_org_name = org_metadata.hub_domain
+    existing_pipeline = Pipeline.get_or_none_for_external_org_id(
+        external_org_id, DESTINATION_HUBSPOT_ID
+    )
+
+    # == FOURTH, we check for the admin account if that has an organization or not
+    # NOTE: admin_account_id can be None
+    admin_account_id = _parse_account_id_from_state_param(
+        event["queryStringParameters"].get("state", None)
+    )
+    if admin_account_id is None:
+        print(
+            f"Trying to get admin account for hubspot oauth linker {external_org_admin_email}"
+        )
+        admin_account = account.Account.get_by_email_or_none(external_org_admin_email)
+        if bool(admin_account):
+            admin_account_id = admin_account.id
+    else:
+        admin_account = account.Account.get_by_id(admin_account_id)
+
+    # == AFTER all the prep work looking for idempotency_id we decide if create a new org or reuse an existing one
+    if bool(admin_account) and bool(admin_account.organization_id):
+        print(
+            f"Org Decision: will be using organization of admin account {admin_account}"
+        )
+        org = admin_account.organization
+    elif bool(existing_pipeline):
+        print(
+            f"Org Decision: will be using organization of the existing pipeline {existing_pipeline}"
+        )
+        org = existing_pipeline.organization
+    else:
+        print("Org Decision: creating a new org")
+        org = Organization.get_or_create_for_account_id(
+            admin_account_id, name=external_org_name
+        )
+    print(f"CHOSEN ORGANIZATION: {org}")
+
+    # Update pipeline
+    pipeline = Pipeline.get_or_create_for(
+        external_org_id, org.id, DESTINATION_HUBSPOT_ID
+    )
+    pipeline.oauth_data_id = oauth_data_id
+    if pipeline.external_org_id is None:
+        pipeline.external_org_id = org_metadata.hub_id
+        print(f"setting pipeline.external_org_id to {pipeline.external_org_id}")
+    pipeline.save()
+
+    # Update org
+    if org.name is None:
+        print(f"setting org.name to {external_org_name}")
+        org.name = external_org_name
+    if org.owner_account_id is None:
+        print(f"setting org owner to {admin_account_id}")
+        org.owner_account_id = admin_account_id
+    org.save()
+
+    # Update account
+    # TODO(P2, devx): Feels like Account<->Organization should have a link object to - with metadata.
+    #   Or it something feels off of having both Organization and Pipeline.
+    for acc in accounts:
+        if acc.organization_id is None:
+            acc.organization_id = org.id
+        elif acc.organization_id != org.id:
+            print(f"WARNING: account part of another organization {acc}")
+        if acc.organization_role is None:  # to not over-write an "owner"
+            acc.organization_role = (
+                ORGANIZATION_ROLE_OWNER
+                if acc.id == admin_account_id
+                else ORGANIZATION_ROLE_CONTRIBUTOR
+            )
+        acc.save()
 
     return craft_response(
         302,

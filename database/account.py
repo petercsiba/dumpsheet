@@ -1,12 +1,11 @@
 import random
 import string
-import uuid
 from typing import List, Optional
 
 from hubspot.crm.owners import PublicOwner
 from peewee import DoesNotExist
 
-from database.constants import ACCOUNT_STATE_PENDING, ORGANIZATION_ROLE_CONTRIBUTOR
+from database.constants import ACCOUNT_STATE_PENDING
 from database.models import BaseAccount, BaseOnboarding
 from database.user import User
 
@@ -223,7 +222,7 @@ class Account(BaseAccount):
     # TODO(P2, devx): There might be a better place for_hubspot function, as this depends on Hubspot.
     @staticmethod
     def get_or_onboard_for_hubspot(
-        organization_id: uuid.UUID, owners_response: Optional[List[PublicOwner]]
+        owners_response: Optional[List[PublicOwner]],
     ) -> List["Account"]:
         if owners_response is None or not isinstance(owners_response, list):
             print(
@@ -231,13 +230,8 @@ class Account(BaseAccount):
             )
             return []
 
-        owners_count = len(owners_response)
-        new_account_organization_links = 0
-        print(
-            f"Gonna onboard up to {owners_count} hubspot accounts to organization {organization_id}"
-        )
-
-        new_accounts = []
+        print(f"Gonna onboard *up to* {len(owners_response)} Hubspot accounts")
+        accounts = []
         for owner in owners_response:
             if not isinstance(owner, PublicOwner):
                 print(f"WARNING: Unexpected owner structure {type(owner)}: {owner}")
@@ -250,27 +244,13 @@ class Account(BaseAccount):
                 full_name=full_name,
                 utm_source="hubspot_app",
             )
-            # TODO(P1, devx): Feels like Account<->Organization should have a link object to - with metadata.
-            if acc.organization_id is None:
-                acc.organization_id = organization_id
-                new_account_organization_links += 1
-            if acc.organization_role is None:  # to not over-write an "admin"
-                acc.organization_role = ORGANIZATION_ROLE_CONTRIBUTOR
-            # TODO(P1, devx): This we need to move to an Account <-> Pipe link object once we support more destinations.
-            #   Ideally, we can just store the entire thing.
-            acc.organization_user_id = owner.id  # not user_id, we allow overwrites
-            acc.save()
-            new_accounts.append(acc)
+            if acc.organization_user_id is None:
+                # TODO(P2, devx): For this, it makes more sense to have acc <-> pipeline.
+                acc.organization_user_id = owner.id  # not user_id, we allow overwrites
+                acc.save()
+            accounts.append(acc)
             print(
                 f"Hubspot owner creation success - yielded account {acc} for email {owner.email}"
             )
 
-        print(
-            f"Onboarded {new_account_organization_links} out of {owners_count} hubspot accounts for {organization_id}"
-        )
-        if new_account_organization_links != owners_count:
-            print(
-                "WARNING: The new links does NOT match all owners count - organization might already exist."
-            )
-
-        return new_accounts
+        return accounts

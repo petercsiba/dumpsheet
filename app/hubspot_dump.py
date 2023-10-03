@@ -331,9 +331,7 @@ if __name__ == "__main__":
         owners_response = None
         try:
             owners_response = test_hs_client.list_owners()
-            Account.get_or_onboard_for_hubspot(
-                pipeline.organization_id, owners_response
-            )
+            Account.get_or_onboard_for_hubspot(owners_response)
             test_hs_client.get_hubspot_account_metadata()
         except Exception as e:
             print(

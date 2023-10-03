@@ -11,10 +11,6 @@ class OauthData(BaseOauthData):
     class Meta:
         db_table = "oauth_data"
 
-    @staticmethod
-    def create_placeholder(token_type="oauth"):
-        return BaseOauthData.insert(token_type=token_type).execute()
-
     # @input: `tokens` is to be expected a valid response from HubSpot().auth.oauth.tokens_api.create
     @staticmethod
     def update_safely(

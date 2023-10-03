@@ -23,6 +23,7 @@ from common.config import (
 )
 from database.account import Account
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
+from database.constants import OAUTH_DATA_TOKEN_TYPE_OAUTH
 from database.oauth_data import OauthData
 
 
@@ -303,7 +304,7 @@ class HubspotClient:
 if __name__ == "__main__":
     with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
         oauth_data_id = OauthData.insert(
-            token_type="oauth",
+            token_type=OAUTH_DATA_TOKEN_TYPE_OAUTH,
             refresh_token=ADMIN_CONSOLE_HUBSPOT_REFRESH_TOKEN,
         ).execute()
         client = HubspotClient(oauth_data_id=oauth_data_id)
