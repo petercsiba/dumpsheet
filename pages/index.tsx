@@ -41,14 +41,14 @@ export default function Home() {
                     <link rel="icon" href="/favicon.ico"/>
                 </Head>
                 <Banner></Banner>
-                <div className="w-full h-full bg-gray-200">
+                <div className="w-full h-full bg-gray-100">
                     <div className="min-w-full min-h-screen flex items-center justify-center">
                         <div className="w-full h-full flex justify-center items-center p-4">
                             <div
                                 className="w-full h-full sm:h-auto sm:w-2/5 max-w-sm p-5 bg-white shadow flex flex-col text-base">
 
                                 <div className="flex flex-col items-center py-4">
-                                    <h2 className="text-3xl font-bold text-gray-800 leading-tight tracking-wide text-center">
+                                    <h2 className="text-3xl font-bold text-black leading-tight tracking-wide text-center">
                                         Tell me about your meeting
                                     </h2>
                                 </div>
@@ -58,7 +58,9 @@ export default function Home() {
                             </div>
                         </div>
                     </div>
-                    <ConnectHubspotButton></ConnectHubspotButton>
+                    <div className="w-full bg-white p-4 flex items-center justify-center">
+                        <ConnectHubspotButton></ConnectHubspotButton>
+                    </div>
                 </div>
             </AccountProvider>
         </>
