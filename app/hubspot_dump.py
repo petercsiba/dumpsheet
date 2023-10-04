@@ -27,6 +27,7 @@ from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.constants import DESTINATION_HUBSPOT_ID
 from database.models import BaseOrganization
 from database.oauth_data import OauthData
+from database.organization import Organization
 from database.pipeline import Pipeline
 
 
@@ -309,18 +310,14 @@ if __name__ == "__main__":
             pipeline = Pipeline.get(Pipeline.organization_id == organization_id)
             print(f"reusing testing fixture for organization {organization_id}")
         else:
-            pipeline = Pipeline.get_or_create_for_destination_as_admin(
-                admin_account_id=acc.id,
+            org = Organization.get_or_create_for_account_id(acc.id, name=TEST_ORG_NAME)
+            pipeline = Pipeline.get_or_create_for(
+                external_org_id="external_org_id",
+                organization_id=org.id,
                 destination_id=DESTINATION_HUBSPOT_ID,
-                org_name=TEST_ORG_NAME,
             )
-            # In case we need to re-authorize the app
-            # This link includes account_id:ef9a7607-866f-4e22-b6c0-9eb594df4bd7,
-            #   which will fill stuff for org_id 00000000-0000-0000-0000-000000000000
-            #   where you can copy the tokens from
-            # https://app.hubspot.com/oauth/authorize?client_id=501ffe58-5d49-47ff-b41f-627fccc28715&scope=oauth%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.owners.read&redirect_uri=https%3A%2F%2Fapi.voxana.ai%2Fhubspot%2Foauth%2Fredirect&state=accountId%3Aef9a7607-866f-4e22-b6c0-9eb594df4bd7
-        # TODO(P1, devx): redirect URI does not match initial auth code URI
-        # Fixtures from prod
+        # refresh_token must come from prod, as for HubSpot oauth to work with localhost we would need have a full
+        # local setup.
         OauthData.update_safely(
             oauth_data_id=pipeline.oauth_data_id,
             refresh_token="9ce60291-2261-48a5-8ddb-e26c9bf59845",  # TestApp - hardcoded each time
