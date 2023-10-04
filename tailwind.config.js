@@ -5,9 +5,10 @@ module.exports = {
     extend: {
       colors: {
         // 'accent-1': '#333',
-        'black': '#191919',
-        'green': '#D0D0CB',
-        'white': '#F0F0EB',
+        'black': '#000000',
+        // 'gray': '#FDFDFD',
+        'purple': '#B89FF0',
+        'white': '#FFFFFF',
       },
     },
   },

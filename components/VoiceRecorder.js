@@ -4,6 +4,7 @@ import RecordRTC from 'recordrtc'
 import Image from 'next/image'
 // https://uxwing.com/stop-button-red-icon/
 import MicrophoneIcon from '../public/images/icons/microphone-button-green-icon.svg'
+import MicrophoneIconHover from '../public/images/icons/microphone-button-green-hover-icon.png'
 import StopIcon from '../public/images/icons/stop-button-red-icon.svg'
 import CollectEmailProcessingInfo from "@/components/CollectEmailProcessingInfo";
 import {useAccount} from "@/contexts/AccountContext";
@@ -32,17 +33,29 @@ const StopRecordingButton = () => (
     </div>
 );
 
-const StartRecordingButton = () => (
-    <div className="inline-block">
-        <Image
-            priority
-            src={MicrophoneIcon}
-            alt="Start your voice recording"
-            width={100}
-            height={100}
-        />
-    </div>
-);
+const StartRecordingButton = () => {
+    const [imageSrc, setImageSrc] = useState(MicrophoneIcon);
+
+    return (
+        <div
+            className="inline-block"
+            onMouseEnter={() => {
+                setImageSrc(MicrophoneIconHover);  // Hover image
+            }}
+            onMouseLeave={() => {
+                setImageSrc(MicrophoneIcon);  // Default image
+            }}
+        >
+            <Image
+                priority
+                src={imageSrc}
+                alt="Start your voice recording"
+                width={100}
+                height={100}
+            />
+        </div>
+    );
+}
 
 export default function VoiceRecorder() {
     // TODO(P1, devx): We should split this function up to the actual voice recorder and the subsequent screens logic.

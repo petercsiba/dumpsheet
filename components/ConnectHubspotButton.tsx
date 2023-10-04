@@ -22,29 +22,21 @@ export default function ConnectHubspotButton() {
     const {accountId} = useAccount();
 
     return (
-        <div className="w-full bg-green-500 p-4 flex items-center justify-center">
-            <button
-                id="connectWithHubspot"
-                onClick={() => {
-                    window.location.href = constructAuthUrl(accountId);
-                }}
-                style={{
-                    color: 'white',
-                    fontWeight: 'bold',
-                    padding: '10px 20px',
-                    borderRadius: '5px',
-                    backgroundColor: '#FF7A59',
-                }}
-            >
-                Connect with
-                <Image
-                    priority
-                    src={HubspotLogo}
-                    alt="HubSpot logo"
-                    width={85}
-                    height={24}
-                />
-            </button>
-        </div>
+        <button
+            id="connectWithHubspot"
+            onClick={() => {
+                window.location.href = constructAuthUrl(accountId);
+            }}
+            className="text-white font-bold px-5 py-2.5 rounded bg-gray-500 hover:bg-gray"
+        >
+            Connect with
+            <Image
+                priority
+                src={HubspotLogo}
+                alt="HubSpot logo"
+                width={85}
+                height={24}
+            />
+        </button>
     );
 }
