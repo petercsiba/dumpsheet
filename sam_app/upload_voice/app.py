@@ -358,6 +358,9 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     # We rather have multiple OauthData entries for the same refresh_token then trying to have a normalized structure.
     oauth_data_id = OauthData.insert(
         token_type=OAUTH_DATA_TOKEN_TYPE_OAUTH,
+    )
+    OauthData.update_safely(
+        oauth_data_id=oauth_data_id,
         access_token=tokens.access_token,
         refresh_token=tokens.refresh_token,
         expires_in=tokens.expires_in,
@@ -531,7 +534,13 @@ def lambda_handler(event, context):
             raise ValueError(f"Invalid HTTP method: {http_method}")
     elif api_endpoint == ENDPOINT_HUBSPOT_OAUTH_REDIRECT:
         if http_method == "GET":
-            response = handle_get_request_for_hubspot_oauth_redirect(event)
+            try:
+                response = handle_get_request_for_hubspot_oauth_redirect(event)
+            except Exception as e:
+                return craft_error(
+                    500,
+                    f"Ouch our bad - please reach out to support@voxana.ai with {e}",
+                )
         else:
             raise ValueError(f"Invalid HTTP method: {http_method}")
     else:

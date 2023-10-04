@@ -18,7 +18,7 @@ class OauthData(BaseOauthData):
         refresh_token: str,
         access_token: Optional[str] = None,
         expires_in: Optional[int] = None,
-    ) -> uuid.UUID:
+    ) -> "OauthData":
         try:
             # True for at least HubSpot
             uuid.UUID(str(refresh_token))
