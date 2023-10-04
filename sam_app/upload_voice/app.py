@@ -380,7 +380,7 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
         if acc.organization_id is None:
             accounts_with_no_org_id.append(acc)
         else:
-            unique_org_ids.update(acc.organization_id)
+            unique_org_ids.add(acc.organization_id)
     print(
         f"Success fetching Hubspot owners data, total count {len(accounts)} "
         f"from which accounts with no orgs {len(accounts_with_no_org_id)}"

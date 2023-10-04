@@ -24,7 +24,7 @@ from app.hubspot_models import (
 from common.openai_client import OpenAiClient, gpt_response_to_json
 from database.account import Account
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
-from database.constants import DESTINATION_HUBSPOT_ID
+from database.constants import DESTINATION_HUBSPOT_ID, OAUTH_DATA_TOKEN_TYPE_OAUTH
 from database.models import BaseOrganization
 from database.oauth_data import OauthData
 from database.organization import Organization
@@ -316,6 +316,11 @@ if __name__ == "__main__":
                 organization_id=org.id,
                 destination_id=DESTINATION_HUBSPOT_ID,
             )
+            if pipeline.oauth_data_id is None:
+                pipeline.oauth_data_id = OauthData.insert(
+                    token_type=OAUTH_DATA_TOKEN_TYPE_OAUTH
+                ).execute()
+                pipeline.save()
         # refresh_token must come from prod, as for HubSpot oauth to work with localhost we would need have a full
         # local setup.
         OauthData.update_safely(
