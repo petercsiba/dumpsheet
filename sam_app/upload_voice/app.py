@@ -444,7 +444,18 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     pipeline = Pipeline.get_or_create_for(
         external_org_id, org.id, DESTINATION_HUBSPOT_ID
     )
+    # Here we deliberately allow to override the refresh_token, as we might need to re-auth time-to-time.
+    if pipeline.oauth_data_id != oauth_data_id:
+        od1 = OauthData.get_by_id(pipeline.oauth_data_id)
+        od2 = OauthData.get_by_id(oauth_data_id)
+        if od1.refresh_token != od2.refresh_token:
+            print(
+                f"WARNING: different refresh token given through oauth than in use for pipeline {pipeline.id}"
+                f", check new oauth_data_id={oauth_data_id} and old {pipeline.oauth_data_id}"
+            )
     pipeline.oauth_data_id = oauth_data_id
+    print(f"setting pipeline.oauth_data_id to {oauth_data_id}")
+
     if pipeline.external_org_id is None:
         pipeline.external_org_id = org_metadata.hub_id
         print(f"setting pipeline.external_org_id to {pipeline.external_org_id}")
