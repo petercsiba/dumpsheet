@@ -330,7 +330,7 @@ class HubspotObject:
             # TODO(P2, devx): This should be outside of here, but the complexity is getting harder to manage
             link_href = self.get_link()
             if bool(link_href):
-                value = f'<a href="{self.get_link()}">{self.get_value(field_name)}</a>'
+                value = f'<a href="{self.get_link()}">{self.get_value(field_name)} - Click To See in Hubspot</a>'
 
         if value is None:
             value = self.get_value(field_name)

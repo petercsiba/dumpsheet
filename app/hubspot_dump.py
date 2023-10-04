@@ -226,7 +226,7 @@ def extract_and_sync_contact_with_follow_up(
         else:
             state = "error_hubspot_sync"
 
-    hub_id = pipeline.external_org_id
+    hub_id = str(pipeline.external_org_id)
     # There are a few columns sets for the same object_type:
     # * the GPT extracted ones (call_data)
     # * the Hubspot returned (there can be a lot of metadata, even repeated values)
@@ -334,7 +334,11 @@ if __name__ == "__main__":
         try:
             owners_response = test_hs_client.list_owners()
             Account.get_or_onboard_for_hubspot(owners_response)
-            test_hs_client.get_hubspot_account_metadata()
+            org_meta = test_hs_client.get_hubspot_account_metadata()
+            pipeline.external_org_id = org_meta.hub_id
+            pipeline.save()
+            org.name = org_meta.hub_domain
+            org.save()
         except Exception as e:
             print(
                 f"WARNING: Cannot get or onboard owners cause {e}, response: {owners_response}"
