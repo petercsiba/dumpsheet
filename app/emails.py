@@ -17,6 +17,12 @@ import boto3
 from bs4 import BeautifulSoup
 
 from app.datashare import PersonDataEntry
+from app.email_template import (
+    full_template,
+    main_content_template,
+    table_row_template,
+    table_template,
+)
 from app.hubspot_dump import HubspotDataEntry
 from app.hubspot_models import FieldNames, HubspotObject
 from common.aws_utils import is_running_in_aws
@@ -184,9 +190,9 @@ def create_raw_email_with_attachments(params: EmailLog):
             print("ERROR: One of body_html or body_text has to be set!")
         params.body_html = (
             """<html>
-        <head></head>
-        <body>
-          """
+            <head></head>
+            <body>
+              """
             + params.body_text
             + """
         </body>
@@ -313,10 +319,10 @@ def send_confirmation(params: EmailLog, attachment_paths):
     if len(attachment_paths) == 0:
         params.body_html = (
             """
-        <p>Yo {}, did you forgot to attach your voice memo in your email?
-        ☕ I would love to brew you a coffee, but I ain't real, so an emoji will have to do it: ☕</p>
-        <p>Remember, any audio file would do, I can convert from any known audio file by myself!</p>
-        """.format(
+            <p>Yo {}, did you forgot to attach your voice memo in your email?
+            ☕ I would love to brew you a coffee, but I ain't real, so an emoji will have to do it: ☕</p>
+            <p>Remember, any audio file would do, I can convert from any known audio file by myself!</p>
+            """.format(
                 first_name
             )
             + add_signature()
@@ -332,10 +338,11 @@ def send_confirmation(params: EmailLog, attachment_paths):
 
         params.body_html = (
             """
-        <p>Hi {}, </p>
-        <p>I am confirming receipt of your voice memo upload(s), it will take me a few minutes to get back to you.</p>
-        <p>I've received the following files:</p>
-        <p><ul>{}</ul></p>""".format(
+            <p>Hi {}, </p>
+            <p>I am confirming receipt of your voice memo upload(s),
+            it will take me a few minutes to get back to you.</p>
+            <p>I've received the following files:</p>
+            <p><ul>{}</ul></p>""".format(
                 first_name, file_list_str
             )
             + add_signature()
@@ -344,14 +351,21 @@ def send_confirmation(params: EmailLog, attachment_paths):
         send_email(params=params)
 
 
-def _summary_table_row(key: str, value: str, cell_tag="td") -> str:
+def _summary_table_row_deprecated(key: str, value: str, cell_tag="td") -> str:
     return (
         f"<tr><{cell_tag} style='background-color: #f0f0f0; padding: 5px 2px;'><strong>{key}</strong></{cell_tag}>"
         f"<{cell_tag} style='padding: 2px 5px;'>{value}</{cell_tag}></tr>\n"
     )
 
 
-def _hubspot_obj_to_table(obj: Optional[HubspotObject]) -> str:
+def _summary_table_row(label: str, value: str) -> str:
+    return table_row_template.format(
+        label=label,
+        value=value,
+    )
+
+
+def _hubspot_obj_to_table(heading: str, obj: Optional[HubspotObject]) -> str:
     ignore_field_list = [
         FieldNames.HUBSPOT_OWNER_ID.value,
         FieldNames.STATE.value,
@@ -364,25 +378,26 @@ def _hubspot_obj_to_table(obj: Optional[HubspotObject]) -> str:
             continue
         key, value = obj.get_field_display_label_with_value(field.name)
         rows.append(_summary_table_row(key, value))
-    rows_html = "".join(rows)
-    return (
-        """<p><table style="border: 1px solid black;">{rows_html}</table></p>""".format(
-            rows_html=rows_html
-        )
-    )
+    rows_html = "\n".join(rows)
+    return table_template.format(heading=heading, rows=rows_html)
 
 
 def _hubspot_objs_maybe_to_table(
-    obj: Optional[HubspotObject], gpt_obj: Optional[HubspotObject]
+    heading: str, obj: Optional[HubspotObject], gpt_obj: Optional[HubspotObject]
 ) -> str:
     if obj is None:
-        result = "<p>Could not sync data to HubSpot (API error)</p>"
+        result = main_content_template.format(
+            heading=heading, content="Could not sync data to HubSpot (API error)"
+        )
         if gpt_obj is None:
-            result = "<p>Could not parse data into structure (GPT error)</p>"
+            result = main_content_template.format(
+                heading=heading,
+                content="Could not parse data into structure (GPT error)",
+            )
         else:
-            result += _hubspot_obj_to_table(gpt_obj)
+            result += _hubspot_obj_to_table(heading, gpt_obj)
     else:
-        result = _hubspot_obj_to_table(obj)
+        result = _hubspot_obj_to_table(heading, obj)
     return result
 
 
@@ -401,47 +416,51 @@ def send_hubspot_result(
     )
 
     if data.state in ["short", "incomplete"]:
-        email_params.body_text = """
-        <p>Note is {reason} - please enter more information.</p>
-        {heading_note}
-        <p>{note}</p>
-        """.format(
-            reason=data.state,
-            heading_note="Your note as I understood it",
-            note=data.transcript,
+        email_params.body_text = full_template.format(
+            title=f"Note is {data.state} - please enter more information.",
+            content=main_content_template.format(
+                heading="Your note as I understood it",
+                content=data.transcript,
+            ),
         )
         return send_email(params=email_params)
 
     extra_info_map = {
-        "error_gpt": "We had problems transforming your into a HubSpot Contact",
-        "error_hubspot_sync": "We encountered problems while syncing your data to HubSpot",
-        "warning_already_created": "Note: The contact was already created in HubSpot",
+        "error_gpt": "We had problems transforming your note into a HubSpot structures",
+        "error_hubspot_sync": "We encountered problems while syncing your data into your HubSpot",
+        "warning_already_created": "Note: The contact already exists in your HubSpot",
     }
     extra_info = ""
     if data.state in extra_info_map:
-        extra_info = f"<b>{extra_info_map[data.state]}</b>"
+        extra_info = main_content_template.format(
+            heading="Sync Status",
+            content=extra_info_map[data.state],
+        )
 
     # success / error with partial results
-    contact_table = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
-    task_table = _hubspot_objs_maybe_to_table(data.task, data.gpt_task)
-    email_params.body_text = """
-    {extra_info}
-    {heading_contact}
-    <p>{contact}</p>
-    {heading_task}
-    <p>{task}</p>
-    {heading_call}
-    <p>{call}</p>
-    {signature}
-    """.format(
-        extra_info=extra_info,
-        heading_contact=_format_heading("Contact Info"),
-        contact=contact_table,
-        heading_task=_format_heading("Follow up Tasks"),
-        task=task_table,
-        heading_call=_format_heading("Further Details"),
-        call=data.call.get_display_value(FieldNames.HS_CALL_BODY.value),
-        signature=add_signature(),
+    contact_table = _hubspot_objs_maybe_to_table(
+        "Contact Info", data.contact, data.gpt_contact
+    )
+    task_table = _hubspot_objs_maybe_to_table(
+        "Follow up Tasks", data.task, data.gpt_task
+    )
+    further_details = main_content_template.format(
+        heading="Further Details",
+        content=data.call.get_display_value(FieldNames.HS_CALL_BODY.value),
+    )
+    email_params.body_html = full_template.format(
+        title="HubSpot Data Entry Confirmation",
+        content="""
+            {extra_info}
+            {contact_table}
+            {task_table}
+            {further_details}
+            """.format(
+            extra_info=extra_info,
+            contact_table=contact_table,
+            task_table=task_table,
+            further_details=further_details,
+        ),
     )
     return send_email(params=email_params)
 
@@ -539,9 +558,9 @@ def send_result_rest_of_the_crowd(
         idempotency_id=f"{idempotency_id_prefix}-rest-of-the-crowd",
         subject=f"You also mentioned these {len(people)} folks",
     )
-    rows = [_summary_table_row("Name", "Notes", cell_tag="th")]
+    rows = [_summary_table_row_deprecated("Name", "Notes", cell_tag="th")]
     for person in people:
-        rows.append(_summary_table_row(person.name, person.transcript))
+        rows.append(_summary_table_row_deprecated(person.name, person.transcript))
 
     email_params.body_text = """
     <p>These folks you mentioned, but unfortunately I didn't get enough context
