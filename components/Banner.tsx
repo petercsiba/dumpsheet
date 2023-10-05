@@ -32,10 +32,12 @@ const Banner = () => {
                         Book a demo
                     </button>
                 </a>
+                {/*
                 <div className="flex items-center justify-center w-12 h-12 bg-[#0000001a] rounded-full">
                     <Image className="group-8" alt="Group" src="/images/figma/group-1000004834.png" width={30}
                            height={30}/>
                 </div>
+                */}
             </div>
             {hubspot_status && (
                 <div className="absolute top-20 left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center text-center border border-black rounded-full bg-white p-4 w-auto">
