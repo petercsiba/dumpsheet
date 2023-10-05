@@ -41,7 +41,7 @@ const WelcomeState = ({onStartRecording}) => {
 
     return (
         <>
-            <HeadingText text={"TELL ME ABOUT YOUR MEETING"} />
+            <HeadingText text={"Tell Me About Your Meeting"} />
             <div className="flex items-center justify-center">
                 <button
                     className="btn-white p-0 hover:bg-gray-100"
@@ -115,7 +115,7 @@ const FailureState = ({audioURL, failureMessage}) => {
 
     return (
         <>
-            <HeadingText text={"Failed to upload the recording"}></HeadingText>
+            <HeadingText text={"Failed to Upload Recording"}></HeadingText>
             <div className="bg-white-500 p-2 inline-block">
                 <p className="py-2">Please, download the file and send it to ai@voxana.ai</p>
                 <div className="flex justify-center">
@@ -134,7 +134,7 @@ const FailureState = ({audioURL, failureMessage}) => {
 
 const TooShortState = () => (
     <div className="flex-col">
-        <HeadingText text={"Please, tell me more"}/>
+        <HeadingText text={"Please, Tell Me More"}/>
         <div className="py-2">Your recording needs to be longer than {MIN_DURATION} seconds, please try again.</div>
         <div>(This page will auto-refresh in a bit)</div>
     </div>
