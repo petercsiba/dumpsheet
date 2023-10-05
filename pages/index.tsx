@@ -52,21 +52,27 @@ export default function Home() {
   }
 `}</style>
 
-
-          <div className="bg-[#fdfefe] bg-bottom-right bg-no-repeat bg-auto bg-fixed h-screen w-full"
-               style={{ backgroundImage: 'url("/images/voxana-hero-background.png")', height: 1650 }}>
+          <div className="bg-[#fdfefe] bg-bottom-right bg-cover bg-fixed h-screen w-full"
+               style={{ backgroundImage: 'url("/images/voxana-hero-background.png")' }}>
               <div className="absolute top-8 left-8 flex items-center space-x-2 top-navigation">
-                  <div className="pr-8 pt-1 [-webkit-text-stroke:0.19px_#000000] [font-family:'Montserrat-SemiBold',Helvetica] font-semibold text-black text-[22.1px] tracking-[0] leading-[normal]">
-                      <a href="https://www.voxana.ai/">Voxana AI</a>
-                  </div>
+                  <a href="https://www.voxana.ai/">
+                      <Image
+                          src="/images/voxana-logo-text-rectangle.png"
+                          alt="Voxana AI Logo"
+                          width={150}
+                          height={30}
+                      />
+                  </a>
+                  {/*
                   <div className="flex items-center space-x-8 font-medium text-black text-lg tracking-tight">
                       <div>Features</div>
                       <div>Use cases</div>
                   </div>
+                  */}
               </div>
               <div className="absolute top-6 right-8 flex items-center space-x-2">
                   <a href="https://calendly.com/katka-voxana/30min?month=2023-10" target="_blank" rel="noopener noreferrer">
-                      <button className="flex items-center justify-center w-40 h-12 bg-black rounded-full font-semibold text-white text-lg tracking-tighter">
+                      <button className="flex items-center justify-center w-40 h-12 bg-black rounded-full font-semibold text-white text-lg tracking-tighter hover:bg-gray-700">
                           Book a demo
                       </button>
                   </a>
@@ -74,9 +80,10 @@ export default function Home() {
                       <Image className="group-8" alt="Group" src="/images/figma/group-1000004834.png" width={30} height={30} />
                   </div>
               </div>
-
               <div
-                  className="flex flex-col items-center justify-center gap-6 px-10 py-10 absolute top-[40%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-144 rounded-lg border border-black bg-white middle-box">
+                  className="flex flex-col items-center justify-center gap-6 px-10 py-10 absolute top-[40%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 md:w-96 h-144 rounded-lg border border-black bg-white"
+                  style={{ width: '80%', maxWidth: '24rem' }}
+                  >
                   <div className="text-center font-semibold text-black text-2xl tracking-normal leading-normal">
                       Tell me about your meeting
                   </div>
