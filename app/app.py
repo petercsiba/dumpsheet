@@ -119,7 +119,8 @@ def process_transcript_from_data_entry(
         gpt_client, full_transcript=data_entry.output_transcript
     )
 
-    if not wait_for_email_updated_on_data_entry(data_entry.id):
+    # wait a bit more
+    if not wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=3 * 60):
         raise ValueError(
             f"email missing for data_entry {data_entry.id} - cannot process"
         )
@@ -180,7 +181,7 @@ def process_transcript_for_organization(
 
     # To process and upload the Hubspot entries, we do not need an email address.
     # But to send a confirmation, we do need one.
-    if wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=5 * 60):
+    if wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=3 * 60):
         send_hubspot_result(data_entry.account, data_entry.idempotency_id, data)
     else:
         print(
@@ -276,6 +277,12 @@ def lambda_handler_wrapper(event, context):
         )
 
     # Second Lambda
+
+    if not wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=5 * 60):
+        print(
+            "WARNING: data entry has no associated email - we might are operating on an in-complete account"
+        )
+
     acc: BaseAccount = BaseAccount.get_by_id(data_entry.account_id)
     print(f"gonna process transcript for account {acc.__dict__}")
     if bool(acc.organization):
@@ -365,12 +372,12 @@ if __name__ == "__main__":
                 )
         if test_case == "voicemail":
             # Optional
-            twilio_client = TwilioClient()
+            # test_twilio_client = TwilioClient()
             filepath = "testdata/twilio-mock-recording.wav"
             # In production, we use S3 bucket metadata. Here we just get it from the filename.
             test_full_name = "Peter Csiba"
             test_phone_number = "6502106516"
-            call_sid = "CAf85701fd23e325761071817c42092922"
+            test_call_sid = "CAf85701fd23e325761071817c42092922"
             creation_time = datetime.datetime.fromtimestamp(os.path.getctime(filepath))
             with open(filepath, "rb") as handle:
                 file_contents = handle.read()
@@ -379,7 +386,7 @@ if __name__ == "__main__":
                     # TODO(P1, testing): Support local testing
                     twilio_client=None,
                     bucket_url=None,
-                    call_sid=call_sid,
+                    call_sid=test_call_sid,
                     phone_number=test_phone_number,
                     full_name=test_full_name,
                     phone_carrier_info="T-Mobile consumer stuff",
@@ -397,23 +404,23 @@ if __name__ == "__main__":
         )
         if bool(existing_organization):  # Feel free to hardcode by-pass this
             # Make sure the account is connected to this organization
-            acc: BaseAccount = BaseAccount.get_by_id(orig_data_entry.account_id)
+            test_acc: BaseAccount = BaseAccount.get_by_id(orig_data_entry.account_id)
             if (
-                acc.organization is None
-                or acc.organization_id != existing_organization.id
+                test_acc.organization is None
+                or test_acc.organization_id != existing_organization.id
             ):
                 print("INFO: Linking account to existing organization")
-                acc.organization_id = existing_organization.id
-                acc.organization_role = ORGANIZATION_ROLE_OWNER
-                acc.save()
+                test_acc.organization_id = existing_organization.id
+                test_acc.organization_role = ORGANIZATION_ROLE_OWNER
+                test_acc.save()
 
-            hs_client = HubspotClient(
+            test_hs_client = HubspotClient(
                 existing_organization.get_oauth_data_id_for_destination(
                     DESTINATION_HUBSPOT_ID
                 )
             )
             process_transcript_for_organization(
-                hs_client=hs_client,
+                hs_client=test_hs_client,
                 gpt_client=open_ai_client,
                 data_entry=orig_data_entry,
             )

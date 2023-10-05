@@ -30,8 +30,10 @@ class Account(BaseAccount):
             return User.get_by_id(self.user).email
 
         if bool(self.merged_into_id):
-            assert self.merged_into_id != self.id
-            return Account.get_by_id(self.merged_into_id).get_email()
+            if self.merged_into_id != self.id:
+                return Account.get_by_id(self.merged_into_id).get_email()
+            else:
+                print(f"ERROR: for account {self.id} merged_into_id equals itself")
 
         try:
             onboarding_email = (
