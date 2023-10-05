@@ -10,6 +10,13 @@ class Pipeline(BasePipeline):
         db_table = "pipeline"
 
     @staticmethod
+    def get_or_none_for_org_id(org_id: str, destination_id: int) -> "Pipeline":
+        return Pipeline.get_or_none(
+            Pipeline.organization_id == org_id
+            and Pipeline.destination_id == destination_id
+        )
+
+    @staticmethod
     def get_or_none_for_external_org_id(
         external_org_id: str, destination_id: int
     ) -> "Pipeline":

@@ -36,6 +36,7 @@ from database.client import (
 from database.constants import DESTINATION_HUBSPOT_ID
 from database.models import BaseAccount, BaseDataEntry, BaseOrganization
 from database.organization import ORGANIZATION_ROLE_OWNER, Organization
+from database.pipeline import Pipeline
 from input.app_upload import process_app_upload
 from input.call import process_voice_recording_input
 from input.email import process_email_input
@@ -162,12 +163,18 @@ def process_transcript_for_organization(
     data_entry: BaseDataEntry,
 ) -> HubspotDataEntry:
     acc: Account = Account.get_by_id(data_entry.account_id)
+    pipeline = Pipeline.get_or_none_for_org_id(
+        acc.organization_id, DESTINATION_HUBSPOT_ID
+    )
+    hub_id = pipeline.external_org_id if bool(pipeline) else None
+
     # TODO(P1, ux): Maybe we should wait_for_email_updated_on_data_entry
     #   But then might be better to update without email confirmations.
     data = extract_and_sync_contact_with_follow_up(
         hs_client,
         gpt_client,
         data_entry.output_transcript,
+        hub_id=hub_id,
         hubspot_owner_id=acc.organization_user_id,
     )
 

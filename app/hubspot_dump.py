@@ -153,6 +153,7 @@ def extract_and_sync_contact_with_follow_up(
     client: HubspotClient,
     gpt_client: OpenAiClient,
     text: str,
+    hub_id: Optional[str] = None,
     hubspot_owner_id: Optional[int] = None,
     local_hack=False,
 ) -> HubspotDataEntry:
@@ -226,7 +227,6 @@ def extract_and_sync_contact_with_follow_up(
         else:
             state = "error_hubspot_sync"
 
-    hub_id = str(pipeline.external_org_id)
     # There are a few columns sets for the same object_type:
     # * the GPT extracted ones (call_data)
     # * the Hubspot returned (there can be a lot of metadata, even repeated values)
@@ -298,7 +298,7 @@ Who are in touch with potential clients all around the u.s. He is
 if __name__ == "__main__":
     with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
         TEST_ORG_NAME = "testing locally"
-        acc = Account.get_or_onboard_for_email(
+        test_acc = Account.get_or_onboard_for_email(
             "petherz+localtest@gmail.com", utm_source="test"
         )
 
@@ -307,38 +307,40 @@ if __name__ == "__main__":
         )
         if bool(fixture_exists):
             organization_id = fixture_exists.id
-            pipeline = Pipeline.get(Pipeline.organization_id == organization_id)
+            test_pipeline = Pipeline.get(Pipeline.organization_id == organization_id)
             print(f"reusing testing fixture for organization {organization_id}")
         else:
-            org = Organization.get_or_create_for_account_id(acc.id, name=TEST_ORG_NAME)
-            pipeline = Pipeline.get_or_create_for(
+            test_org = Organization.get_or_create_for_account_id(
+                test_acc.id, name=TEST_ORG_NAME
+            )
+            test_pipeline = Pipeline.get_or_create_for(
                 external_org_id="external_org_id",
-                organization_id=org.id,
+                organization_id=test_org.id,
                 destination_id=DESTINATION_HUBSPOT_ID,
             )
-            if pipeline.oauth_data_id is None:
-                pipeline.oauth_data_id = OauthData.insert(
+            if test_pipeline.oauth_data_id is None:
+                test_pipeline.oauth_data_id = OauthData.insert(
                     token_type=OAUTH_DATA_TOKEN_TYPE_OAUTH
                 ).execute()
-                pipeline.save()
+                test_pipeline.save()
         # refresh_token must come from prod, as for HubSpot oauth to work with localhost we would need have a full
         # local setup.
         OauthData.update_safely(
-            oauth_data_id=pipeline.oauth_data_id,
+            oauth_data_id=test_pipeline.oauth_data_id,
             refresh_token="9ce60291-2261-48a5-8ddb-e26c9bf59845",  # TestApp - hardcoded each time
         )
 
-        test_hs_client = HubspotClient(pipeline.oauth_data_id)
+        test_hs_client = HubspotClient(test_pipeline.oauth_data_id)
         # We put this into a `try` block as it's optional to go through
         owners_response = None
         try:
             owners_response = test_hs_client.list_owners()
             Account.get_or_onboard_for_hubspot(owners_response)
             org_meta = test_hs_client.get_hubspot_account_metadata()
-            pipeline.external_org_id = org_meta.hub_id
-            pipeline.save()
-            org.name = org_meta.hub_domain
-            org.save()
+            test_pipeline.external_org_id = str(org_meta.hub_id)
+            test_pipeline.save()
+            test_org.name = org_meta.hub_domain
+            test_org.save()
         except Exception as e:
             print(
                 f"WARNING: Cannot get or onboard owners cause {e}, response: {owners_response}"
@@ -357,6 +359,7 @@ if __name__ == "__main__":
             test_hs_client,
             test_gpt_client,
             test_data2,
+            hub_id=test_pipeline.external_org_id,
             hubspot_owner_id=peter_voxana_user_id,
             local_hack=True,
         )
@@ -364,7 +367,7 @@ if __name__ == "__main__":
         from app.emails import send_hubspot_result
 
         send_hubspot_result(
-            account_id=acc.id,
+            account_id=test_acc.id,
             idempotency_id_prefix=str(time.time()),
             data=hs_data_entry,
         )
