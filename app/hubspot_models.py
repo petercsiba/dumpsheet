@@ -134,11 +134,20 @@ class FieldDefinition:
         return self.field_type in ["radio", "select"]
 
     def display_value(self, value):
-        if not self._has_options():
-            return value
+        if self._has_options():
+            option_labels = {option.value: option.label for option in self.options}
+            return option_labels.get(value, str(value))
 
-        option_labels = {option.value: option.label for option in self.options}
-        return option_labels.get(value, str(value))
+        if self.field_type == "date":
+            datetime_value = self._validate_date(value)
+
+            # Convert the datetime to PST
+            pst = pytz.timezone("America/Los_Angeles")
+            datetime_value = datetime_value.astimezone(pst)
+
+            return datetime_value.strftime("%b %d %Y, %-I%p %Z")
+
+        return value
 
     def validate_and_fix(self, value: Optional[Any]) -> Any:
         if value is None:
@@ -167,19 +176,32 @@ class FieldDefinition:
 
     # In JavaScript, date is actually a timestamp which ideally should be human-readable and ISO 8601
     def _validate_date(self, value: Any):
+        if value is None:
+            return None
+
         try:
             parsed_date = parser.parse(value)
 
-            # Convert to 1pm PST in UTC if the datetime object is naive
             if (
                 parsed_date.tzinfo is None
                 or parsed_date.tzinfo.utcoffset(parsed_date) is None
             ):
-                parsed_date = parsed_date.replace(tzinfo=pytz.UTC)
+                # Localize the naive datetime to UTC
+                parsed_date = pytz.UTC.localize(parsed_date)
+
+                # Convert to 1pm PST
+                pst = pytz.timezone("America/Los_Angeles")
+                parsed_date = pst.localize(
+                    datetime.datetime.combine(
+                        parsed_date.date(), datetime.time(hour=13)
+                    )
+                )
+                parsed_date = parsed_date.astimezone(pytz.UTC)
 
             return parsed_date
 
-        except (TypeError, ValueError):
+        except (TypeError, ValueError) as e:
+            print(f"WARNING parsing date: {e}")
             self._validation_error("timestamp", value)
             # If parsing fails or input is None, default to the current date-time in UTC
             return datetime.datetime.now(pytz.UTC)
@@ -825,11 +847,11 @@ TASK_FIELDS = [
     ),
 ]
 
-
 # Poor mans test
 if __name__ == "__main__":
     ts_field = get_field(CALL_FIELDS, "hs_timestamp")
     print("validate: " + str(ts_field.validate_and_fix("2023-10-01T00:00:00.000Z")))
+    print("display_value: " + ts_field.display_value("2023-10-01T00:00:00.000Z"))
 
     select_field = get_field(TASK_FIELDS, "hs_task_status")
     print(
