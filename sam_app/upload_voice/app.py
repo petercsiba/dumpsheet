@@ -465,9 +465,6 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     if org.name is None:
         print(f"setting org.name to {external_org_name}")
         org.name = external_org_name
-    if org.owner_account_id is None:
-        print(f"setting org owner to {admin_account_id}")
-        org.owner_account_id = admin_account_id
     org.save()
 
     # Update account

@@ -45,7 +45,7 @@ data = data.replace("BaseBaseModel", "BaseModel")
 
 
 # Hacks for circular deps
-circular_deps_fields = ["owner_account", "merged_into"]
+circular_deps_fields = ["merged_into"]
 for field_name in circular_deps_fields:
     pattern = re.compile(
         f"    {field_name}" + r" = ForeignKeyField\([\s\S]*?\)", re.MULTILINE

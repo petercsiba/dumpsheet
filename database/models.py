@@ -15,13 +15,10 @@ class BaseModel(Model):
         database = database_proxy
 
 
-# Possible reference cycle: account
 class BaseOrganization(BaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
     name = TextField()
-    # To overcome ForeignKeyField circular dependency
-    owner_account_id = UUIDField(null=True)
 
     class Meta:
         schema = "public"

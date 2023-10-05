@@ -26,9 +26,7 @@ class Organization(BaseOrganization):
             return organization
 
         print(f"creating new organization for owner account {account_id}")
-        organization_id = BaseOrganization.insert(
-            owner_account_id=account_id, name=name
-        ).execute()
+        organization_id = BaseOrganization.insert(name=name).execute()
 
         if bool(acc):
             print(f"updating account and becoming {ORGANIZATION_ROLE_OWNER}")
