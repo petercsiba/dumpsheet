@@ -400,6 +400,7 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
     # == THIRD, we check through HubId if an organization already exists (as an idempotency_key).
     # AccessTokenInfoResponse
     org_metadata = api_client.auth.oauth.access_tokens_api.get(api_client.access_token)
+    print(f"org_metadata={org_metadata}")
     external_org_id = org_metadata.hub_id
     external_org_admin_email = org_metadata.user
     external_org_name = org_metadata.hub_domain
