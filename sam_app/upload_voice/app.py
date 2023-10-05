@@ -209,9 +209,10 @@ def handle_post_request_for_update_email(event: Dict) -> Dict:
     # 1. Check if such email already has an account (in theory there can be multiple onboardings for the same email)
     acc_for_email = account.Account.get_by_email_or_none(email)
     if bool(acc_for_email):
+        print(f"Found existing account {acc_for_email.id} for email {email}")
         # However, if you want to indicate that the resource was already created prior to the request,
         # there isn't a specific HTTP status code for this situation.
-        if acc_for_email.id == account_id:
+        if str(acc_for_email.id) == str(account_id):
             return craft_info(200, "account already exists with the provided email")
         if bool(existing_email) and existing_email != email:
             return craft_error(
