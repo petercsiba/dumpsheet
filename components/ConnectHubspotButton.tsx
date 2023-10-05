@@ -27,9 +27,9 @@ export default function ConnectHubspotButton() {
             onClick={() => {
                 window.location.href = constructAuthUrl(accountId);
             }}
-            className="text-white font-bold px-5 py-2.5 rounded bg-gray-500 hover:bg-gray"
+            className="flex items-center justify-center w-80 h-16 text-black border border-black rounded-full font-semibold text-lg tracking-tighter bg-white hover:bg-gray-100"
         >
-            Connect with
+            <span className="pr-3"> Connect with </span>
             <Image
                 priority
                 src={HubspotLogo}
