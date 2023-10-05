@@ -120,11 +120,11 @@ class HubspotDataEntry:
 
     def contact_name(self):
         if self.contact is not None:
-            first_name = self.contact.get_value(FieldNames.FIRSTNAME.value)
-            last_name = self.contact.get_value(FieldNames.LASTNAME.value)
+            first_name = self.contact.get_display_value(FieldNames.FIRSTNAME.value)
+            last_name = self.contact.get_display_value(FieldNames.LASTNAME.value)
         elif self.gpt_contact is not None:
-            first_name = self.gpt_contact.get_value(FieldNames.FIRSTNAME.value)
-            last_name = self.gpt_contact.get_value(FieldNames.LASTNAME.value)
+            first_name = self.gpt_contact.get_display_value(FieldNames.FIRSTNAME.value)
+            last_name = self.gpt_contact.get_display_value(FieldNames.LASTNAME.value)
         else:
             first_name = "Unknown"
             last_name = ""

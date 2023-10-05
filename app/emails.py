@@ -18,7 +18,7 @@ from bs4 import BeautifulSoup
 
 from app.datashare import PersonDataEntry
 from app.hubspot_dump import HubspotDataEntry
-from app.hubspot_models import HubspotObject
+from app.hubspot_models import FieldNames, HubspotObject
 from common.aws_utils import is_running_in_aws
 from common.config import (
     DEBUG_RECIPIENTS,
@@ -288,7 +288,7 @@ def send_email(params: EmailLog) -> bool:
 
 def _format_heading(heading: str) -> str:
     style = (
-        "font-family: Arial, sans-serif; font-size: 14px; "
+        "font-family: Arial, sans-serif; font-size: 15px; "
         "font-weight: bold; color: #000000; margin: 0; padding: 10px 0;"
     )
     return f'<h2 style="{style}">{heading}</h2>'
@@ -352,8 +352,16 @@ def _summary_table_row(key: str, value: str, cell_tag="td") -> str:
 
 
 def _hubspot_obj_to_table(obj: Optional[HubspotObject]) -> str:
+    ignore_field_list = [
+        FieldNames.HUBSPOT_OWNER_ID.value,
+        FieldNames.STATE.value,
+        FieldNames.COUNTRY.value,
+    ]
     rows = []
     for field in obj.form.fields:
+        if field.name in ignore_field_list:
+            print(f"INFO: ignoring {field.name} for now")
+            continue
         key, value = obj.get_field_display_label_with_value(field.name)
         rows.append(_summary_table_row(key, value))
     rows_html = "".join(rows)
@@ -415,7 +423,6 @@ def send_hubspot_result(
 
     # success / error with partial results
     contact_table = _hubspot_objs_maybe_to_table(data.contact, data.gpt_contact)
-    call_table = _hubspot_objs_maybe_to_table(data.call, data.gpt_call)
     task_table = _hubspot_objs_maybe_to_table(data.task, data.gpt_task)
     email_params.body_text = """
     {extra_info}
@@ -428,12 +435,12 @@ def send_hubspot_result(
     {signature}
     """.format(
         extra_info=extra_info,
-        heading_contact=_format_heading("Contact Data"),
+        heading_contact=_format_heading("Contact Info"),
         contact=contact_table,
-        heading_call=_format_heading("Call Data"),
-        call=call_table,
-        heading_task=_format_heading("Task Data"),
+        heading_task=_format_heading("Follow up Tasks"),
         task=task_table,
+        heading_call=_format_heading("Further Details"),
+        call=data.call.get_display_value(FieldNames.HS_CALL_BODY.value),
         signature=add_signature(),
     )
     return send_email(params=email_params)

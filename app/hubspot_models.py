@@ -134,6 +134,11 @@ class FieldDefinition:
         return self.field_type in ["radio", "select"]
 
     def display_value(self, value):
+        if value is None:
+            if self.name in [FieldNames.EMAIL.value, FieldNames.PHONE.value]:
+                return "None - Please fill in"
+            return "None"
+
         if self._has_options():
             option_labels = {option.value: option.label for option in self.options}
             return option_labels.get(value, str(value))
@@ -146,6 +151,9 @@ class FieldDefinition:
             datetime_value = datetime_value.astimezone(pst)
 
             return datetime_value.strftime("%b %d %Y, %-I%p %Z")
+
+        if self.name in [FieldNames.FIRSTNAME.value, FieldNames.LASTNAME.value]:
+            return str(value).capitalize()
 
         return value
 
@@ -346,21 +354,22 @@ class HubspotObject:
                     f"Field '{field_name}' does not exist on HubspotContact."
                 )
 
-    def get_value(self, field_name: str) -> str:
-        return self.get_field(field_name).display_value(self.data.get(field_name))
+    def get_display_value(self, field_name: str) -> str:
+        field = self.get_field(field_name)
+        if bool(field):
+            return field.display_value(self.data.get(field_name))
+        return "None"
 
     def get_field_display_label_with_value(self, field_name: str) -> Tuple[str, Any]:
         value = None
-        # if field_name == FieldNames.HS_OBJECT_ID.value:
-        #     # TODO(P2, devx): This should be outside of here, but the complexity is getting harder to manage
-        #     link_href = self.get_link()
-        #     if bool(link_href):
-        #         # Task actually cannot be linked - it only really works for contacts.
-        #         # https://app.hubspot.com/contacts/40211602/record/0-1/5401/view/1?taskId=40852725122
-        #         value = f'<a href="{self.get_link()}">{self.get_value(field_name)} - Click To See in Hubspot</a>'
+        if field_name == FieldNames.HS_OBJECT_ID.value:
+            # TODO(P2, devx): This should be outside of here, but the complexity is getting harder to manage
+            link_href = self.get_link()
+            if bool(link_href):
+                value = f'<a href="{self.get_link()}">{self.get_display_value(field_name)} - See in Hubspot</a>'
 
         if value is None:
-            value = self.get_value(field_name)
+            value = self.get_display_value(field_name)
 
         return self.get_field(field_name).label, value
 
@@ -368,9 +377,15 @@ class HubspotObject:
         if self.hub_id is None:
             return None
 
-        object_id = self.get_value(FieldNames.HS_OBJECT_ID.value)
-        if bool(object_id):
-            return f"https://app.hubspot.com/contacts/{self.hub_id}/record/{self.object_type.value}/{object_id}/"
+        object_id = self.get_display_value(FieldNames.HS_OBJECT_ID.value)
+        if self.object_type == ObjectType.CONTACT:
+            # Task actually cannot be linked - it only really works for contacts.
+            return f"https://app.hubspot.com/contacts/{self.hub_id}/record/0-1/{object_id}/view/1"
+
+        # TODO(P2, ux): Once we figure it out we can add it back
+        # object_id = self.get_display_value(FieldNames.HS_OBJECT_ID.value)
+        # if bool(object_id):
+        #     return f"https://app.hubspot.com/contacts/{self.hub_id}/record/{self.object_type.value}/{object_id}/"
 
         return None
 
@@ -438,6 +453,7 @@ def get_field(fields: List[FieldDefinition], name: str):
             return field
 
     # This function is oftentimes used to check if name is in the field list so only warning.
+    # It's a bit annoying, but can be lifesaving when developing.
     print(f"WARNING: Requested field {name} not in list")
     return None
 
@@ -514,42 +530,44 @@ CONTACT_FIELDS = [
         group_name="contactinformation",
         custom_field=False,
     ),
-    FieldDefinition(
-        name="lifecyclestage",
-        field_type="radio",
-        label="Lifecycle Stage",
-        description="The qualification of contacts to sales readiness.",
-        options=[
-            Option(label="Subscriber", value="subscriber"),
-            Option(label="Lead", value="lead"),
-            Option(label="Marketing Qualified Lead", value="marketingqualifiedlead"),
-            Option(label="Sales Qualified Lead", value="salesqualifiedlead"),
-            Option(label="Opportunity", value="opportunity"),
-            Option(label="Customer", value="customer"),
-            Option(label="Evangelist", value="evangelist"),
-            Option(label="Other", value="other"),
-        ],
-        group_name="contactinformation",
-        custom_field=False,
-    ),
-    FieldDefinition(
-        name="hs_lead_status",
-        field_type="radio",
-        label="Lead Status",
-        description="The contact's sales, prospecting or outreach status",
-        options=[
-            Option(label="New", value="NEW"),
-            Option(label="Open", value="OPEN"),
-            Option(label="In Progress", value="IN_PROGRESS"),
-            Option(label="Open Deal", value="OPEN_DEAL"),
-            Option(label="Unqualified", value="UNQUALIFIED"),
-            Option(label="Attempted to Contact", value="ATTEMPTED_TO_CONTACT"),
-            Option(label="Connected", value="CONNECTED"),
-            Option(label="Bad Timing", value="BAD_TIMING"),
-        ],
-        group_name="sales_properties",
-        custom_field=False,
-    ),
+    # NOTE: Unclear what are the rules to decide
+    # FieldDefinition(
+    #     name="lifecyclestage",
+    #     field_type="radio",
+    #     label="Lifecycle Stage",
+    #     description="The qualification of contacts to sales readiness.",
+    #     options=[
+    #         Option(label="Subscriber", value="subscriber"),
+    #         Option(label="Lead", value="lead"),
+    #         Option(label="Marketing Qualified Lead", value="marketingqualifiedlead"),
+    #         Option(label="Sales Qualified Lead", value="salesqualifiedlead"),
+    #         Option(label="Opportunity", value="opportunity"),
+    #         Option(label="Customer", value="customer"),
+    #         Option(label="Evangelist", value="evangelist"),
+    #         Option(label="Other", value="other"),
+    #     ],
+    #     group_name="contactinformation",
+    #     custom_field=False,
+    # ),
+    # NOTE: Unclear what are the rules to assign
+    # FieldDefinition(
+    #     name="hs_lead_status",
+    #     field_type="radio",
+    #     label="Lead Status",
+    #     description="The contact's sales, prospecting or outreach status",
+    #     options=[
+    #         Option(label="New", value="NEW"),
+    #         Option(label="Open", value="OPEN"),
+    #         Option(label="In Progress", value="IN_PROGRESS"),
+    #         Option(label="Open Deal", value="OPEN_DEAL"),
+    #         Option(label="Unqualified", value="UNQUALIFIED"),
+    #         Option(label="Attempted to Contact", value="ATTEMPTED_TO_CONTACT"),
+    #         Option(label="Connected", value="CONNECTED"),
+    #         Option(label="Bad Timing", value="BAD_TIMING"),
+    #     ],
+    #     group_name="sales_properties",
+    #     custom_field=False,
+    # ),
     FieldDefinition(
         name="email",
         field_type="text",
@@ -737,9 +755,10 @@ CALL_FIELDS = [
         field_type="html",
         label="Call notes",
         description="""
-        A short concise structured summary of the entire transcript,
+        A concise structured summary of the entire transcript,
         make sure to include all facts, if needed label those facts
         so I can review this in a year and know what happened.
+        For better readability, use html paragraphs and bullet points.
         """,
         options=[],
         group_name="call",
@@ -795,21 +814,22 @@ TASK_FIELDS = [
         group_name="engagement",
         custom_field=False,
     ),
-    FieldDefinition(
-        name="hs_task_status",
-        field_type="select",
-        label="Task Status",
-        description="The status of the task",
-        options=[
-            Option(label="Completed", value="COMPLETED"),
-            Option(label="Deferred", value="DEFERRED"),
-            Option(label="In Progress", value="IN_PROGRESS"),
-            Option(label="Not Started", value="NOT_STARTED"),
-            Option(label="Waiting", value="WAITING"),
-        ],
-        group_name="task",
-        custom_field=False,
-    ),
+    # NOTE: The user should set this
+    # FieldDefinition(
+    #     name="hs_task_status",
+    #     field_type="select",
+    #     label="Task Status",
+    #     description="The status of the task",
+    #     options=[
+    #         Option(label="Completed", value="COMPLETED"),
+    #         Option(label="Deferred", value="DEFERRED"),
+    #         Option(label="In Progress", value="IN_PROGRESS"),
+    #         Option(label="Not Started", value="NOT_STARTED"),
+    #         Option(label="Waiting", value="WAITING"),
+    #     ],
+    #     group_name="task",
+    #     custom_field=False,
+    # ),
     FieldDefinition(
         name="hs_task_subject",
         field_type="text",
@@ -819,29 +839,30 @@ TASK_FIELDS = [
         group_name="task",
         custom_field=False,
     ),
-    FieldDefinition(
-        name="hs_task_type",
-        field_type="select",
-        label="Task Type",
-        description="The type of the task",
-        options=[
-            Option(label="Call", value="CALL"),
-            Option(label="Email", value="EMAIL"),
-            Option(label="LinkedIn", value="LINKED_IN"),
-            Option(label="Meeting", value="MEETING"),
-            Option(
-                label="Sales Navigator - Connection Request", value="LINKED_IN_CONNECT"
-            ),
-            Option(label="Sales Navigator - InMail", value="LINKED_IN_MESSAGE"),
-            Option(label="To Do", value="TODO"),
-        ],
-        group_name="task",
-        custom_field=False,
-    ),
+    # NOTE: Unclear how is this derived
+    # FieldDefinition(
+    #     name="hs_task_type",
+    #     field_type="select",
+    #     label="Task Type",
+    #     description="The type of the task",
+    #     options=[
+    #         Option(label="Call", value="CALL"),
+    #         Option(label="Email", value="EMAIL"),
+    #         Option(label="LinkedIn", value="LINKED_IN"),
+    #         Option(label="Meeting", value="MEETING"),
+    #         Option(
+    #             label="Sales Navigator - Connection Request", value="LINKED_IN_CONNECT"
+    #         ),
+    #         Option(label="Sales Navigator - InMail", value="LINKED_IN_MESSAGE"),
+    #         Option(label="To Do", value="TODO"),
+    #     ],
+    #     group_name="task",
+    #     custom_field=False,
+    # ),
     FieldDefinition(
         name="hs_task_body",
         field_type="html",
-        label="Notes",
+        label="To Dos",
         description="Actionable items in short bullet points ordered by priority top down",
         options=[],
         group_name="task",
