@@ -352,10 +352,9 @@ def _summary_table_row(key: str, value: str, cell_tag="td") -> str:
 
 
 def _hubspot_obj_to_table(obj: Optional[HubspotObject]) -> str:
-    # TODO(P1, ux): Might need to sort this by form definition
     rows = []
-    for field_name in obj.data.keys():
-        key, value = obj.get_field_display_label_with_value(field_name)
+    for field in obj.form.fields:
+        key, value = obj.get_field_display_label_with_value(field.name)
         rows.append(_summary_table_row(key, value))
     rows_html = "".join(rows)
     return (

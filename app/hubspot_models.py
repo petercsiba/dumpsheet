@@ -246,25 +246,25 @@ class FieldDefinition:
 
 # Mostly used for code-gen
 class FormDefinition:
-    def __init__(self, fields: Dict[str, FieldDefinition]):
-        # TODO(P1, ux): We should maintain the sort-order of the input, e.g. now first and last name aren't neighbors
+    def __init__(self, fields: List[FieldDefinition]):
         # TODO(P1, correctness): I imagine we would need a GPT intro / context string
-        self.fields = {k: v for k, v in fields.items() if k in ALLOWED_FIELDS}
+        self.fields = [f for f in fields if f.name in ALLOWED_FIELDS]
+
+    def get_field(self, field_name):
+        return get_field(self.fields, field_name)
 
     @classmethod
     def from_properties_api_response(
         cls, field_list: List[ModelProperty]
     ) -> "FormDefinition":
-        fields = {}
+        fields = []
         for field_response in [f for f in field_list if f.name in ALLOWED_FIELDS]:
             field = FieldDefinition.from_properties_api_response(field_response)
-            fields[field.name] = field
+            fields.append(field)
         return cls(fields)
 
     def to_python_definition(self):
-        return ",\n".join(
-            [field.to_python_definition() for field in self.fields.values()]
-        )
+        return ",\n".join([field.to_python_definition() for field in self.fields])
 
 
 class ObjectType(Enum):
@@ -304,15 +304,18 @@ class HubspotObject:
         if response_props is None:
             return None
 
+        # Hubspot response has many more fields than what we care about - so this will end up ignoring a bunch.
         result = HubspotObject(hub_id=hub_id, object_type=object_type, form=form)
         for field_name, value in response_props.items():
             result.set_field_value(field_name, value)
         return result
 
+    def get_field(self, field_name):
+        return get_field(self.form.fields, field_name)
+
     def set_field_value(self, field_name: str, value: Any, raise_key_error=False):
-        if field_name in self.form.fields.keys():
-            # field: FieldDefinition = self.form.fields[field_name]
-            # self.data[field_name] = field.validate_and_fix(value)
+        field = self.get_field(field_name)
+        if bool(field):
             self.data[field_name] = value
         else:
             # print(f"INFO: omitting `{field_name}` from")
@@ -322,9 +325,9 @@ class HubspotObject:
                 )
 
     def get_value(self, field_name: str) -> str:
-        return self.form.fields[field_name].display_value(self.data.get(field_name))
+        return self.get_field(field_name).display_value(self.data.get(field_name))
 
-    def get_field_display_label_with_value(self, field_name) -> Tuple[str, Any]:
+    def get_field_display_label_with_value(self, field_name: str) -> Tuple[str, Any]:
         value = None
         if field_name == FieldNames.HS_OBJECT_ID.value:
             # TODO(P2, devx): This should be outside of here, but the complexity is getting harder to manage
@@ -335,7 +338,7 @@ class HubspotObject:
         if value is None:
             value = self.get_value(field_name)
 
-        return self.form.fields[field_name].label, value
+        return self.get_field(field_name).label, value
 
     def get_link(self) -> Optional[str]:
         if self.hub_id is None:
@@ -405,8 +408,18 @@ class AssociationType(Enum):
     TICKET_TO_POSTAL_MAIL = 456
 
 
-CONTACT_FIELDS = {
-    "hs_object_id": FieldDefinition(
+def get_field(fields: List[FieldDefinition], name: str):
+    for field in fields:
+        if field.name == name:
+            return field
+
+    # This function is oftentimes used to check if name is in the field list so only warning.
+    print(f"WARNING: Requested field {name} not in list")
+    return None
+
+
+CONTACT_FIELDS = [
+    FieldDefinition(
         name="hs_object_id",
         field_type="number",
         label="Record ID",
@@ -417,43 +430,7 @@ CONTACT_FIELDS = {
         group_name="contactinformation",
         custom_field=False,
     ),
-    "firstname": FieldDefinition(
-        name="firstname",
-        field_type="text",
-        label="First Name",
-        description="A contact's first name",
-        options=[],
-        group_name="contactinformation",
-        custom_field=False,
-    ),
-    "lastname": FieldDefinition(
-        name="lastname",
-        field_type="text",
-        label="Last Name",
-        description="A contact's last name",
-        options=[],
-        group_name="contactinformation",
-        custom_field=False,
-    ),
-    "email": FieldDefinition(
-        name="email",
-        field_type="text",
-        label="Email",
-        description="A contact's email address",
-        options=[],
-        group_name="contactinformation",
-        custom_field=False,
-    ),
-    "phone": FieldDefinition(
-        name="phone",
-        field_type="phonenumber",
-        label="Phone Number",
-        description="A contact's primary phone number",
-        options=[],
-        group_name="contactinformation",
-        custom_field=False,
-    ),
-    "hubspot_owner_id": FieldDefinition(
+    FieldDefinition(
         name="hubspot_owner_id",
         field_type="number",
         label="Contact owner",
@@ -465,34 +442,25 @@ CONTACT_FIELDS = {
         group_name="sales_properties",
         custom_field=False,
     ),
-    "city": FieldDefinition(
-        name="city",
+    FieldDefinition(
+        name="firstname",
         field_type="text",
-        label="City",
-        description="A contact's city of residence",
+        label="First Name",
+        description="A contact's first name",
         options=[],
         group_name="contactinformation",
         custom_field=False,
     ),
-    "state": FieldDefinition(
-        name="state",
+    FieldDefinition(
+        name="lastname",
         field_type="text",
-        label="State/Region",
-        description="The contact's state of residence.",
+        label="Last Name",
+        description="A contact's last name",
         options=[],
         group_name="contactinformation",
         custom_field=False,
     ),
-    "country": FieldDefinition(
-        name="country",
-        field_type="text",
-        label="Country/Region",
-        description="The contact's country/region of residence.",
-        options=[],
-        group_name="contactinformation",
-        custom_field=False,
-    ),
-    "jobtitle": FieldDefinition(
+    FieldDefinition(
         name="jobtitle",
         field_type="text",
         label="Job Title",
@@ -501,7 +469,28 @@ CONTACT_FIELDS = {
         group_name="contactinformation",
         custom_field=False,
     ),
-    "lifecyclestage": FieldDefinition(
+    FieldDefinition(
+        name="company",
+        field_type="text",
+        label="Company Name",
+        description=(
+            "Name of the contact's company. This can be set independently from the name property on "
+            "the contact's associated company."
+        ),
+        options=[],
+        group_name="contactinformation",
+        custom_field=False,
+    ),
+    FieldDefinition(
+        name="industry",
+        field_type="text",
+        label="Industry",
+        description="The Industry a contact is in",
+        options=[],
+        group_name="contactinformation",
+        custom_field=False,
+    ),
+    FieldDefinition(
         name="lifecyclestage",
         field_type="radio",
         label="Lifecycle Stage",
@@ -519,7 +508,7 @@ CONTACT_FIELDS = {
         group_name="contactinformation",
         custom_field=False,
     ),
-    "hs_lead_status": FieldDefinition(
+    FieldDefinition(
         name="hs_lead_status",
         field_type="radio",
         label="Lead Status",
@@ -537,30 +526,54 @@ CONTACT_FIELDS = {
         group_name="sales_properties",
         custom_field=False,
     ),
-    "company": FieldDefinition(
-        name="company",
+    FieldDefinition(
+        name="email",
         field_type="text",
-        label="Company Name",
-        description=(
-            "Name of the contact's company. This can be set independently from the name property on "
-            "the contact's associated company."
-        ),
+        label="Email",
+        description="A contact's email address",
         options=[],
         group_name="contactinformation",
         custom_field=False,
     ),
-    "industry": FieldDefinition(
-        name="industry",
-        field_type="text",
-        label="Industry",
-        description="The Industry a contact is in",
+    FieldDefinition(
+        name="phone",
+        field_type="phonenumber",
+        label="Phone Number",
+        description="A contact's primary phone number",
         options=[],
         group_name="contactinformation",
         custom_field=False,
     ),
-}
+    FieldDefinition(
+        name="city",
+        field_type="text",
+        label="City",
+        description="A contact's city of residence",
+        options=[],
+        group_name="contactinformation",
+        custom_field=False,
+    ),
+    FieldDefinition(
+        name="state",
+        field_type="text",
+        label="State/Region",
+        description="The contact's state of residence.",
+        options=[],
+        group_name="contactinformation",
+        custom_field=False,
+    ),
+    FieldDefinition(
+        name="country",
+        field_type="text",
+        label="Country/Region",
+        description="The contact's country/region of residence.",
+        options=[],
+        group_name="contactinformation",
+        custom_field=False,
+    ),
+]
 
-CALL_FIELDS = {
+CALL_FIELDS = [
     # "hs_activity_type": FieldDefinition(
     #     name="hs_activity_type",
     #     field_type="select",
@@ -570,7 +583,7 @@ CALL_FIELDS = {
     #     group_name="engagement",
     #     hubspot_defined=True,
     # ),
-    "hs_object_id": FieldDefinition(
+    FieldDefinition(
         name="hs_object_id",
         field_type="number",
         label="Record ID",
@@ -581,7 +594,7 @@ CALL_FIELDS = {
         group_name="callinformation",
         custom_field=False,
     ),
-    "hubspot_owner_id": FieldDefinition(
+    FieldDefinition(
         name="hubspot_owner_id",
         field_type="number",
         label="Activity assigned to",
@@ -593,7 +606,7 @@ CALL_FIELDS = {
         group_name="engagement",
         custom_field=False,
     ),
-    "hs_call_callee_object_id": FieldDefinition(
+    FieldDefinition(
         name="hs_call_callee_object_id",
         field_type="number",
         label="Callee object id",
@@ -605,7 +618,7 @@ CALL_FIELDS = {
         group_name="call",
         custom_field=False,
     ),
-    "hs_call_direction": FieldDefinition(
+    FieldDefinition(
         name="hs_call_direction",
         field_type="select",
         label="Call direction",
@@ -618,7 +631,7 @@ CALL_FIELDS = {
         custom_field=False,
     ),
     # TODO(P1, fullness): Seems ignored by GPT
-    "hs_call_disposition": FieldDefinition(
+    FieldDefinition(
         name="hs_call_disposition",
         field_type="select",
         label="Call outcome",
@@ -638,7 +651,7 @@ CALL_FIELDS = {
         group_name="call",
         custom_field=False,
     ),
-    "hs_call_from_number": FieldDefinition(
+    FieldDefinition(
         name="hs_call_from_number",
         field_type="text",
         label="From number",
@@ -647,7 +660,7 @@ CALL_FIELDS = {
         group_name="call",
         custom_field=False,
     ),
-    "hs_call_status": FieldDefinition(
+    FieldDefinition(
         name="hs_call_status",
         field_type="select",
         label="Call status",
@@ -668,7 +681,7 @@ CALL_FIELDS = {
         group_name="call",
         custom_field=False,
     ),
-    "hs_call_title": FieldDefinition(
+    FieldDefinition(
         name="hs_call_title",
         field_type="text",
         label="Call Title",
@@ -677,7 +690,7 @@ CALL_FIELDS = {
         group_name="call",
         custom_field=False,
     ),
-    "hs_call_to_number": FieldDefinition(
+    FieldDefinition(
         name="hs_call_to_number",
         field_type="text",
         label="To Number",
@@ -686,7 +699,7 @@ CALL_FIELDS = {
         group_name="call",
         custom_field=False,
     ),
-    "hs_timestamp": FieldDefinition(
+    FieldDefinition(
         name="hs_timestamp",
         field_type="date",
         label="Activity date",
@@ -695,7 +708,7 @@ CALL_FIELDS = {
         group_name="engagement",
         custom_field=False,
     ),
-    "hs_call_body": FieldDefinition(
+    FieldDefinition(
         name="hs_call_body",
         field_type="html",
         label="Call notes",
@@ -708,11 +721,11 @@ CALL_FIELDS = {
         group_name="call",
         custom_field=False,
     ),
-}
+]
 
 # https://community.hubspot.com/t5/APIs-Integrations/Create-TASK-engagement-with-due-date-and-reminder-via-API/m-p/235759#M14655
-TASK_FIELDS = {
-    "hs_object_id": FieldDefinition(
+TASK_FIELDS = [
+    FieldDefinition(
         name="hs_object_id",
         field_type="number",
         label="Record ID",
@@ -723,7 +736,7 @@ TASK_FIELDS = {
         group_name="taskinformation",
         custom_field=False,
     ),
-    "hubspot_owner_id": FieldDefinition(
+    FieldDefinition(
         name="hubspot_owner_id",
         field_type="number",
         label="Assigned to",
@@ -735,16 +748,7 @@ TASK_FIELDS = {
         group_name="engagement",
         custom_field=False,
     ),
-    "hs_task_body": FieldDefinition(
-        name="hs_task_body",
-        field_type="html",
-        label="Notes",
-        description="Action items in short bullet points",
-        options=[],
-        group_name="task",
-        custom_field=False,
-    ),
-    "hs_task_priority": FieldDefinition(
+    FieldDefinition(
         name="hs_task_priority",
         field_type="select",
         label="Priority",
@@ -758,7 +762,16 @@ TASK_FIELDS = {
         group_name="task",
         custom_field=False,
     ),
-    "hs_task_status": FieldDefinition(
+    FieldDefinition(
+        name="hs_timestamp",
+        field_type="date",
+        label="Due date",
+        description="The due date of the task",
+        options=[],
+        group_name="engagement",
+        custom_field=False,
+    ),
+    FieldDefinition(
         name="hs_task_status",
         field_type="select",
         label="Task Status",
@@ -773,7 +786,7 @@ TASK_FIELDS = {
         group_name="task",
         custom_field=False,
     ),
-    "hs_task_subject": FieldDefinition(
+    FieldDefinition(
         name="hs_task_subject",
         field_type="text",
         label="Task Title",
@@ -782,7 +795,7 @@ TASK_FIELDS = {
         group_name="task",
         custom_field=False,
     ),
-    "hs_task_type": FieldDefinition(
+    FieldDefinition(
         name="hs_task_type",
         field_type="select",
         label="Task Type",
@@ -801,24 +814,24 @@ TASK_FIELDS = {
         group_name="task",
         custom_field=False,
     ),
-    "hs_timestamp": FieldDefinition(
-        name="hs_timestamp",
-        field_type="date",
-        label="Due date",
-        description="The due date of the task",
+    FieldDefinition(
+        name="hs_task_body",
+        field_type="html",
+        label="Notes",
+        description="Actionable items in short bullet points ordered by priority top down",
         options=[],
-        group_name="engagement",
+        group_name="task",
         custom_field=False,
     ),
-}
+]
 
 
 # Poor mans test
 if __name__ == "__main__":
-    ts_field = CALL_FIELDS["hs_timestamp"]
+    ts_field = get_field(CALL_FIELDS, "hs_timestamp")
     print("validate: " + str(ts_field.validate_and_fix("2023-10-01T00:00:00.000Z")))
 
-    select_field = TASK_FIELDS["hs_task_status"]
+    select_field = get_field(TASK_FIELDS, "hs_task_status")
     print(
         "validate: "
         + str(select_field.validate_and_fix(["Not Started", "NOT_STARTED"]))

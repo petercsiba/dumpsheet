@@ -57,7 +57,7 @@ def form_field_to_gpt_prompt(field: FieldDefinition) -> Optional[str]:
 
 
 def form_definition_to_gpt_prompt(form: FormDefinition) -> str:
-    field_prompts = [form_field_to_gpt_prompt(field) for field in form.fields.values()]
+    field_prompts = [form_field_to_gpt_prompt(field) for field in form.fields]
     return ",\n".join([f for f in field_prompts if f is not None])
 
 
@@ -88,13 +88,13 @@ def extract_form_data(
 
     form_data = {}
     for name, value in form_data_raw.items():
-        if name not in form.fields:
+        field = form.get_field(name)
+        if field is None:
             print(
                 f"ERROR: gpt resulted field outside of the form definition: {name}: {value}, skipping"
             )
             continue
 
-        field: FieldDefinition = form.fields[name]
         form_data[name] = field.validate_and_fix(value)
 
     # TODO(P1, fullness): Would be nice to double-check if all GPT requested fields were actually returned.
