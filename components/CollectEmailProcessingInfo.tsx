@@ -6,7 +6,7 @@ interface CollectEmailProcessingInfoProps {
     accountId: string | null;
 }
 
-const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
+const UPDATE_EMAIL_URL = 'https://api.voxana.ai/upload/voice';
 
 const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ collectEmail, existingEmail, accountId}) => {
     const [email, setEmail] = useState('');
@@ -27,9 +27,11 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
         if (!isEmailValid(email)) {
             return;
         }
+        // setMessage(`Processing email submission ...`);
+        // setShowForm(false)
 
         try {
-            const response = await fetch(PRESIGNED_URL, {
+            const response = await fetch(UPDATE_EMAIL_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -45,8 +47,8 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
                 setShowForm(false)
             }
         } catch (err) {
-            setMessage(`Ugh - an error occurred. 
-            Rest assured - you can download the recording with the "Download button" and send it to ai@voxana.ai.`);
+            setMessage(`Ugh - an error occurred when setting your email. 
+            Rest assured - we got your recording and our team was notified.`);
             setShowForm(false)
             console.error(`
                 Please send the error message "${err}" alongside the reference ${accountId} to support@voxana.ai. Apologies for inconvenience`
@@ -59,31 +61,36 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
             {showForm && (
                 collectEmail ? (
                     // TODO(P1, design): Make these align all into the center somehow.
-                    <div className="p-4 text-center">
+                    <div className="text-left pl-6">
                         <p>
-                            I will be processing your request in the next few minutes, please
-                            enter your email to receive confirmations directly into your
-                            inbox.
+                            I will be processing your request in the next few minutes.
                         </p>
-                        <input
-                            type="text"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="border p-2 rounded"
-                        />
-                        {(submitted || email.length >= 10) && !isEmailValid(email) &&
+                        <p className="pt-2">
+                            Please <b>enter your email</b> to receive results directly into your inbox:
+                        </p>
+                        <div className="flex justify-center pt-2">
+                            <input
+                                type="text"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="border p-2 rounded"
+                            />
+                        </div>
+                        {(submitted || email.length >= 8) && !isEmailValid(email) &&
                             <p className="text-red-500">Invalid email address</p>
                         }
-                        <button onClick={handleSubmit} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-                            Submit
-                        </button>
+                        <div className="flex justify-center pt-2">
+                            <button onClick={handleSubmit} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                                Submit
+                            </button>
+                        </div>
                     </div>
                 ) : (
                     <div>
                         <span className="font-bold text-lg">I will be:</span>
                         <ul className="list-disc list-inside ml-5 text-">
-                            <li className="mt-1">Creating HubSpot Entries</li>
-                            <li className="mt-1">Sending result confirmation to your email {existingEmail ?? email}</li>
+                            <li className="mt-1">Creating HubSpot Entries (if connected)</li>
+                            <li className="mt-1">Sending results to <b>{existingEmail ?? email}</b></li>
                         </ul>
                     </div>
                 )
