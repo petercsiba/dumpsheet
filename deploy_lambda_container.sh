@@ -33,7 +33,19 @@ echo "=== Building Image ==="
 docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups . || docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups .
 
 echo "=== Pushing Image ==="
-docker push 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups:latest
+max_retries=3
+retry_delay=15
+
+for i in $(seq 1 $max_retries); do
+  echo "=== Pushing Image: Attempt $i ==="
+  docker push 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups:latest && break
+  if [ $i -eq $max_retries ]; then
+    echo "Max retries reached. Exiting."
+    exit 1
+  fi
+  echo "Push failed. Retrying in $retry_delay seconds..."
+  sleep $retry_delay
+done
 
 # echo "To finish deploy, log-in to AWS: https://d-90679cf568.awsapps.com/start/"
 
