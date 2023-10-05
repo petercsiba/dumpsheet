@@ -163,9 +163,11 @@ class HubspotClient:
             if match:
                 hs_object_id = int(match.group(1))
             # TODO(P1, reliability): Refetch object and return it
+        # TODO(P1, reliability): "error": "INVALID_OWNER_ID" -> we should retry with dropping the hubspot_owner_id
+        # match = re.search(r"INVALID_OWNER_ID", msg)
 
         print(
-            f"ERROR Hubspot API call HTTP {e.status} for {endpoint} with {req}: {msg}"
+            f"ERROR Hubspot API call HTTP {e.status} for {endpoint} with request: {req} AND response: {msg}"
         )
         return ApiSingleResponse(
             e.status, body.get("message", str(e)), hs_object_id=hs_object_id
