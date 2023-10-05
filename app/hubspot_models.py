@@ -351,11 +351,13 @@ class HubspotObject:
 
     def get_field_display_label_with_value(self, field_name: str) -> Tuple[str, Any]:
         value = None
-        if field_name == FieldNames.HS_OBJECT_ID.value:
-            # TODO(P2, devx): This should be outside of here, but the complexity is getting harder to manage
-            link_href = self.get_link()
-            if bool(link_href):
-                value = f'<a href="{self.get_link()}">{self.get_value(field_name)} - Click To See in Hubspot</a>'
+        # if field_name == FieldNames.HS_OBJECT_ID.value:
+        #     # TODO(P2, devx): This should be outside of here, but the complexity is getting harder to manage
+        #     link_href = self.get_link()
+        #     if bool(link_href):
+        #         # Task actually cannot be linked - it only really works for contacts.
+        #         # https://app.hubspot.com/contacts/40211602/record/0-1/5401/view/1?taskId=40852725122
+        #         value = f'<a href="{self.get_link()}">{self.get_value(field_name)} - Click To See in Hubspot</a>'
 
         if value is None:
             value = self.get_value(field_name)
