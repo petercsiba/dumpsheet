@@ -422,10 +422,10 @@ def send_hubspot_result(
     {extra_info}
     {heading_contact}
     <p>{contact}</p>
-    {heading_call}
-    <p>{call}</p>
     {heading_task}
     <p>{task}</p>
+    {heading_call}
+    <p>{call}</p>
     {signature}
     """.format(
         extra_info=extra_info,

@@ -581,13 +581,16 @@ CALL_FIELDS = {
         group_name="callinformation",
         custom_field=False,
     ),
-    "hs_call_body": FieldDefinition(
-        name="hs_call_body",
-        field_type="html",
-        label="Call notes",
-        description="Full call transcript with corrected grammar",
+    "hubspot_owner_id": FieldDefinition(
+        name="hubspot_owner_id",
+        field_type="number",
+        label="Activity assigned to",
+        description=(
+            "The user that the activity is assigned to in HubSpot. "
+            "This can be any HubSpot user or Salesforce integration user, and can be set manually or via Workflows."
+        ),
         options=[],
-        group_name="call",
+        group_name="engagement",
         custom_field=False,
     ),
     "hs_call_callee_object_id": FieldDefinition(
@@ -692,16 +695,17 @@ CALL_FIELDS = {
         group_name="engagement",
         custom_field=False,
     ),
-    "hubspot_owner_id": FieldDefinition(
-        name="hubspot_owner_id",
-        field_type="number",
-        label="Activity assigned to",
-        description=(
-            "The user that the activity is assigned to in HubSpot. "
-            "This can be any HubSpot user or Salesforce integration user, and can be set manually or via Workflows."
-        ),
+    "hs_call_body": FieldDefinition(
+        name="hs_call_body",
+        field_type="html",
+        label="Call notes",
+        description="""
+        A short concise structured summary of the entire transcript,
+        make sure to include all facts, if needed label those facts
+        so I can review this in a year and know what happened.
+        """,
         options=[],
-        group_name="engagement",
+        group_name="call",
         custom_field=False,
     ),
 }
@@ -717,6 +721,18 @@ TASK_FIELDS = {
         ),
         options=[],
         group_name="taskinformation",
+        custom_field=False,
+    ),
+    "hubspot_owner_id": FieldDefinition(
+        name="hubspot_owner_id",
+        field_type="number",
+        label="Assigned to",
+        description=(
+            "The user that the task is assigned to in HubSpot. "
+            "This can be any HubSpot user or Salesforce integration user, and can be set manually or via Workflows."
+        ),
+        options=[],
+        group_name="engagement",
         custom_field=False,
     ),
     "hs_task_body": FieldDefinition(
@@ -790,18 +806,6 @@ TASK_FIELDS = {
         field_type="date",
         label="Due date",
         description="The due date of the task",
-        options=[],
-        group_name="engagement",
-        custom_field=False,
-    ),
-    "hubspot_owner_id": FieldDefinition(
-        name="hubspot_owner_id",
-        field_type="number",
-        label="Assigned to",
-        description=(
-            "The user that the task is assigned to in HubSpot. "
-            "This can be any HubSpot user or Salesforce integration user, and can be set manually or via Workflows."
-        ),
         options=[],
         group_name="engagement",
         custom_field=False,
