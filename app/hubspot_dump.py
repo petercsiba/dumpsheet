@@ -67,12 +67,14 @@ def extract_form_data(
     # Get the current UTC time and then convert it to local time.
     local_now = datetime.datetime.now(pytz.timezone("America/Los_Angeles"))
     gpt_query = """
-    Fill in the following form definition with field labels, description and type / value list:
+    The following is a definition of form, as a list of form field labels, description, type (or option list values):
     {form_fields}
-    Based off this note:
+    Using this note:
     {note}
-    Return as a valid JSON format mapping field labels to values, for unknown just use null.
-    Current time is {now_with_hours_and_tz}
+    Fill in the form.
+    Return a valid JSON dictionary where keys are form labels, and values are filled in results.
+    For unknown values just use null.
+    General context: Current time is {now_with_hours_and_tz}
     """.format(
         form_fields=form_definition_to_gpt_prompt(form),
         note=text,
@@ -260,39 +262,34 @@ def extract_and_sync_contact_with_follow_up(
 
 
 test_data1 = """
-Okay, I just talked to Jen Jennifer Ma Jen is interested in our product
-Jen's phone number is 703-887-5647 She called me today,
-and she would like to get her Tax or business development team in her
-So she's in tax Tax services tax department,
-and she would like to get her biz dev team on the Voxana She's got Three account executives
-Who are taking care of like the existing sorry not like three junior ones and then another
-One two three four senior ones she has seven account executives,
-and then she has this like lead called lead reach out people
-which are another two like more junior people who are
-Like called calling and called reaching out on LinkedIn So she has a
-Altogether team of nine She they're all based in San Francisco,
-California and On her email is Jennifer double n Jennifer dot ma at Griffith
-tax Dot-com Griffith is spelled G R Y F F I T tax dot-com Mmm And
-she asked me She asked me to schedule a demo This week is too busy for her
-So we should schedule the demo sometime next week
-And it's it's my my action to come up with a good proposals when to do it next wee
-"""
-
-test_data2 = """
-All right, I Just got a call from Joe earner w er and er Joe His number is 714-313-3752
-He is he lives in Bay Area in Fremont and And Joe is Interested in Voxana as well he wants to start using the
-The product very soon. He lives in, California His Company is Supplying widgets to Tesla factory And H
-e has a team of 20 Business development Representatives who are
-Who are in touch with potential clients all around the u.s. He is
- He would like to understand more about how quickly we can deliver
- and what kind of pricing we're going to have he's very interesting to know if he just pays per seats
- or per number of Users Or if There's any usage pricing Also there they might be migrating to Salesforce soon.
- So he's interested to know if Even then we'll be able to support them after the migration he If this works out,
- he would be getting like 15 seats And Joe I Should he needs a little bit of time.
- They have some firefighting in it in a company going on But I should reach Back to him end of October
- right before Halloween he said And he also suggested He gave me contacts to max from Seed factory and
- Max could be potentially also interested. So I should just quickly follow up with Joe to to get us
- the introduction with max so that we can Get the ball rolling
+okay and then I spoke with Andrey Yursa he is from Zhilina which is funny he went to the private high school
+the english one in Zhilina and then he went to Suchany for the rest of his high school he played a
+lot of ice hockey which is funny with my cousin Alex Andrey is super outgoing and and yeah so he
+ studied philosophy at King's College and he says that he was very religious and that's why he was interested in
+ that and he was like involved with the evangelical church but he lost his religiousness and now he went into
+ business he said he worked during his college in the UK he worked for leave part-time like for two years and
+ he was reaching out to Slovak professionals living abroad and connecting them to the Slovak community that's
+ how he remembers he got in touch with Peter my co-founder so and during his second year at college he while
+ he was working for leave he got introduced to Marek and Marek was very impressed by Andrey's like outgoingness
+ and his like fearlessness how he's approaching people so yeah Andrey seems to be like a straight shooter he
+ did study for one year in the US during his high school and he played hockey in Vermont and recalls that he
+  like he was the captain of the team and when the when the coach was shouting at him for being just too rude
+  he felt like it felt like back home in Slovakia so Andrey is now here for till end of October so for a couple
+   of more weeks he would be interested in staying with us in our Airbnb from October 20th till 27th so I should
+   send him a link and we could like figure it out um they stayed in like two other Airbnbs or three in Mission
+   in Silver Terrace in Delhi city he's staying here with his colleague another so Marek is account executive he
+    has another account but he also does like SDR stuff he said he wanted Sequoia but he got Anderson Horowitz
+    they were doing coin flips on who's going to get which account and Marek likes to go to the gym and he
+     mentioned that like yeah they they have the same like problem of like updating HubSpot and updating
+      Marek the CEO on like what's going on in the accounts and what he was doing before was like they would
+       have a conversation like uh Andrey would call Marek and tell him about like it is what happened is
+       what happened but they're not like tracking it like recording it and they're not like tracking it
+       like recording it anywhere although so yeah so if Andrey could just like record a voice memo and this
+        could be recorded into a system that would help them a lot Andrey also says he has a great memory and he
+        remembers like like the entire conversations but now he starts to feel that it's not he's also reaching
+        his limits so yeah Andrey also gave me a demo of their tool and he was really good but when I commented
+        on his demo demoing skills he's like no in a real demo I would give you much more discovery questions to
+         learn about you to start with so it's like okay that's good to know learning about how to sell
 """
 
 if __name__ == "__main__":
@@ -358,7 +355,7 @@ if __name__ == "__main__":
         hs_data_entry = extract_and_sync_contact_with_follow_up(
             test_hs_client,
             test_gpt_client,
-            test_data2,
+            test_data1,
             hub_id=test_pipeline.external_org_id,
             hubspot_owner_id=peter_voxana_user_id,
             local_hack=True,

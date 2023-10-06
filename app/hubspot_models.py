@@ -161,6 +161,19 @@ class FieldDefinition:
         if value is None:
             return None
 
+        # Sometimes, GPT results in entire definition of the field, in that case extra the value
+        # For example:
+        # Invalid format for task.hs_task_subject expected unexpected text type (type=text) given
+        # { 'label': 'Task Title',
+        #   'description': 'The title of the task',
+        #   'type': 'text',
+        #   'value': 'Schedule meeting with Andrey Yursa'
+        # } (type=<class 'dict'>)
+        if isinstance(value, dict):
+            # NOTE: We also include "type" cause ("label", "value") happens often for Select/Radio/Option fields.
+            if "label" in value and "type" in value and "value" in value:
+                return self.validate_and_fix(value["value"])
+
         if self.field_type == "text":
             return self._validate_text(value)
         if self.field_type == "date":
@@ -863,7 +876,7 @@ TASK_FIELDS = [
         name="hs_task_body",
         field_type="html",
         label="To Dos",
-        description="Actionable items in short bullet points ordered by priority top down",
+        description="Action items and follows ups I need to do in concise bullet points ordered by priority top down",
         options=[],
         group_name="task",
         custom_field=False,

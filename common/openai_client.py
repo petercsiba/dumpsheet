@@ -402,17 +402,12 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
         r"```[a-z\s]*?(.*?) ```", r"\1", raw_response, flags=re.DOTALL
     )
     # For "Expecting property name enclosed in double quotes"
-    # Obviously not bullet-proof for stuff like 'Ed's', can be probably
-    # raw_json = raw_response.replace("'", '"')
-    # GPT to rescue: Use regex to replace single quotes with double quotes
-    # raw_response = re.sub(r"\'((?:[^']|(?<=\\\\)')*?[^'])\'", r'"\1"', raw_response)
     # Welp - OMG this from PPrint :facepalm:
     raw_response = (
         raw_response.replace("{'", '{"').replace("':", '":').replace(", '", ', "')
     )
-    raw_response = (
-        raw_response.replace("',", '",').replace(": '", ': "').replace("'}", '"}')
-    )
+    # NOTE: .replace("',", '",') can happen for example "part-time for 'leave', reached"
+    raw_response = raw_response.replace(": '", ': "').replace("'}", '"}')
     # See test_gpt_response_to_json
     # raw_response = raw_response.replace(': ""', ': "').replace('""}', '"}')
     # Sometimes, it includes the input in the response. So only consider what is after "Output"
