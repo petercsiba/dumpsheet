@@ -1,4 +1,6 @@
 # title, content
+from typing import Optional
+
 full_template = """
 <!DOCTYPE html>
 <html>
@@ -131,3 +133,15 @@ table_row_template = """
                 <td align="left">{value}</td>
               </tr>
 """
+
+
+def simple_email_body_html(
+    title: str, content_text: str, sub_title: Optional[str] = None
+) -> str:
+    return full_template.format(
+        title=title,
+        content=main_content_template.format(
+            heading=sub_title if bool(sub_title) else title,
+            content=content_text,
+        ),
+    )

@@ -56,3 +56,17 @@ class EmailLog(BaseEmailLog):
             reply_to=SUPPORT_EMAIL,  # We skip the orig_to_address, as that would trigger another transcription.
             idempotency_id=idempotency_id,
         )
+
+    @staticmethod
+    def save_last_email_log_to(filename: str):
+        # Fetch the last inserted row based on created_at
+        last_email: BaseEmailLog = (
+            BaseEmailLog.select().order_by(BaseEmailLog.created_at.desc()).get()
+        )
+
+        filepath = f"/Users/petercsiba/Downloads/{filename}"
+        with open(filepath, "w") as f:
+            print(
+                f"Saving last email log created {last_email.created_at} to {filepath}"
+            )
+            f.write(last_email.body_html)

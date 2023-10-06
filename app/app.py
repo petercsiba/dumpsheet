@@ -34,6 +34,7 @@ from database.client import (
     connect_to_postgres_i_will_call_disconnect_i_promise,
 )
 from database.constants import DESTINATION_HUBSPOT_ID
+from database.email_log import EmailLog
 from database.models import BaseAccount, BaseDataEntry, BaseOrganization
 from database.organization import ORGANIZATION_ROLE_OWNER, Organization
 from database.pipeline import Pipeline
@@ -430,3 +431,5 @@ if __name__ == "__main__":
                 gpt_client=open_ai_client,
                 data_entry=orig_data_entry,
             )
+
+        EmailLog.save_last_email_log_to("result-app-app.html")

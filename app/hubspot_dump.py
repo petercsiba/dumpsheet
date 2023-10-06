@@ -25,7 +25,8 @@ from common.openai_client import OpenAiClient, gpt_response_to_json
 from database.account import Account
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.constants import DESTINATION_HUBSPOT_ID, OAUTH_DATA_TOKEN_TYPE_OAUTH
-from database.models import BaseEmailLog, BaseOrganization
+from database.email_log import EmailLog
+from database.models import BaseOrganization
 from database.oauth_data import OauthData
 from database.organization import Organization
 from database.pipeline import Pipeline
@@ -369,10 +370,4 @@ if __name__ == "__main__":
             data=hs_data_entry,
         )
 
-        # Fetch the last inserted row based on created_at
-        last_email = (
-            BaseEmailLog.select().order_by(BaseEmailLog.created_at.desc()).get()
-        )
-
-        with open("/Users/petercsiba/Downloads/result.html", "w") as f:
-            f.write(last_email.body_html)
+        EmailLog.save_last_email_log_to("result-hubspot-dump.html")

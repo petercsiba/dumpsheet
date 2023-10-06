@@ -20,6 +20,7 @@ from app.datashare import PersonDataEntry
 from app.email_template import (
     full_template,
     main_content_template,
+    simple_email_body_html,
     table_row_template,
     table_template,
 )
@@ -329,18 +330,18 @@ def _make_human_readable(filename):
 def send_confirmation(params: EmailLog, attachment_paths):
     first_name = params.get_recipient_first_name()
     if len(attachment_paths) == 0:
+        params.idempotency_id = f"{params.idempotency_id}-forgot-attachment"
         params.subject = "We have received your message - but no recording was found"
-        params.body_html = (
-            """
+        params.body_html = simple_email_body_html(
+            title=params.subject,
+            content_text="""
             <p>Yo {}, did you forgot to attach your voice memo in your email?
             ☕ I would love to brew you a coffee, but I ain't real, so an emoji will have to do it: ☕</p>
             <p>Remember, any audio file would do, I can convert from any known audio file by myself!</p>
             """.format(
                 first_name
-            )
-            + add_signature()
+            ),
         )
-        params.idempotency_id = f"{params.idempotency_id}-forgot-attachment"
         send_email(params=params)
     else:
         file_list = []
@@ -352,21 +353,21 @@ def send_confirmation(params: EmailLog, attachment_paths):
             file_list.append(f"<li>{filename} ({file_size})</li>")
         file_list_str = "\n".join(file_list)
 
+        params.idempotency_id = f"{params.idempotency_id}-confirmation"
         params.subject = (
             f"Confirmation - we have received your recording {recording_name}"
         )
-        params.body_html = (
-            """
+        params.body_html = simple_email_body_html(
+            title=params.subject,
+            content_text="""
             <p>Hi {}, </p>
             <p>I am confirming receipt of your voice memo upload(s),
             it will take me a few minutes to get back to you.</p>
             <p>I've received the following files:</p>
             <p><ul>{}</ul></p>""".format(
                 first_name, file_list_str
-            )
-            + add_signature()
+            ),
         )
-        params.idempotency_id = f"{params.idempotency_id}-confirmation"
         send_email(params=params)
 
 
@@ -431,16 +432,14 @@ def send_hubspot_result(
     email_params = EmailLog.get_email_reply_params_for_account_id(
         account_id=account_id,
         idempotency_id=f"{idempotency_id_prefix}-result-{idempotency_id_suffix}",
-        subject=f"HubSpot Data Entry for {person_name} into {org.name}",
+        subject=f"HubSpot Data Entry for {person_name} into {org.name} - {data.state.capitalize()}",
     )
 
     if data.state in ["short", "incomplete"]:
-        email_params.body_text = full_template.format(
+        email_params.body_html = simple_email_body_html(
             title=f"Note is {data.state} - please enter more information.",
-            content=main_content_template.format(
-                heading="Your note as I understood it",
-                content=data.transcript,
-            ),
+            sub_title="This is how I understood it",
+            content_text=data.transcript,
         )
         return send_email(params=email_params)
 
@@ -485,7 +484,7 @@ def send_hubspot_result(
 
 
 def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
-    # TODO(P0, ux): Improve this logic
+    # TODO(P1, ux): Migrate to new email template
     next_draft_html = ""
     should_takeaways = True
     subject_prefix = "Notes on "
