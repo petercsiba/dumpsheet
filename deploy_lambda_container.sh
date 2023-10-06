@@ -28,11 +28,22 @@ fi
 # Get ECR login password and login to Docker
 aws ecr get-login-password --region us-east-1 --profile $PROFILE_NAME | docker login --username AWS --password-stdin 831154875375.dkr.ecr.us-east-1.amazonaws.com
 
-echo "=== Building Image ==="
-# For some weird reason the first build try always fails :/ So always retry once on failure
-docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups . || docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups .
 
-echo "=== Pushing Image ==="
+# For some weird reason the first build try always fails :/ So always retry once on failure
+max_retries=1
+retry_delay=15
+
+for i in $(seq 1 $max_retries); do
+  echo "=== Building Image: Attempt $i ==="
+  docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups .  && break
+  if [ $i -eq $max_retries ]; then
+    echo "Max retries reached. Exiting."
+    exit 1
+  fi
+  echo "Push failed. Retrying in $retry_delay seconds..."
+  sleep $retry_delay
+done
+
 max_retries=3
 retry_delay=15
 
