@@ -366,7 +366,7 @@ class HubspotObject:
             # TODO(P2, devx): This should be outside of here, but the complexity is getting harder to manage
             link_href = self.get_link()
             if bool(link_href):
-                value = f'<a href="{self.get_link()}">{self.get_display_value(field_name)} - See in Hubspot</a>'
+                value = f'<a href="{self.get_link()}">{self.get_display_value(field_name)} - See in Hubspot (Web)</a>'
 
         if value is None:
             value = self.get_display_value(field_name)
@@ -459,17 +459,6 @@ def get_field(fields: List[FieldDefinition], name: str):
 
 
 CONTACT_FIELDS = [
-    FieldDefinition(
-        name="hs_object_id",
-        field_type="number",
-        label="Record ID",
-        description=(
-            "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
-        ),
-        options=[],
-        group_name="contactinformation",
-        custom_field=False,
-    ),
     FieldDefinition(
         name="hubspot_owner_id",
         field_type="number",
@@ -609,6 +598,17 @@ CONTACT_FIELDS = [
         field_type="text",
         label="Country/Region",
         description="The contact's country/region of residence.",
+        options=[],
+        group_name="contactinformation",
+        custom_field=False,
+    ),
+    FieldDefinition(
+        name="hs_object_id",
+        field_type="number",
+        label="Record ID",
+        description=(
+            "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
+        ),
         options=[],
         group_name="contactinformation",
         custom_field=False,
