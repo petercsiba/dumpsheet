@@ -153,7 +153,7 @@ class FieldDefinition:
             return datetime_value.strftime("%b %d %Y, %-I%p %Z")
 
         if self.name in [FieldNames.FIRSTNAME.value, FieldNames.LASTNAME.value]:
-            return str(value).capitalize()
+            return " ".join(word.capitalize() for word in str(value).split(" "))
 
         return value
 
