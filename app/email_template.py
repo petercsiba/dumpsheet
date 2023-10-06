@@ -1,6 +1,7 @@
 # title, content
 from typing import Optional
 
+# title, content
 full_template = """
 <!DOCTYPE html>
 <html>
@@ -111,7 +112,7 @@ table_template = """
         border-radius: 12px;">
         <tr>
           <td style="padding: 20px;">
-            <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">{heading}</div>
+            <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">{heading}</div>
 
             <!-- Two-column table for order information -->
             <table width="100%" cellspacing="0" cellpadding="10">

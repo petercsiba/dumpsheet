@@ -371,17 +371,36 @@ def send_confirmation(params: EmailLog, attachment_paths):
         send_email(params=params)
 
 
-def _summary_table_row_deprecated(key: str, value: str, cell_tag="td") -> str:
-    return (
-        f"<tr><{cell_tag} style='background-color: #f0f0f0; padding: 5px 2px;'><strong>{key}</strong></{cell_tag}>"
-        f"<{cell_tag} style='padding: 2px 5px;'>{value}</{cell_tag}></tr>\n"
-    )
+def _format_summary_table_row(label: str, value: str) -> str:
+    # if len(str(value)) <= 1:
+    #    return None
 
+    if value is None:
+        display_value = "None"
+    elif isinstance(value, str):
+        # TODO(P1, ux): We could better format str lists, e.g when ChatGPT outputs type:str of
+        # 1. Personal Details: Katka is from Slovakia and has an MBA from Columbia.
+        # 2. Professional Interests: She is involved in building AI voice assistants.
+        # we could split by new line and see that 1., 2., ... etc.
+        display_value = value
+    elif isinstance(value, list):
+        li_items = "".join(f"<li>{item}</li>" for item in value)
+        display_value = f"<ul>{li_items}</ul>"
+    elif isinstance(value, dict):
+        li_items = "".join(
+            f"<li><strong>{item_key}</strong>: {item_value}</li>"
+            for item_key, item_value in value.items()
+        )
+        display_value = f"<ul>{li_items}</ul>"
+    else:
+        print(
+            f"WARNING: Unhandled display value for label {label} ({type(value)}): {value}"
+        )
+        display_value = str(value)
 
-def _summary_table_row(label: str, value: str) -> str:
     return table_row_template.format(
         label=label,
-        value=value,
+        value=display_value,
     )
 
 
@@ -397,7 +416,7 @@ def _hubspot_obj_to_table(heading: str, obj: Optional[HubspotObject]) -> str:
             print(f"INFO: ignoring {field.name} for now")
             continue
         key, value = obj.get_field_display_label_with_value(field.name)
-        rows.append(_summary_table_row(key, value))
+        rows.append(_format_summary_table_row(key, value))
     rows_html = "\n".join(rows)
     return table_template.format(heading=heading, rows=rows_html)
 
@@ -485,7 +504,7 @@ def send_hubspot_result(
 
 def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
     # TODO(P1, ux): Migrate to new email template
-    next_draft_html = ""
+    draft_html = ""
     should_takeaways = True
     subject_prefix = "Notes on "
     if person.should_draft():
@@ -497,73 +516,66 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
             should_takeaways = False
             # template = "draft"
             subject_prefix = f"Drafted {person.response_message_type} for"
-            next_draft_html = """
-    <p>{draft}</p>
-    {heading2}
-    {summarized_note}
-    """.format(
-                draft=person.next_draft.replace("\n", "<br />"),
-                heading2=_format_heading("Your notes"),
-                summarized_note=person.summarized_note.replace("\n", "<br />"),
+            next_draft_html = main_content_template.format(
+                heading=f"Draft {person.response_message_type}",
+                content=person.next_draft.replace("\n", "<br />"),
             )
+            summarized_note_html = main_content_template.format(
+                heading="Your notes",
+                content="""<p style="line-height: 1.5;">{sub_content}</p>""".format(
+                    sub_content=person.summarized_note.replace("\n", "<br />")
+                ),
+            )
+            draft_html = next_draft_html + summarized_note_html
     if should_takeaways:
         # template = "takeaways"
         subject_prefix = "Takeaways from"
-        next_draft_html = ""  # nothing to draft, just to research / act on
+        draft_html = ""  # nothing to draft, just to research / act on
 
     summary_fields = person.get_summary_fields()
     summary_rows = []
     for key, value in summary_fields.items():
-        if len(str(value)) <= 1:
-            continue
-
-        if isinstance(value, str):
-            summary_rows.append(_summary_table_row(key, value))
-        elif isinstance(value, list):
-            li_items = "".join(f"<li>{item}</li>" for item in value)
-            summary_rows.append(_summary_table_row(key, f"<ul>{li_items}</ul>"))
-        elif isinstance(value, dict):
-            li_items = "".join(
-                f"<li><strong>{item_key}</strong>: {item_value}</li>"
-                for item_key, item_value in value.items()
-            )
-            summary_rows.append(_summary_table_row(key, f"<ul>{li_items}</ul>"))
+        summary_rows.append(_format_summary_table_row(key, value))
 
     # Join the list items into a single string
     if person.should_show_full_contact_card():
-        summary_html = (
-            _format_heading("Contact card for your CRM (Excel)")
-            + '<table style="border: 1px solid black;">'
-            + "".join(summary_rows)
-            + "</table>"
+        contact_card_html = table_template.format(
+            heading="Contact card for your CRM (Excel)",
+            rows="\n".join(summary_rows),
         )
     else:
-        summary_html = (
-            f"<p>Please talk more about {person.name}, I have too little context to confidently summarize.</p>"
-            f"<p>This is what I got {person.transcript}</p>"
+        contact_card_html = main_content_template.format(
+            heading=f"Not enough information for {person.name}",
+            content=(
+                f"<p>Please talk more about {person.name}, I have too little context to confidently summarize.</p>"
+                f"<p>This is what I got {person.transcript}</p>"
+            ),
         )
-    res_body = """
+    res_content_html = """
 {draft_html}
-<p>{summary_html}</p>
-{signature}
+{contact_card_html}
 """.format(
-        draft_html=next_draft_html, summary_html=summary_html, signature=add_signature()
+        draft_html=draft_html,
+        contact_card_html=contact_card_html,
     )
-    return subject_prefix, res_body
+    return subject_prefix, res_content_html
 
 
 def send_result(
     account_id: UUID, idempotency_id_prefix: str, person: PersonDataEntry
 ) -> bool:
     person_name_safe = re.sub(r"\W", "-", person.name).lower()
-    subject_prefix, body_text = _craft_result_email_body(person)
+    subject_prefix, content_html = _craft_result_email_body(person)
 
     email_params = EmailLog.get_email_reply_params_for_account_id(
         account_id=account_id,
         idempotency_id=f"{idempotency_id_prefix}-{person_name_safe}",
         subject=f"{subject_prefix} {person.name}",
     )
-    email_params.body_text = body_text
+    email_params.body_html = full_template.format(
+        title=email_params.subject,
+        content=content_html,
+    )
 
     return send_email(params=email_params)
 
@@ -576,17 +588,24 @@ def send_result_rest_of_the_crowd(
         idempotency_id=f"{idempotency_id_prefix}-rest-of-the-crowd",
         subject=f"You also mentioned these {len(people)} folks",
     )
-    rows = [_summary_table_row_deprecated("Name", "Notes", cell_tag="th")]
+    rows = []
     for person in people:
-        rows.append(_summary_table_row_deprecated(person.name, person.transcript))
+        rows.append(_format_summary_table_row(person.name, person.transcript))
 
-    email_params.body_text = """
+    content_text = """
     <p>These folks you mentioned, but unfortunately I didn't get enough context
     from your note to confidently draft a response or summarize their profile. </p>
-    <p>Remember, you can always fill me in with a new recording."</p>
-    <p><table style="border: 1px solid black;">{rows_html}</table></p>{signature}
+    <p>Remember, you can always fill me in with a new recording.</p>
+    {table_html}
     """.format(
-        rows_html="".join(rows), signature=add_signature()
+        table_html=table_template.format(
+            heading="The people you mentioned too",
+            rows="\n".join(rows),
+        )
+    )
+    email_params.body_html = simple_email_body_html(
+        title=email_params.subject,
+        content_text=content_text,
     )
 
     return send_email(params=email_params)
@@ -601,12 +620,13 @@ def send_result_no_people_found(
         subject="Unfortunately, I did not found people in your recent voice note",
     )
 
-    email_params.body_text = """
+    email_params.body_html = simple_email_body_html(
+        title=email_params.subject,
+        content_text="""
     <p>I tried my best, but I couldn't figure out who you talked about in your note. This is what I understood:</p>
-    <p>{full_transcript}</p>
-    {signature}
-    """.format(
-        full_transcript=full_transcript, signature=add_signature()
+    <p>{full_transcript}</p>""".format(
+            full_transcript=full_transcript
+        ),
     )
 
     return send_email(params=email_params)
@@ -629,6 +649,7 @@ def send_technical_failure_email(
         reply_to=NO_REPLY_EMAIL,  # We skip the orig_to_address, as that would trigger another transcription.
         idempotency_id=idempotency_id,
     )
-    # TODO(devx, P0): Would be great to include last 10 log messages for even faster debugging.
+    # TODO(devx, P1): Would be great to include last 10 log messages for even faster debugging.
+    # Note: No need to format - less code less bugs.
     email_params.body_text = f"<p>{str(err)}</p>" + trace.replace("\n", "<br />")
     return send_email(params=email_params)
