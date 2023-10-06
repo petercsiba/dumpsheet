@@ -311,12 +311,25 @@ def add_signature():
     )
 
 
+# E.g. "2023-10-05_193824-0500-James_white_for_testing.m4a" -> James White For Testing
+def _make_human_readable(filename):
+    match = re.search(r"-(\w+(_\w+)*)", filename)
+    if match:
+        name_part = match.group(1)
+        name_part = name_part.replace("_", " ")
+        return " ".join(word.capitalize() for word in name_part.split(" "))
+    else:
+        print(f"WARNING: could not find words in filename {filename}")
+        return ""
+
+
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
 #   * Yeah, we might want to centralize this into Hubspot Transactional email API.
 # We have attachment_paths separate, so the response email doesn't re-attach them.
 def send_confirmation(params: EmailLog, attachment_paths):
     first_name = params.get_recipient_first_name()
     if len(attachment_paths) == 0:
+        params.subject = "We have received your message - but no recording was found"
         params.body_html = (
             """
             <p>Yo {}, did you forgot to attach your voice memo in your email?
@@ -331,11 +344,17 @@ def send_confirmation(params: EmailLog, attachment_paths):
         send_email(params=params)
     else:
         file_list = []
+        recording_name = ""
         for file_path in attachment_paths:
             file_size = pretty_filesize_path(file_path)
-            file_list.append(f"<li>{os.path.basename(file_path)} ({file_size})</li>")
+            filename = os.path.basename(file_path)
+            recording_name = _make_human_readable(filename)
+            file_list.append(f"<li>{filename} ({file_size})</li>")
         file_list_str = "\n".join(file_list)
 
+        params.subject = (
+            f"Confirmation - we have received your recording {recording_name}"
+        )
         params.body_html = (
             """
             <p>Hi {}, </p>

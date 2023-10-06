@@ -161,6 +161,9 @@ class FieldDefinition:
         if value is None:
             return None
 
+        if value == "None" or value == "null":
+            return None
+
         # Sometimes, GPT results in entire definition of the field, in that case extra the value
         # For example:
         # Invalid format for task.hs_task_subject expected unexpected text type (type=text) given
@@ -488,7 +491,7 @@ CONTACT_FIELDS = [
         name="firstname",
         field_type="text",
         label="First Name",
-        description="A contact's first name",
+        description="Contacts first name (not surname)",
         options=[],
         group_name="contactinformation",
         custom_field=False,
@@ -497,7 +500,7 @@ CONTACT_FIELDS = [
         name="lastname",
         field_type="text",
         label="Last Name",
-        description="A contact's last name",
+        description="Contacts last name (not given name)",
         options=[],
         group_name="contactinformation",
         custom_field=False,
