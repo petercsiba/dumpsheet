@@ -11,7 +11,7 @@ const Banner = () => {
             <div className="absolute top-8 left-8 flex items-center space-x-2 top-navigation">
                 <a href="https://www.voxana.ai/">
                     <Image
-                        src="/images/voxana-logo-text-rectangle.png"
+                        src="/images/voxana-logo-text-rectangle-930x174-transparent.png"
                         alt="Voxana AI Logo"
                         width={150}
                         height={30}
