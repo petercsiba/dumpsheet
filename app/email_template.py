@@ -27,11 +27,6 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
               />
             </a>
           </td>
-          <td style="text-align: right;">
-            <a href="https://calendly.com/katka-voxana/30min?month=2023-10"
-                style="background-color: black; color: white; padding: 10px 20px; text-decoration: none;
-                       border-radius: 20px;">Book a demo</a>
-          </td>
         </tr>
       </table>
 

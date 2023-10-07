@@ -313,6 +313,7 @@ def add_signature():
 
 
 # E.g. "2023-10-05_193824-0500-James_white_for_testing.m4a" -> James White For Testing
+# or 2023-10-06_210315-0500-Andrej_Jursa_Vestberry.m4a.mp4
 def _make_human_readable(filename):
     match = re.search(r"-(\w+(_\w+)*)", filename)
     if match:
@@ -350,6 +351,11 @@ def send_confirmation(params: EmailLog, attachment_paths):
             file_size = pretty_filesize_path(file_path)
             filename = os.path.basename(file_path)
             recording_name = _make_human_readable(filename)
+            print(
+                f"DEBUG: filename {filename} converted to display name {recording_name}"
+            )
+            if len(recording_name) < 4:
+                recording_name = ""
             file_list.append(f"<li>{filename} ({file_size})</li>")
         file_list_str = "\n".join(file_list)
 
