@@ -6,6 +6,8 @@ full_template = """
 <!DOCTYPE html>
 <html>
 <head>
+  <!-- For overriding dark mode -->
+  <meta name="color-scheme" content="light">
   <title>{title}</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #fdfefe; font-family: Arial, sans-serif;">
