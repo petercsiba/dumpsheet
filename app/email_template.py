@@ -86,19 +86,31 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
 </html>
 """
 
-# heading, content
-main_content_template = """
-      <table align="center" width="80%" cellspacing="0" cellpadding="0"
-        style="max-width: 36rem; margin-top: 20px; border: 1px solid black; background-color: white;
-        border-radius: 12px;">
-        <tr>
-          <td style="padding: 20px;">
+
+def main_content_template(content, heading: Optional[str] = None):
+    heading_html = ""
+    if bool(heading):
+        heading_html = """
             <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">{heading}</div>
-            {content}
-          </td>
-        </tr>
-      </table>
-"""
+        """.format(
+            heading=heading
+        )
+
+    return f"""
+          <table align="center" width="80%" cellspacing="0" cellpadding="0"
+            style="max-width: 36rem; margin-top: 20px; border: 1px solid black; background-color: white;
+            border-radius: 12px;">
+            <tr>
+              <td style="padding: 20px;">
+                {heading_html}
+                {content}
+              </td>
+            </tr>
+          </table>
+    """.format(
+        heading_html=heading_html, content=content
+    )
+
 
 # heading, rows
 table_template = """
@@ -136,8 +148,8 @@ def simple_email_body_html(
 ) -> str:
     return full_template.format(
         title=title,
-        content=main_content_template.format(
-            heading=sub_title if bool(sub_title) else title,
+        content=main_content_template(
+            heading=sub_title,
             content=content_text,
         ),
     )

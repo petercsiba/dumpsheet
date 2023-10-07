@@ -431,11 +431,11 @@ def _hubspot_objs_maybe_to_table(
     heading: str, obj: Optional[HubspotObject], gpt_obj: Optional[HubspotObject]
 ) -> str:
     if obj is None:
-        result = main_content_template.format(
+        result = main_content_template(
             heading=heading, content="Could not sync data to HubSpot (API error)"
         )
         if gpt_obj is None:
-            result = main_content_template.format(
+            result = main_content_template(
                 heading=heading,
                 content="Could not parse data into structure (GPT error)",
             )
@@ -475,7 +475,7 @@ def send_hubspot_result(
     }
     extra_info = ""
     if data.state in extra_info_map:
-        extra_info = main_content_template.format(
+        extra_info = main_content_template(
             heading="Sync Status",
             content=extra_info_map[data.state],
         )
@@ -487,7 +487,7 @@ def send_hubspot_result(
     task_table = _hubspot_objs_maybe_to_table(
         "Follow up Tasks", data.task, data.gpt_task
     )
-    further_details = main_content_template.format(
+    further_details = main_content_template(
         heading="Further Details",
         content=data.call.get_display_value(FieldNames.HS_CALL_BODY.value),
     )
@@ -522,11 +522,11 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
             should_takeaways = False
             # template = "draft"
             subject_prefix = f"Drafted {person.response_message_type} for"
-            next_draft_html = main_content_template.format(
+            next_draft_html = main_content_template(
                 heading=f"Draft {person.response_message_type}",
                 content=person.next_draft.replace("\n", "<br />"),
             )
-            summarized_note_html = main_content_template.format(
+            summarized_note_html = main_content_template(
                 heading="Your notes",
                 content="""<p style="line-height: 1.5;">{sub_content}</p>""".format(
                     sub_content=person.summarized_note.replace("\n", "<br />")
@@ -550,7 +550,7 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
             rows="\n".join(summary_rows),
         )
     else:
-        contact_card_html = main_content_template.format(
+        contact_card_html = main_content_template(
             heading=f"Not enough information for {person.name}",
             content=(
                 f"<p>Please talk more about {person.name}, I have too little context to confidently summarize.</p>"
