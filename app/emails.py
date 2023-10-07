@@ -315,7 +315,7 @@ def add_signature():
 # E.g. "2023-10-05_193824-0500-James_white_for_testing.m4a" -> James White For Testing
 # or 2023-10-06_210315-0500-Andrej_Jursa_Vestberry.m4a.mp4
 def _make_human_readable(filename):
-    match = re.search(r"-(\w+(_\w+)*)", filename)
+    match = re.search(r"-([^-\d]+)(?=(?:\.\w+)+$)", filename)
     if match:
         name_part = match.group(1)
         name_part = name_part.replace("_", " ")
@@ -659,3 +659,12 @@ def send_technical_failure_email(
     # Note: No need to format - less code less bugs.
     email_params.body_text = f"<p>{str(err)}</p>" + trace.replace("\n", "<br />")
     return send_email(params=email_params)
+
+
+if __name__ == "__main__":
+    human_readable_tests = [
+        "2023-10-05_193824-0500-James_white_for_testing.m4a",
+        "2023-10-06_210315-0500-Andrej_Jursa_Vestberry.m4a.mp4",
+    ]
+    for test_case in human_readable_tests:
+        print(_make_human_readable(test_case))
