@@ -88,6 +88,13 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
 </html>
 """
 
+# We do 96% to be mobile friendly
+_content_begin = """
+        <table align="center" width="96%" cellspacing="0" cellpadding="0"
+                    style="max-width: 36rem; margin-top: 20px; border: 1px solid black; background-color: white;
+                    border-radius: 12px;">
+"""
+
 
 def main_content_template(content, heading: Optional[str] = None):
     heading_html = ""
@@ -98,10 +105,9 @@ def main_content_template(content, heading: Optional[str] = None):
             heading=heading
         )
 
-    return f"""
-          <table align="center" width="80%" cellspacing="0" cellpadding="0"
-            style="max-width: 36rem; margin-top: 20px; border: 1px solid black; background-color: white;
-            border-radius: 12px;">
+    return (
+        _content_begin
+        + """
             <tr>
               <td style="padding: 20px;">
                 {heading_html}
@@ -110,15 +116,15 @@ def main_content_template(content, heading: Optional[str] = None):
             </tr>
           </table>
     """.format(
-        heading_html=heading_html, content=content
+            heading_html=heading_html, content=content
+        )
     )
 
 
 # heading, rows
-table_template = """
-      <table align="center" width="80%" cellspacing="0" cellpadding="0"
-        style="max-width: 36rem; margin-top: 20px; border: 1px solid black; background-color: white;
-        border-radius: 12px;">
+table_template = (
+    _content_begin
+    + """
         <tr>
           <td style="padding: 20px;">
             <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">{heading}</div>
@@ -135,6 +141,7 @@ table_template = """
         </tr>
       </table>
 """
+)
 
 # label, value
 table_row_template = """
