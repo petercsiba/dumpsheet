@@ -54,7 +54,9 @@ export default function Home() {
         `}</style>
 
           <div className="bg-[#fdfefe] bg-bottom-right bg-cover bg-fixed h-screen w-full relative"
-               style={{ backgroundImage: 'url("/images/voxana-hero-background.png")' }}>
+               style={{ backgroundImage: 'url("/images/voxana-hero-background-553x843.png")',
+                   backgroundPosition: 'bottom right', imageRendering: 'auto',
+          }}>
              <Banner></Banner>
               <div
                   className="flex flex-col items-center justify-center gap-6 px-10 pt-10 pb-4 absolute top-[45%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 md:w-96 h-144 rounded-lg border border-black bg-white"
