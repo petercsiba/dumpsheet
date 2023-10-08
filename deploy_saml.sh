@@ -3,6 +3,9 @@
 
 PROFILE_NAME="AdministratorAccess-831154875375"
 
+# Trap SIGTERM and SIGINT signals and kill the script and its children
+trap "kill 0" SIGTERM SIGINT
+
 echo "=== Running tests first ==="
 python -m pytest sam_app/tests/unit -v
 
