@@ -209,7 +209,7 @@ My notes: {}"""
     person.summarized_note = (
         raw_note
         if len(raw_note) < MIN_FULL_TRANSCRIPT_CHAR_LENGTH_TO_GENERATE_SUMMARY
-        else f"(Summarized)\n {summarize_note(gpt_client, raw_note)}"
+        else summarize_note(gpt_client, raw_note)
     )
     # TODO(P1, ux): Custom fields like their children names, or responses to recurring questions from me.
     # person.additional_metadata = {}
