@@ -14,8 +14,8 @@ full_template = """
 
 <!-- Main Layout -->
 <table width="100%" cellspacing="0" cellpadding="0"
-style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-hero-background-1634x1696.png');
-       background-position: bottom right; background-size: cover;">
+style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-hero-background-white-553x843.jpg');
+       background-position: bottom right; image-rendering: auto;">
   <tr>
     <td>
       <!-- Logo and Demo button -->
