@@ -487,10 +487,13 @@ def send_hubspot_result(
     task_table = _hubspot_objs_maybe_to_table(
         "Follow up Tasks", data.task, data.gpt_task
     )
-    further_details = main_content_template(
-        heading="Further Details",
-        content=data.call.get_display_value(FieldNames.HS_CALL_BODY.value),
-    )
+    if data.call is None:
+        further_details = ""
+    else:
+        further_details = main_content_template(
+            heading="Further Details",
+            content=data.call.get_display_value(FieldNames.HS_CALL_BODY.value),
+        )
     email_params.body_html = full_template.format(
         title="HubSpot Data Entry Confirmation",
         content="""
