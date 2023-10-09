@@ -15,7 +15,9 @@ full_template = """
 <!-- Main Layout -->
 <table width="100%" cellspacing="0" cellpadding="0"
 style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-hero-background-white-553x843.jpg');
-       background-position: bottom right; image-rendering: auto;">
+       background-position: bottom right; image-rendering: auto; background-repeat: no-repeat; background-size: cover;
+       background-attachment: fixed;
+       ">
   <tr>
     <td>
       <!-- Logo and Demo button -->

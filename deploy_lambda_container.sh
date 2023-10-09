@@ -33,7 +33,7 @@ aws ecr get-login-password --region us-east-1 --profile $PROFILE_NAME | docker l
 
 
 # For some weird reason the first build try always fails :/ So always retry once on failure
-max_retries=1
+max_retries=3
 retry_delay=15
 
 for i in $(seq 1 $max_retries); do
@@ -63,4 +63,17 @@ done
 
 # echo "To finish deploy, log-in to AWS: https://d-90679cf568.awsapps.com/start/"
 
-echo "Go to lambda and select latest container https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/draft-your-follow-ups/edit/image-settings?tab=code"
+echo "=== Update AWS Lambda function ==="
+aws lambda update-function-code \
+    --function-name draft-your-follow-ups \
+    --image-uri 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups:latest \
+    --profile $PROFILE_NAME
+
+# Handle the exit code
+if [ $? -ne 0 ]; then
+    echo "Failed to update Lambda function, exiting."
+    echo "Go to lambda and select latest container https://us-east-1.console.aws.amazon.com/lambda/home?region=us-east-1#/functions/draft-your-follow-ups/edit/image-settings?tab=code"
+    exit 1
+else
+    echo "Successfully updated Lambda function."
+fi
