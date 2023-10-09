@@ -36,8 +36,6 @@ from common.config import (
 )
 from common.storage_utils import pretty_filesize_path
 from database.email_log import EmailLog
-from database.models import BaseAccount
-from database.organization import Organization
 
 
 def sanitize_filename(filename: str) -> str:
@@ -449,15 +447,13 @@ def _hubspot_objs_maybe_to_table(
 def send_hubspot_result(
     account_id: UUID, idempotency_id_prefix: str, data: HubspotDataEntry
 ) -> bool:
-    acc: BaseAccount = BaseAccount.get_by_id(account_id)
-    org: Organization = Organization.get_by_id(acc.organization_id)
     person_name = data.contact_name()
     idempotency_id_suffix = data.state
 
     email_params = EmailLog.get_email_reply_params_for_account_id(
         account_id=account_id,
         idempotency_id=f"{idempotency_id_prefix}-result-{idempotency_id_suffix}",
-        subject=f"HubSpot Data Entry for {person_name} into {org.name} - {data.state.capitalize()}",
+        subject=f"HubSpot Data Entry for {person_name} - {data.state.capitalize()}",
     )
 
     if data.state in ["short", "incomplete"]:
