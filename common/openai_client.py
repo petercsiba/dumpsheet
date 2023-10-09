@@ -427,6 +427,10 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
     raw_response = re.sub(r"\],\s*\]", "]]", raw_response)
     raw_response = re.sub(r"\},\s*\}", "}}", raw_response)
     raw_response = re.sub(r"\},\s*\]", "}]", raw_response)
+    # To replace newlines inside JSON strings
+    raw_response = re.sub(
+        r'("(?:[^"\\]|\\.)*")', lambda m: m.group(1).replace("\n", "\\n"), raw_response
+    )
     # if debug:
     #     print(f"converted {orig_response}\n\nto\n\n{raw_response}")
     try:

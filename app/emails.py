@@ -408,12 +408,20 @@ def _format_summary_table_row(label: str, value: str) -> str:
     )
 
 
-def _hubspot_obj_to_table(heading: str, obj: Optional[HubspotObject]) -> str:
+def _hubspot_obj_to_table(
+    heading: str,
+    obj: Optional[HubspotObject],
+    ignore_field_names: Optional[list] = None,
+    extra_content: str = "",
+) -> str:
     ignore_field_list = [
         FieldNames.HUBSPOT_OWNER_ID.value,
         FieldNames.STATE.value,
         FieldNames.COUNTRY.value,
     ]
+    if bool(ignore_field_names):
+        ignore_field_list.extend(ignore_field_names)
+
     rows = []
     for field in obj.form.fields:
         if field.name in ignore_field_list:
@@ -422,11 +430,17 @@ def _hubspot_obj_to_table(heading: str, obj: Optional[HubspotObject]) -> str:
         key, value = obj.get_field_display_label_with_value(field.name)
         rows.append(_format_summary_table_row(key, value))
     rows_html = "\n".join(rows)
-    return table_template.format(heading=heading, rows=rows_html)
+    return table_template.format(
+        heading=heading, rows=rows_html, extra_content=extra_content
+    )
 
 
 def _hubspot_objs_maybe_to_table(
-    heading: str, obj: Optional[HubspotObject], gpt_obj: Optional[HubspotObject]
+    heading: str,
+    obj: Optional[HubspotObject],
+    gpt_obj: Optional[HubspotObject],
+    ignore_field_names: Optional[list] = None,
+    extra_content: str = "",
 ) -> str:
     if obj is None:
         result = main_content_template(
@@ -438,9 +452,11 @@ def _hubspot_objs_maybe_to_table(
                 content="Could not parse data into structure (GPT error)",
             )
         else:
-            result += _hubspot_obj_to_table(heading, gpt_obj)
+            result += _hubspot_obj_to_table(
+                heading, gpt_obj, ignore_field_names, extra_content
+            )
     else:
-        result = _hubspot_obj_to_table(heading, obj)
+        result = _hubspot_obj_to_table(heading, obj, ignore_field_names, extra_content)
     return result
 
 
@@ -480,16 +496,39 @@ def send_hubspot_result(
     contact_table = _hubspot_objs_maybe_to_table(
         "Contact Info", data.contact, data.gpt_contact
     )
+
+    # Bit of a hack to restructure rendering of task To Dos
+    todos_extra_content = ""
+    ignore_field_names = [FieldNames.HS_OBJECT_ID.value]
+    if bool(data.task):
+        todos_field_name = FieldNames.HS_TASK_BODY.value
+        if todos_field_name in data.task.data:
+            ignore_field_names.append(todos_field_name)
+            todos_extra_content = """
+            <tr><td style="padding-left: 20px;"><b>{heading}</b></td></tr>
+            <tr><td style="padding-left: 20px;">{content}</td></tr>""".format(
+                heading="To Dos", content=data.task.get_display_value(todos_field_name)
+            )
+
     task_table = _hubspot_objs_maybe_to_table(
-        "Follow up Tasks", data.task, data.gpt_task
+        "Follow up Tasks",
+        data.task,
+        data.gpt_task,
+        ignore_field_names,
+        todos_extra_content,
     )
-    if data.call is None:
-        further_details = ""
-    else:
+
+    if bool(data.call):
         further_details = main_content_template(
             heading="Further Details",
             content=data.call.get_display_value(FieldNames.HS_CALL_BODY.value),
         )
+    else:
+        further_details = main_content_template(
+            heading="Further Details",
+            content="<p>Could not sync data to HubSpot (API error)</p>",
+        )
+
     email_params.body_html = full_template.format(
         title="HubSpot Data Entry Confirmation",
         content="""
@@ -546,6 +585,7 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
         contact_card_html = table_template.format(
             heading="Contact card for your CRM (Excel)",
             rows="\n".join(summary_rows),
+            extra_content="",
         )
     else:
         contact_card_html = main_content_template(
@@ -607,6 +647,7 @@ def send_result_rest_of_the_crowd(
         table_html=table_template.format(
             heading="The people you mentioned too",
             rows="\n".join(rows),
+            extra_content="",
         )
     )
     email_params.body_html = simple_email_body_html(

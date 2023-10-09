@@ -808,6 +808,15 @@ TASK_FIELDS = [
         custom_field=False,
     ),
     FieldDefinition(
+        name="hs_task_subject",
+        field_type="text",
+        label="Task Title",
+        description="The title of the task",
+        options=[],
+        group_name="task",
+        custom_field=False,
+    ),
+    FieldDefinition(
         name="hs_task_priority",
         field_type="select",
         label="Priority",
@@ -846,15 +855,6 @@ TASK_FIELDS = [
     #     group_name="task",
     #     custom_field=False,
     # ),
-    FieldDefinition(
-        name="hs_task_subject",
-        field_type="text",
-        label="Task Title",
-        description="The title of the task",
-        options=[],
-        group_name="task",
-        custom_field=False,
-    ),
     # NOTE: Unclear how is this derived
     # FieldDefinition(
     #     name="hs_task_type",

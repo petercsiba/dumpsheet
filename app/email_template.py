@@ -140,6 +140,7 @@ table_template = (
               {rows}
             </table>
           </td>
+          {extra_content}
         </tr>
       </table>
 """
