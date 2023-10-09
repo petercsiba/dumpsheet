@@ -56,6 +56,7 @@ export default function Home() {
           <div className="bg-[#fdfefe] bg-bottom-right bg-cover bg-fixed h-screen w-full relative"
                style={{ backgroundImage: 'url("/images/voxana-hero-background-553x843.png")',
                    backgroundPosition: 'bottom right', imageRendering: 'auto',
+                   backgroundRepeat: 'no-repeat', backgroundSize: 'cover', backgroundAttachment: 'fixed'
           }}>
              <Banner></Banner>
               <div
