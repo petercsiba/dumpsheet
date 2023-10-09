@@ -513,7 +513,8 @@ def send_hubspot_result(
 
 def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
     # TODO(P1, ux): Migrate to new email template
-    draft_html = ""
+    next_draft_html = ""
+    summarized_note_html = ""
     should_takeaways = True
     subject_prefix = "Notes on "
     if person.should_draft():
@@ -535,11 +536,9 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
                     sub_content=person.summarized_note.replace("\n", "<br />")
                 ),
             )
-            draft_html = next_draft_html + summarized_note_html
     if should_takeaways:
         # template = "takeaways"
-        subject_prefix = "Takeaways from"
-        draft_html = ""  # nothing to draft, just to research / act on
+        subject_prefix = "Takeaways from"  # nothing to draft, just to research / act on
 
     summary_fields = person.get_summary_fields()
     summary_rows = []
@@ -561,11 +560,13 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
             ),
         )
     res_content_html = """
-{draft_html}
+{next_draft_html}
 {contact_card_html}
+{summarized_note_html}
 """.format(
-        draft_html=draft_html,
+        next_draft_html=next_draft_html,
         contact_card_html=contact_card_html,
+        summarized_note_html=summarized_note_html,
     )
     return subject_prefix, res_content_html
 
