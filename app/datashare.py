@@ -136,7 +136,8 @@ class PersonDataEntry:
             "Role": self.role,
             "Industry": self.industry,
             "Their Needs": self.their_needs,
-            "Suggested Response": f"{self.response_message_type} to {self.suggested_response_item}",
+            # NOTE: We do not want to display suggested response, as it is redundant to the generated draft.
+            # "Suggested Response": f"{self.response_message_type} to {self.suggested_response_item}",
             "My Action Items": self.my_action_items,
             "Key Facts": self.key_facts,
             "Suggested Revisit": self.suggested_revisit,
