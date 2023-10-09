@@ -497,15 +497,15 @@ def send_hubspot_result(
     email_params.body_html = full_template.format(
         title="HubSpot Data Entry Confirmation",
         content="""
-            {extra_info}
             {contact_table}
             {task_table}
             {further_details}
+            {extra_info}
             """.format(
-            extra_info=extra_info,
             contact_table=contact_table,
             task_table=task_table,
             further_details=further_details,
+            extra_info=extra_info,
         ),
     )
     return send_email(params=email_params)
