@@ -29,7 +29,7 @@ const Banner = () => {
                    rel="noopener noreferrer">
                     <button
                         className="flex items-center justify-center w-40 h-12 bg-black rounded-full font-semibold text-white text-lg tracking-tighter hover:bg-gray-700">
-                        Watch the Demo
+                        Watch Demo
                     </button>
                 </a>
                 {/*
