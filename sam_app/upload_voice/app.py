@@ -188,6 +188,7 @@ def handle_post_request_for_update_email(event: Dict) -> Dict:
     body = json.loads(event["body"])
     email_raw = body.get("email")
     account_id = body.get("account_id")
+    # TODO(P0, ux): Actually process terms of service from tos_accepted
 
     if not email_raw or not account_id:
         return craft_error(400, "both email and account_id parameters are required")

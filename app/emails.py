@@ -14,7 +14,6 @@ from typing import List, Optional
 from uuid import UUID
 
 import boto3
-from bs4 import BeautifulSoup
 
 from app.datashare import PersonDataEntry
 from app.email_template import (
@@ -127,36 +126,6 @@ def get_email_params_for_reply(msg):
         subject=f"Re: {orig_subject}",
         reply_to=SUPPORT_EMAIL,  # We skip the orig_to_address, as that would trigger another transcription.
     )
-
-
-# TODO(P1, features): Potentially use multi-part emails with this function
-def get_text_from_email(msg):
-    print("get_text_from_email")
-    parts = []
-    if msg.is_multipart():
-        for part in msg.walk():
-            if part.get_content_type() == "text/plain":
-                print("multipart: found a text/plain")
-                parts.append(part.get_payload(decode=True).decode())
-            elif part.get_content_type() == "text/html":
-                print("multipart: found a text/html")
-                soup = BeautifulSoup(part.get_payload(decode=True), "html.parser")
-                text = soup.get_text()
-                parts.append(text)
-    elif msg.get_content_type() == "text/plain":
-        print("single-part: found a text/plain")
-        parts.append(msg.get_payload(decode=True).decode())
-    elif msg.get_content_type() == "text/html":
-        print("single-part: found a text/html")
-        soup = BeautifulSoup(msg.get_payload(decode=True), "html.parser")
-        text = soup.get_text()
-        parts.append(text)
-
-    result = " ".join(parts)
-    print(
-        f"get_text_from_email: total {len(parts)} found with {len(result.split())} tokens"
-    )
-    return result
 
 
 def create_raw_email_with_attachments(params: EmailLog):
@@ -291,25 +260,6 @@ def send_email(params: EmailLog) -> bool:
         print(f"Email with subject {params.subject} failed to send. {e}")
         traceback.print_exc()
         return False
-
-
-def _format_heading(heading: str) -> str:
-    style = (
-        "font-family: Arial, sans-serif; font-size: 15px; "
-        "font-weight: bold; color: #000000; margin: 0; padding: 10px 0;"
-    )
-    return f'<h2 style="{style}">{heading}</h2>'
-
-
-def add_signature():
-    return """
-<br />
-{support_heading}
-<p>Thank you for using <a href="http://voxana.ai/">Voxana.ai</a> - your executive assistant</p>
-<p>Got any questions? Just hit reply - my human supervisors respond to all emails within 24 hours<p>.
-    """.format(
-        support_heading=_format_heading("Supported By")
-    )
 
 
 # E.g. "2023-10-05_193824-0500-James_white_for_testing.m4a" -> James White For Testing

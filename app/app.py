@@ -276,6 +276,7 @@ def first_lambda_handler_wrapper(event, context) -> BaseDataEntry:
         raise ValueError(
             f"Un-recognized bucket name {bucket} - please add the mapping in your lambda"
         )
+
     return data_entry
 
 
@@ -341,6 +342,8 @@ def lambda_handler(event, context):
             )
         except Exception as err:
             send_technical_failure_email(err, str(data_entry.id), data_entry=data_entry)
+    else:
+        print("INFO: No DataEntry returned by first lambda, skipping second step")
 
 
 # For local testing without emails or S3, great for bigger refactors.

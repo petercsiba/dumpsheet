@@ -70,7 +70,7 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
                 style="background-color: white; border: 1px solid black; border-radius: 50px; width: auto;">
               <tr>
                 <td align="center">
-                  Thank you for using <b><a href="https://www.voxana.ai/">Voxana.ai</a></b> - your executive assistant
+                  Thank you for using <b><a href="https://www.voxana.ai/">Voxana.ai</a></b>
                 </td>
               </tr>
               <tr>
