@@ -65,7 +65,6 @@ export default function Home() {
                   >
                   <VoiceRecorderWithNoSSR/>
               </div>
-
               <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 font-montserrat">
                   <div className="w-full p-4 flex items-center justify-center">
                       <ConnectHubspotButton></ConnectHubspotButton>
