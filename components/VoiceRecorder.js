@@ -20,7 +20,8 @@ const RecorderState = {
     UPLOADING: 'uploading',
     SUCCESS: 'success',
     FAILURE: 'failure',
-    TOO_SHORT: 'too_short'
+    TOO_SHORT: 'too_short',
+    DEBUG: 'debug'
 };
 
 const formatDuration = (seconds) => {
@@ -315,6 +316,8 @@ export default function VoiceRecorder() {
                 {recorderState === RecorderState.TOO_SHORT && <TooShortState/>}
                 {recorderState === RecorderState.FAILURE &&
                     <FailureState audioURL={audioURL} failureMessage={failureMessage}/>}
+                {recorderState === RecorderState.DEBUG &&
+                    <SuccessState collectEmail={true} existingEmail={existingEmail} accountId={accountId}/>}
             </div>
         </div>
     );

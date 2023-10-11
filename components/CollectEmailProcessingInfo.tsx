@@ -13,6 +13,7 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
     const [message, setMessage] = useState('');
     const [submitted, setSubmitted] = useState(false);
     const [showForm, setShowForm] = useState(collectEmail !== null && collectEmail !== undefined);
+    const [termsAccepted, setTermsAccepted] = useState(false);
 
     // Function to validate email
     const isEmailValid = (email: string) => {
@@ -21,10 +22,10 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
     }
 
     const handleSubmit = async () => {
-        console.log(`handleSubmit isEmailValid ${isEmailValid(email)}`)
+        console.log(`handleSubmit isEmailValid ${isEmailValid(email)} termsAccepted ${termsAccepted}`)
         setSubmitted(true);
         // detailed email validation
-        if (!isEmailValid(email)) {
+        if (!isEmailValid(email) || !termsAccepted) {
             return;
         }
         // setMessage(`Processing email submission ...`);
@@ -38,6 +39,7 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
                 },
                 body: JSON.stringify({
                     email: email,
+                    tos_accepted: termsAccepted,
                     account_id: accountId,
                 })
             });
@@ -57,11 +59,11 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
     };
 
     return (
-        <div className="p-4 text-left">
+        <div className="pl-4 text-left">
             {showForm && (
                 collectEmail ? (
                     // TODO(P1, design): Make these align all into the center somehow.
-                    <div className="text-left pl-6">
+                    <>
                         <p>
                             I will be processing your request in the next few minutes.
                         </p>
@@ -79,20 +81,34 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({ colle
                         {(submitted || email.length >= 8) && !isEmailValid(email) &&
                             <p className="text-red-500">Invalid email address</p>
                         }
+                        <div className="flex items-center justify-center pt-2">
+                            <input
+                                type="checkbox"
+                                checked={termsAccepted}
+                                onChange={(e) => setTermsAccepted(e.target.checked)}
+                            />
+                            <label className="ml-2">
+                                I agree with the <a href="https://www.voxana.ai/legal/terms-of-service" target="_blank" rel="noopener noreferrer">terms of service</a>
+                            </label>
+                        </div>
                         <div className="flex justify-center pt-2">
-                            <button onClick={handleSubmit} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                            <button
+                                onClick={handleSubmit}
+                                className={`bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded ${!termsAccepted ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                disabled={!termsAccepted}
+                            >
                                 Submit
                             </button>
                         </div>
-                    </div>
+                    </>
                 ) : (
-                    <div>
+                    <>
                         <span className="font-bold text-lg">I will be:</span>
                         <ul className="list-disc list-inside ml-5 text-">
                             <li className="mt-1">Creating HubSpot Entries (if connected)</li>
                             <li className="mt-1">Sending results to <b>{existingEmail ?? email}</b></li>
                         </ul>
-                    </div>
+                    </>
                 )
             )}
             <p>{message}</p>
