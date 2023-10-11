@@ -306,7 +306,9 @@ def send_confirmation(params: EmailLog, attachment_paths):
             )
             if len(recording_name) < 4:
                 recording_name = ""
-            file_list.append(f"<li>{filename} ({file_size})</li>")
+            file_list.append(
+                f"""<li style="margin-bottom: 8px">{filename} ({file_size})</li>"""
+            )
         file_list_str = "\n".join(file_list)
 
         params.idempotency_id = f"{params.idempotency_id}-confirmation"
@@ -340,11 +342,13 @@ def _format_summary_table_row(label: str, value: str) -> str:
         # we could split by new line and see that 1., 2., ... etc.
         display_value = value
     elif isinstance(value, list):
-        li_items = "".join(f"<li>{item}</li>" for item in value)
+        li_items = "".join(
+            f"""<li style="margin-bottom: 8px">{item}</li>""" for item in value
+        )
         display_value = f"<ul>{li_items}</ul>"
     elif isinstance(value, dict):
         li_items = "".join(
-            f"<li><strong>{item_key}</strong>: {item_value}</li>"
+            f"""<li style="margin-bottom: 8px"><strong>{item_key}</strong>: {item_value}</li>"""
             for item_key, item_value in value.items()
         )
         display_value = f"<ul>{li_items}</ul>"
@@ -471,9 +475,10 @@ def send_hubspot_result(
     )
 
     if bool(data.call):
+        call_body_value = data.call.get_display_value(FieldNames.HS_CALL_BODY.value)
         further_details = main_content_template(
             heading="Further Details",
-            content=data.call.get_display_value(FieldNames.HS_CALL_BODY.value),
+            content=f"""<p style = "line-height: 1.5;" >{call_body_value}</p>""",
         )
     else:
         further_details = main_content_template(
@@ -544,7 +549,7 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
             heading=f"Not enough information for {person.name}",
             content=(
                 f"<p>Please talk more about {person.name}, I have too little context to confidently summarize.</p>"
-                f"<p>This is what I got {person.transcript}</p>"
+                f"""<p style="line-height: 1.5;">This is what I got {person.transcript}</p>"""
             ),
         )
     res_content_html = """
@@ -591,7 +596,7 @@ def send_result_rest_of_the_crowd(
         rows.append(_format_summary_table_row(person.name, person.transcript))
 
     content_text = """
-    <p>These folks you mentioned, but unfortunately I didn't get enough context
+    <p style="line-height: 1.5;">These folks you mentioned, but unfortunately I didn't get enough context
     from your note to confidently draft a response or summarize their profile. </p>
     <p>Remember, you can always fill me in with a new recording.</p>
     {table_html}
@@ -623,7 +628,7 @@ def send_result_no_people_found(
         title=email_params.subject,
         content_text="""
     <p>I tried my best, but I couldn't figure out who you talked about in your note. This is what I understood:</p>
-    <p>{full_transcript}</p>""".format(
+    <p style="line-height: 1.5;">{full_transcript}</p>""".format(
             full_transcript=full_transcript
         ),
     )
@@ -663,7 +668,7 @@ def send_technical_failure_email(
         email_params.body_html += """
             <p><b>User Email:</b> {email}</p>
             <p><b>User Full Name:</b> {full_name}</p>
-            <p><b>Transcript:</b> {transcript}</p>
+            <p style="line-height: 1.5;"><b>Transcript:</b> {transcript}</p>
         """.format(
             email=identity.recipient,
             full_name=identity.recipient_full_name,
