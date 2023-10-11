@@ -8,7 +8,7 @@ const Banner = () => {
 
     return (
         <>
-            <div className="absolute top-8 left-8 flex items-center space-x-2 top-navigation">
+            <div className="absolute top-6 left-4 flex items-center space-x-2 top-navigation">
                 <a href="https://www.voxana.ai/">
                     <Image
                         src="/images/voxana-logo-text-rectangle-930x174-transparent.png"
@@ -24,7 +24,7 @@ const Banner = () => {
                   </div>
                   */}
             </div>
-            <div className="absolute top-6 right-8 flex items-center space-x-2">
+            <div className="absolute top-3 right-4 flex items-center space-x-2">
                 <a href="https://www.loom.com/share/396ae98d37ce404abd6bcc110905d7a3?sid=fbb9cfef-f607-4a1c-8245-53fdf9b8eb7c" target="_blank"
                    rel="noopener noreferrer">
                     <button
@@ -40,7 +40,7 @@ const Banner = () => {
                 */}
             </div>
             {hubspot_status && (
-                <div className="absolute top-20 left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center text-center border border-black rounded-full bg-white p-4 w-auto">
+                <div className="absolute top-20 left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center text-center border border-black rounded-full bg-white p-4 min-w-[200px] md:min-w-[300px]">
                     <div className="block text-black font-semibold text-center">
                         {hubspot_status === 'success' && <span className="text-green-700">Successfully connected your HubSpot!</span>}
                         {hubspot_status !== 'success' && <span className="text-red-600">Failed connecting your HubSpot!</span>}
@@ -51,7 +51,7 @@ const Banner = () => {
                 </div>
             )}
             {!hubspot_status && (
-                <div className="absolute top-20 left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center text-center border border-black rounded-full bg-white p-4 w-auto">
+                <div className="absolute top-20 left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center text-center border border-black rounded-full bg-white p-4 min-w-[200px] md:min-w-[300px]">
                     <div className="block text-black font-semibold text-center">
                         We are in Private Beta
                     </div>

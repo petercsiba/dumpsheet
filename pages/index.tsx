@@ -60,8 +60,8 @@ export default function Home() {
           }}>
              <Banner></Banner>
               <div
-                  className="flex flex-col items-center justify-center gap-6 px-10 pt-10 pb-4 absolute top-[45%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 md:w-96 h-144 rounded-lg border border-black bg-white"
-                  style={{ width: '80%', maxWidth: '24rem' }}
+                  className="flex flex-col items-center justify-center gap-6 px-10 pt-10 pb-4 absolute top-[55%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-lg border border-black bg-white min-w-[200px] md:min-w-[300px]"
+                  style={{ width: '80%', minWidth: '12rem', maxWidth: '24rem' }}
                   >
                   <VoiceRecorderWithNoSSR/>
               </div>
