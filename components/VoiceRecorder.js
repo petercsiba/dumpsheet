@@ -7,6 +7,7 @@ import MicrophoneIcon from '../public/images/icons/microphone-button-green-icon.
 import MicrophoneIconHover from '../public/images/icons/microphone-button-green-hover-icon.png'
 import StopIcon from '../public/images/icons/stop-button-red-icon.svg'
 import CollectEmailProcessingInfo from "@/components/CollectEmailProcessingInfo";
+import ProgressBar from "@/components/ProgressBar";
 import {useAccount} from "@/contexts/AccountContext";
 
 const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
@@ -70,6 +71,7 @@ const WelcomeState = ({onStartRecording}) => {
                     </div>
                 </button>
             </div>
+            <ProgressBar currentStep={1} />
         </>
     )
 }
@@ -95,12 +97,16 @@ const RecordingState = ({onStopRecording, elapsedTime}) => (
             <div className="mt-2">
                 <p>{formatDuration(elapsedTime)}</p>
             </div>
+            <ProgressBar currentStep={1} />
         </div>
     </>
 );
 
 const UploadingState = () => (
-    <HeadingText text={"Uploading ..."} />
+    <>
+        <HeadingText text={"Uploading ..."} />
+        <ProgressBar currentStep={2} />
+    </>
 );
 
 const SuccessState = ({collectEmail, existingEmail, accountId}) => (
