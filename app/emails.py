@@ -35,7 +35,9 @@ from common.config import (
     SUPPORT_EMAIL,
 )
 from common.storage_utils import pretty_filesize_path
+from common.twillio_client import TwilioClient
 from database.email_log import EmailLog
+from database.models import BaseDataEntry
 
 
 def sanitize_filename(filename: str) -> str:
@@ -680,7 +682,9 @@ def send_result_no_people_found(
 
 
 def send_technical_failure_email(
-    err: Exception, idempotency_id: str = str(uuid.uuid4())
+    err: Exception,
+    idempotency_id: str = str(uuid.uuid4()),
+    data_entry: Optional[BaseDataEntry] = None,
 ) -> bool:
     # Gets the most recent Exception, get it ASAP as I know my code quality
     trace = traceback.format_exc()
@@ -690,7 +694,7 @@ def send_technical_failure_email(
 
     email_params = EmailLog(
         sender=SENDER_EMAIL_ALERTS,
-        recipient="petherz@gmail.com",
+        recipient="peter@voxana.ai",
         recipient_full_name="Peter Csiba",
         subject=f"[ERROR] Voxana Docker Lambda: {subject}",
         reply_to=NO_REPLY_EMAIL,  # We skip the orig_to_address, as that would trigger another transcription.
@@ -698,8 +702,33 @@ def send_technical_failure_email(
     )
     # TODO(devx, P1): Would be great to include last 10 log messages for even faster debugging.
     # Note: No need to format - less code less bugs.
-    email_params.body_text = f"<p>{str(err)}</p>" + trace.replace("\n", "<br />")
-    return send_email(params=email_params)
+    email_params.body_html = f"<p>{str(err)}</p>" + trace.replace("\n", "<br />")
+
+    if bool(data_entry):
+        identity = EmailLog.get_email_reply_params_for_account_id(data_entry.account_id)
+        transcript = str(data_entry.output_transcript)
+        if len(transcript) > 200:
+            transcript = subject[:197] + "..."
+
+        email_params.body_html += """
+            <p><b>User Email:</b> {email}</p>
+            <p><b>User Full Name:</b> {full_name}</p>
+            <p><b>Transcript:</b> {transcript}</p>
+        """.format(
+            email=identity.recipient,
+            full_name=identity.recipient_full_name,
+            transcript=transcript,
+        )
+
+    result = send_email(params=email_params)
+
+    # This is non-blocking on failure
+    twilio_client = TwilioClient()
+    twilio_client.send_sms(
+        "+16502106516", f"You got a new alert from Poor Mans Opsgenie: {subject}"
+    )
+
+    return result
 
 
 if __name__ == "__main__":

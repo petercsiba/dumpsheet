@@ -208,7 +208,7 @@ def parse_uuid_from_string(input_string):
         return None
 
 
-def lambda_handler_wrapper(event, context):
+def first_lambda_handler_wrapper(event, context) -> BaseDataEntry:
     # Get the bucket name and file key from the event
     try:
         bucket = event["Records"][0]["s3"]["bucket"]["name"]
@@ -276,14 +276,15 @@ def lambda_handler_wrapper(event, context):
         raise ValueError(
             f"Un-recognized bucket name {bucket} - please add the mapping in your lambda"
         )
+    return data_entry
 
-    # Second Lambda
 
+def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
     if not wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=5 * 60):
         print(
-            "WARNING: data entry has no associated email - we might are operating on an in-complete account"
+            "WARNING: data entry has no associated email - we might be operating on an incomplete account"
         )
-
+    gpt_client = OpenAiClient()
     acc: BaseAccount = BaseAccount.get_by_id(data_entry.account_id)
     print(f"gonna process transcript for account {acc.__dict__}")
     if bool(acc.organization):
@@ -325,11 +326,21 @@ def _event_idempotency_id(event):
 
 
 def lambda_handler(event, context):
+    data_entry = None
     try:
-        lambda_handler_wrapper(event, context)
+        data_entry = first_lambda_handler_wrapper(event, context)
     except Exception as err:
         # TODO(P1, ux): Would be nice to notify the user - OR we get really fast into fixing it.
+        # -- only possible if we have their email address.
         send_technical_failure_email(err, _event_idempotency_id(event))
+
+    if bool(data_entry):
+        try:
+            second_lambda_handler_wrapper(
+                data_entry,
+            )
+        except Exception as err:
+            send_technical_failure_email(err, str(data_entry.id), data_entry=data_entry)
 
 
 # For local testing without emails or S3, great for bigger refactors.
