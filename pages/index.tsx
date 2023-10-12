@@ -52,7 +52,7 @@ export default function Home() {
             }
             @media (max-width: 768px) {
               .middle-box {
-                width: 96%;
+                width: 92%;
               }
             }
           }
