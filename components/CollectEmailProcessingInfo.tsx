@@ -57,7 +57,7 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({collec
 
     return (
         <div className="text-left">
-            {collectEmail && (
+            {!success && collectEmail && (
                 // TODO(P1, design): Make these align all into the center somehow.
                 <>
                     <p>
