@@ -1,6 +1,5 @@
 import {useRouter} from "next/router";
 import Image from "next/image";
-import ConnectHubspotButton from "@/components/ConnectHubspotButton";
 
 const Banner = () => {
     const router = useRouter();
@@ -40,7 +39,7 @@ const Banner = () => {
                 */}
             </div>
             {hubspot_status && (
-                <div className="absolute top-20 left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center text-center border border-black rounded-full bg-white p-4 min-w-[200px] md:min-w-[300px]">
+                <div className="absolute top-20 left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center text-center border border-black rounded-full bg-white px-6 py-1">
                     <div className="block text-black font-semibold text-center">
                         {hubspot_status === 'success' && <span className="text-green-700">Successfully connected your HubSpot!</span>}
                         {hubspot_status !== 'success' && <span className="text-red-600">Failed connecting your HubSpot!</span>}
@@ -51,7 +50,7 @@ const Banner = () => {
                 </div>
             )}
             {!hubspot_status && (
-                <div className="absolute top-20 left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center text-center border border-black rounded-full bg-white p-4 min-w-[200px] md:min-w-[300px]">
+                <div className="absolute top-20 left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center text-center border border-black rounded-full bg-white px-6 py-1">
                     <div className="block text-black font-semibold text-center">
                         We are in Private Beta
                     </div>
