@@ -1,4 +1,3 @@
-import Image from 'next/image';
 import dynamic from "next/dynamic";
 import {AccountProvider} from "@/contexts/AccountContext";
 import ConnectHubspotButton from "@/components/ConnectHubspotButton";
@@ -47,8 +46,14 @@ export default function Home() {
               font-size: 18px;
             }
             .middle-box {
-              width: 90%;
-              height: auto;
+              width: 80%; 
+              min-width: 20rem; 
+              max-width: 24rem;
+            }
+            @media (max-width: 768px) {
+              .middle-box {
+                width: 96%;
+              }
             }
           }
         `}</style>
@@ -60,13 +65,12 @@ export default function Home() {
           }}>
              <Banner></Banner>
               <div
-                  className="flex flex-col items-center justify-center gap-6 px-10 pt-10 pb-4 absolute top-[55%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-lg border border-black bg-white min-w-[200px] md:min-w-[300px]"
-                  style={{ width: '80%', minWidth: '12rem', maxWidth: '24rem' }}
-                  >
+                  className="flex flex-col items-center justify-center gap-6 px-4 py-6 absolute top-[22rem] left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-lg border border-black bg-white middle-box"
+              >
                   <VoiceRecorderWithNoSSR/>
               </div>
-              <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 font-montserrat">
-                  <div className="w-full p-4 flex items-center justify-center">
+              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 font-montserrat">
+                  <div className="w-full px-4 py-1 flex items-center justify-center">
                       <ConnectHubspotButton></ConnectHubspotButton>
                   </div>
               </div>

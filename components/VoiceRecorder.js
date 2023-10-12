@@ -32,8 +32,7 @@ const formatDuration = (seconds) => {
 };
 
 const HeadingText = ({text}) => (
-    <div id="upload-status"
-         className="text-center font-semibold text-black text-2xl tracking-normal leading-normal pb-5">
+    <div className="text-center font-semibold text-black text-2xl tracking-normal leading-normal pb-5">
         {text}
     </div>
 )
@@ -62,8 +61,8 @@ const WelcomeState = ({onStartRecording}) => {
                             priority
                             src={imageSrc}
                             alt="Start your voice recording"
-                            width={100}
-                            height={100}
+                            width={80}
+                            height={80}
                         />
                     </div>
                     <div>
@@ -86,8 +85,8 @@ const RecordingState = ({onStopRecording, elapsedTime}) => (
                         priority
                         src={StopIcon}
                         alt="Stop and upload recording"
-                        width={50}
-                        height={50}
+                        width={60}
+                        height={60}
                     />
                 </div>
                 <div>

@@ -103,8 +103,8 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({collec
             <p>{message}</p>
             {success && (
                 <>
-                    <p>
-                        <span className="font-bold text-lg">I will be:</span>
+                    <p className="pl-4">
+                        <span className="font-bold text-base">I will be:</span>
                         <ul className="list-disc list-inside text-">
                             <li className="mt-1">Sending results to <b>{existingEmail ?? email}</b></li>
                             <li className="mt-1">Syncing to HubSpot (if connected)</li>
