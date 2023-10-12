@@ -53,20 +53,8 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
       <!-- Footer -->
       <table align="center" width="100%" cellspacing="0" cellpadding="10" style="margin-top: 30px; ">
         <tr>
-          <td align="center" style="font-size: 16px; font-weight: bold;">
-            <table align="center" cellspacing="0" cellpadding="10"
-                style="background-color: white; border: 1px solid black; border-radius: 50px; width: auto;">
-              <tr>
-                <td style="text-align: center; font-weight: bold; color: black;">
-                  Supported By
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-        <tr>
           <td>
-            <table align="center" cellspacing="0" cellpadding="12"
+            <table align="center" cellspacing="0" cellpadding="14"
                 style="background-color: white; border: 1px solid black; border-radius: 50px; width: auto;">
               <tr>
                 <td align="center">
