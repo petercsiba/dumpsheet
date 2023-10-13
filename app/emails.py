@@ -427,6 +427,7 @@ def send_hubspot_result(
         idempotency_id=f"{idempotency_id_prefix}-result-{idempotency_id_suffix}",
         subject=f"HubSpot Data Entry for {person_name} - {data.state.capitalize()}",
     )
+    pre_header = email_params.subject
 
     if data.state in ["short", "incomplete"]:
         email_params.body_html = simple_email_body_html(
@@ -443,10 +444,12 @@ def send_hubspot_result(
     }
     extra_info = ""
     if data.state in extra_info_map:
+        extra_info_content = extra_info_map[data.state]
         extra_info = main_content_template(
             heading="Sync Status",
-            content=extra_info_map[data.state],
+            content=extra_info_content,
         )
+        pre_header = extra_info_content
 
     # success / error with partial results
     contact_table = _hubspot_objs_maybe_to_table(
@@ -486,8 +489,9 @@ def send_hubspot_result(
             content="<p>Could not sync data to HubSpot (API error)</p>",
         )
 
-    email_params.body_html = full_template.format(
+    email_params.body_html = full_template(
         title="HubSpot Data Entry Confirmation",
+        pre_header=pre_header,
         content="""
             {contact_table}
             {task_table}
@@ -575,7 +579,8 @@ def send_result(
         idempotency_id=f"{idempotency_id_prefix}-{person_name_safe}",
         subject=f"{subject_prefix} {person.name}",
     )
-    email_params.body_html = full_template.format(
+    email_params.body_html = full_template(
+        pre_header=None,
         title=email_params.subject,
         content=content_html,
     )
@@ -660,7 +665,9 @@ def send_technical_failure_email(
     email_params.body_html = f"<p>{str(err)}</p>" + trace.replace("\n", "<br />")
 
     if bool(data_entry):
-        identity = EmailLog.get_email_reply_params_for_account_id(data_entry.account_id)
+        identity = EmailLog.get_email_reply_params_for_account_id(
+            data_entry.account_id, idempotency_id, subject="whatever"
+        )
         transcript = str(data_entry.output_transcript)
         if len(transcript) > 200:
             transcript = subject[:197] + "..."

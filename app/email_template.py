@@ -1,8 +1,9 @@
-# title, content
+import html
+import re
 from typing import Optional
 
 # title, content
-full_template = """
+_full_template = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -10,7 +11,13 @@ full_template = """
   <meta name="color-scheme" content="light">
   <title>{title}</title>
 </head>
+
 <body style="margin: 0; padding: 0; background-color: #fdfefe; font-family: Arial, sans-serif;">
+
+<!-- Pre header - for now just use the title -->
+<div style="display: none; max-height: 0px; overflow: hidden;">
+{pre_header}
+</div>
 
 <!-- Main Layout -->
 <table width="100%" cellspacing="0" cellpadding="0"
@@ -26,7 +33,6 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
           <td style="text-align: left;">
             <a href="https://www.voxana.ai">
               <img src="https://voxana-ai-static.s3.amazonaws.com/voxana-logo-text-rectangle-930x174-transparent.png"
-                   alt="Voxana AI Logo"
                    width="192"
               />
             </a>
@@ -77,6 +83,21 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
 </body>
 </html>
 """
+
+
+def _remove_html_tags(input_str):
+    clean = re.compile("<.*?>")
+    untagged_str = re.sub(clean, "", input_str)
+    return html.unescape(untagged_str)
+
+
+def full_template(title: str, content: str, pre_header: Optional[str]):
+    if pre_header is None:
+        pre_header = _remove_html_tags(content)[:100]
+        if len(pre_header) < 20:
+            pre_header = title
+    return _full_template.format(title=title, content=content, pre_header=pre_header)
+
 
 # We do 96% to be mobile friendly
 _content_begin = """
@@ -146,8 +167,9 @@ table_row_template = """
 def simple_email_body_html(
     title: str, content_text: str, sub_title: Optional[str] = None
 ) -> str:
-    return full_template.format(
+    return full_template(
         title=title,
+        pre_header=sub_title,
         content=main_content_template(
             heading=sub_title,
             content=content_text,
