@@ -24,7 +24,7 @@ const Banner = () => {
                   */}
             </div>
             <div className="absolute top-3 right-4 flex items-center space-x-2">
-                <a href="https://www.loom.com/share/396ae98d37ce404abd6bcc110905d7a3?sid=fbb9cfef-f607-4a1c-8245-53fdf9b8eb7c" target="_blank"
+                <a href="https://www.loom.com/share/1614e907aeea4312bb53affd99677593" target="_blank"
                    rel="noopener noreferrer">
                     <button
                         className="flex items-center justify-center w-40 h-12 bg-black rounded-full font-semibold text-white text-lg tracking-tighter hover:bg-gray-700">
