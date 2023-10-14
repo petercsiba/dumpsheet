@@ -1,7 +1,7 @@
-import datetime
 import uuid
 
 from common.openai_client import OpenAiClient
+from database.data_entry import STATE_UPLOAD_DONE
 from database.models import BaseDataEntry
 from input.common import ffmpeg_convert_audio_to_mp4
 
@@ -20,6 +20,6 @@ def process_app_upload(
     data_entry.output_transcript = gpt_client.transcribe_audio(
         audio_filepath=converted_audio_filepath
     )
-    data_entry.processed_at = datetime.datetime.now()
+    data_entry.state = STATE_UPLOAD_DONE
     data_entry.save()
     return data_entry

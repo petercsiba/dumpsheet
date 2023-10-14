@@ -7,6 +7,7 @@ from common.config import SUPPORT_EMAIL
 from common.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
 from database.account import Account
+from database.data_entry import STATE_UPLOAD_DONE
 from database.models import BaseDataEntry
 from input.common import ffmpeg_convert_audio_to_mp4
 
@@ -69,6 +70,7 @@ def process_voice_recording_input(
             input_type="voicemail",
             input_uri=bucket_url,
             account_id=account.id,
+            state=STATE_UPLOAD_DONE,
         )
         .on_conflict(
             conflict_target=[BaseDataEntry.idempotency_id],

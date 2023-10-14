@@ -10,6 +10,7 @@ from app.emails import (
 )
 from common.openai_client import OpenAiClient
 from database.account import Account
+from database.data_entry import STATE_UPLOAD_DONE
 from database.email_log import EmailLog
 from database.models import BaseDataEntry
 from input.common import ffmpeg_convert_audio_to_mp4
@@ -54,6 +55,7 @@ def process_email_input(
             created_at=email_datetime,
             input_type="email",
             input_uri=bucket_url,
+            state=STATE_UPLOAD_DONE,
         )
         .on_conflict(
             conflict_target=[BaseDataEntry.idempotency_id],

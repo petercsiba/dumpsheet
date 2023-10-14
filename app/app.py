@@ -34,6 +34,7 @@ from database.client import (
     connect_to_postgres_i_will_call_disconnect_i_promise,
 )
 from database.constants import DESTINATION_HUBSPOT_ID
+from database.data_entry import STATE_UPLOAD_TRANSCRIBED
 from database.email_log import EmailLog
 from database.models import BaseAccount, BaseDataEntry, BaseOrganization
 from database.organization import ORGANIZATION_ROLE_OWNER, Organization
@@ -259,8 +260,6 @@ def first_lambda_handler_wrapper(event, context) -> BaseDataEntry:
         print(
             f"Received voicemail from {phone_number}, {proper_name} and {carrier_info}"
         )
-        # TODO(P1, admin): We should store the data_entry ASAP with all the metadata,
-        #   so we can re-run the stuff easier.
         data_entry = process_voice_recording_input(
             gpt_client=gpt_client,
             twilio_client=twilio_client,
@@ -276,6 +275,11 @@ def first_lambda_handler_wrapper(event, context) -> BaseDataEntry:
         raise ValueError(
             f"Un-recognized bucket name {bucket} - please add the mapping in your lambda"
         )
+
+    # If a BaseDataEntry
+    data_entry.state = STATE_UPLOAD_TRANSCRIBED
+    data_entry.processed_at = datetime.datetime.now()
+    data_entry.save()
 
     return data_entry
 
