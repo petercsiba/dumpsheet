@@ -18,5 +18,5 @@ create table
 ALTER TABLE public.task ENABLE ROW LEVEL SECURITY;
 
 -- Link PromptLog to it
-ALTER TABLE public.prompt_log ADD COLUMN task_id uuid null;
+ALTER TABLE public.prompt_log ADD COLUMN task_id bigint null;
 ALTER TABLE public.prompt_log ADD constraint prompt_log_task_id_fkey foreign key (task_id) references task (id) on delete set null;
