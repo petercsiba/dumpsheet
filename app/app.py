@@ -39,6 +39,7 @@ from database.email_log import EmailLog
 from database.models import BaseAccount, BaseDataEntry, BaseOrganization
 from database.organization import ORGANIZATION_ROLE_OWNER, Organization
 from database.pipeline import Pipeline
+from database.task import Task
 from input.app_upload import process_app_upload
 from input.call import process_voice_recording_input
 from input.email import process_email_input
@@ -170,13 +171,15 @@ def process_transcript_for_organization(
         acc.organization_id, DESTINATION_HUBSPOT_ID
     )
     hub_id = pipeline.external_org_id if bool(pipeline) else None
+    task = Task.create_task(data_entry_id=data_entry.id, pipeline_id=pipeline.id)
 
     # TODO(P1, ux): Maybe we should wait_for_email_updated_on_data_entry
     #   But then might be better to update without email confirmations.
     data = extract_and_sync_contact_with_follow_up(
-        hs_client,
-        gpt_client,
-        data_entry.output_transcript,
+        client=hs_client,
+        gpt_client=gpt_client,
+        db_task=task,
+        text=data_entry.output_transcript,
         hub_id=hub_id,
         hubspot_owner_id=acc.organization_user_id,
     )
@@ -292,6 +295,7 @@ def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
     gpt_client = OpenAiClient()
     acc: BaseAccount = BaseAccount.get_by_id(data_entry.account_id)
     print(f"gonna process transcript for account {acc.__dict__}")
+    # TODO(P0, ux): Have a clearer way to decide which path to go with (select box, or "auto-gpt")
     if bool(acc.organization):
         print("Account is part of an organization, will sync data directly there")
         org = Organization.get_by_id(

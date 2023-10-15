@@ -56,6 +56,12 @@ class ApiSingleResponse:
     def get_props_if_ok(self):
         return self.properties if self.is_success() else None
 
+    def get_task_response(self):
+        if bool(self.error):
+            return self.error
+
+        return self.properties
+
 
 # Quite nice API monitoring here: https://app.hubspot.com/developer/43920988/application/2150554/monitoring/api
 # TODO(P2, research): Figure out what are CRM Cards good for.
@@ -184,7 +190,7 @@ class HubspotClient:
             api_response = self.api_client.crm.contacts.basic_api.create(
                 simple_public_object_input_for_create=request_body
             )
-            print(f"Contact created ({type(api_response)}): {api_response}")
+            print(f"Contact created ({type(api_response)})")
             return ApiSingleResponse(HTTPStatus.OK, api_response)
         except contacts.ApiException as e:
             return self._handle_exception("contact create", e, request_body)
@@ -209,7 +215,7 @@ class HubspotClient:
             api_response = self.api_client.crm.objects.calls.basic_api.create(
                 simple_public_object_input_for_create=request_body
             )
-            print(f"Call created: {api_response}")
+            print(f"Call created: {type(api_response)}")
             return ApiSingleResponse(HTTPStatus.OK, api_response)
         except calls.ApiException as e:
             return self._handle_exception("call create", e, request_body)
@@ -226,7 +232,7 @@ class HubspotClient:
             api_response = self.api_client.crm.objects.tasks.basic_api.create(
                 simple_public_object_input_for_create=request_body
             )
-            print(f"Task created: {api_response}")
+            print(f"Task created: {type(api_response)}")
             return ApiSingleResponse(HTTPStatus.OK, api_response)
         except tasks.ApiException as e:
             return self._handle_exception("create task", e, request_body)

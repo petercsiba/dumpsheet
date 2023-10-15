@@ -26,10 +26,11 @@ from database.account import Account
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.constants import DESTINATION_HUBSPOT_ID, OAUTH_DATA_TOKEN_TYPE_OAUTH
 from database.email_log import EmailLog
-from database.models import BaseOrganization
+from database.models import BaseDataEntry, BaseOrganization
 from database.oauth_data import OauthData
 from database.organization import Organization
 from database.pipeline import Pipeline
+from database.task import KEY_HUBSPOT_CALL, KEY_HUBSPOT_CONTACT, KEY_HUBSPOT_TASK, Task
 
 
 # Main reason to separate Definition from Values is that we can generate GPT prompts in a generic-ish way.
@@ -63,7 +64,7 @@ def form_definition_to_gpt_prompt(form: FormDefinition) -> str:
 
 
 def extract_form_data(
-    gpt_client: OpenAiClient, form: FormDefinition, text: str
+    gpt_client: OpenAiClient, form: FormDefinition, task_id: int, text: str
 ) -> Dict[str, Any]:
     # Get the current UTC time and then convert it to local time.
     local_now = datetime.datetime.now(pytz.timezone("America/Los_Angeles"))
@@ -83,7 +84,7 @@ def extract_form_data(
         # 2023-10-03 02:30 PM PDT
         now_with_hours_and_tz=local_now.strftime("%Y-%m-%d %I %p %Z"),
     )
-    raw_response = gpt_client.run_prompt(gpt_query)
+    raw_response = gpt_client.run_prompt(gpt_query, task_id=task_id, print_prompt=False)
     form_data_raw = gpt_response_to_json(raw_response)
     if not isinstance(form_data_raw, dict):
         print(f"ERROR: gpt resulted form_data ain't a dict: {form_data_raw}")
@@ -101,8 +102,6 @@ def extract_form_data(
         form_data[name] = field.validate_and_fix(value)
 
     # TODO(P1, fullness): Would be nice to double-check if all GPT requested fields were actually returned.
-
-    print(f"form_data={form_data}")
     return form_data
 
 
@@ -155,6 +154,7 @@ def _maybe_add_hubspot_owner_id(form_data, hubspot_owner_id):
 def extract_and_sync_contact_with_follow_up(
     client: HubspotClient,
     gpt_client: OpenAiClient,
+    db_task: Task,
     text: str,
     hub_id: Optional[str] = None,
     hubspot_owner_id: Optional[int] = None,
@@ -169,8 +169,12 @@ def extract_and_sync_contact_with_follow_up(
         )
 
     contact_form = FormDefinition(CONTACT_FIELDS)
-    contact_data = extract_form_data(gpt_client, contact_form, text)
+    contact_data = extract_form_data(
+        gpt_client, contact_form, task_id=db_task.id, text=text
+    )
     _maybe_add_hubspot_owner_id(contact_data, hubspot_owner_id)
+    db_task.add_generated_output(KEY_HUBSPOT_CONTACT, contact_data)
+
     # When it would yield too little information, rather skip and make them re-enter.
     if _count_set_fields(contact_data) <= 1:
         print(
@@ -190,20 +194,37 @@ def extract_and_sync_contact_with_follow_up(
             ] = f"example{int(time.time())}@gmail.com"
             contact_data[FieldNames.PHONE.value] = f"+1{int(time.time())}"
     contact_response = client.crm_contact_create(contact_data)
+    db_task.add_sync_response(
+        KEY_HUBSPOT_CONTACT,
+        contact_response.status,
+        contact_response.get_task_response(),
+    )
     contact_id = contact_response.hs_object_id
 
     call_form = FormDefinition(CALL_FIELDS)
-    call_data = extract_form_data(gpt_client, call_form, text)
+    call_data = extract_form_data(gpt_client, call_form, task_id=db_task.id, text=text)
     _maybe_add_hubspot_owner_id(call_data, hubspot_owner_id)
+    db_task.add_generated_output(KEY_HUBSPOT_CONTACT, call_data)
+
     call_response = client.crm_call_create(call_data)
+    db_task.add_sync_response(
+        KEY_HUBSPOT_CALL, call_response.status, call_response.get_task_response()
+    )
     call_id = call_response.hs_object_id
 
     # TODO(P1, ux): Sometimes, there might be no task.
-    task_form = FormDefinition(TASK_FIELDS)
-    task_data = extract_form_data(gpt_client, task_form, text)
-    _maybe_add_hubspot_owner_id(task_data, hubspot_owner_id)
-    task_response = client.crm_task_create(task_data)
-    task_id = task_response.hs_object_id
+    hs_task_form = FormDefinition(TASK_FIELDS)
+    hs_task_data = extract_form_data(
+        gpt_client, hs_task_form, task_id=db_task.id, text=text
+    )
+    _maybe_add_hubspot_owner_id(hs_task_data, hubspot_owner_id)
+    db_task.add_generated_output(KEY_HUBSPOT_CONTACT, hs_task_data)
+
+    hs_task_response = client.crm_task_create(hs_task_data)
+    db_task.add_sync_response(
+        KEY_HUBSPOT_TASK, hs_task_response.status, hs_task_response.get_task_response()
+    )
+    hs_task_id = hs_task_response.hs_object_id
 
     contact_to_call_result = None
     if bool(contact_id) and bool(call_id):
@@ -211,30 +232,33 @@ def extract_and_sync_contact_with_follow_up(
             "contact", contact_id, "call", call_id, AssociationType.CONTACT_TO_CALL
         )
     contact_to_task_result = None
-    if bool(contact_id) and bool(task_id):
+    if bool(contact_id) and bool(hs_task_id):
         contact_to_task_result = client.crm_association_create(
-            "contact", contact_id, "task", task_id, AssociationType.CONTACT_TO_TASK
+            "contact", contact_id, "task", hs_task_id, AssociationType.CONTACT_TO_TASK
         )
 
     if (
         contact_response.is_success()
         and call_response.is_success()
-        and task_response.is_success()
+        and hs_task_response.is_success()
     ):
         state = "success"
     else:
-        if contact_data is None or call_data is None or task_data is None:
+        if contact_data is None or call_data is None or hs_task_data is None:
             state = "error_gpt"
         elif contact_response.status == HTTPStatus.CONFLICT:
             state = "warning_already_created"
         else:
             state = "error_hubspot_sync"
 
+    db_task.finish()
+
     # There are a few columns sets for the same object_type:
     # * the GPT extracted ones (call_data)
     # * the Hubspot returned (there can be a lot of metadata, even repeated values)
     # * (this) the set we want to show to our users - what was inserted into Hubspot which was generated by GPT
-    # TODO(P0, devx): We should turn this into pipeline_task, prob the output should be a list of objects.
+    # Admittedly, this is quite messy. After hacking it together quickly, I wanted to have a first pass on a more
+    # general "fill any form" use-case.
     return HubspotDataEntry(
         transcript=text,
         state=state,
@@ -245,7 +269,7 @@ def extract_and_sync_contact_with_follow_up(
             hub_id, ObjectType.CALL, call_form, call_response.get_props_if_ok()
         ),
         task=HubspotObject.from_api_response_props(
-            hub_id, ObjectType.TASK, task_form, task_response.get_props_if_ok()
+            hub_id, ObjectType.TASK, hs_task_form, hs_task_response.get_props_if_ok()
         ),
         contact_to_call_result=contact_to_call_result,
         contact_to_task_result=contact_to_task_result,
@@ -257,13 +281,13 @@ def extract_and_sync_contact_with_follow_up(
             hub_id, ObjectType.CALL, call_form, call_data
         ),
         gpt_task=HubspotObject.from_api_response_props(
-            hub_id, ObjectType.TASK, task_form, task_data
+            hub_id, ObjectType.TASK, hs_task_form, hs_task_data
         ),
     )
 
 
 test_data1 = """
-okay and then I spoke with Andrey Yursa he is from Zhilina which is funny he went to the private high school
+okay, then I spoke with Andrey Yursa he is from Zhilina which is funny he went to the private high school
 the english one in Zhilina and then he went to Suchany for the rest of his high school he played a
 lot of ice hockey which is funny with my cousin Alex Andrey is super outgoing and and yeah so he
  studied philosophy at King's College and he says that he was very religious and that's why he was interested in
@@ -351,12 +375,19 @@ if __name__ == "__main__":
         # exit()
 
         test_gpt_client = OpenAiClient()
+        test_data_entry_id = BaseDataEntry.insert(
+            account_id=test_acc.id,
+            display_name=f"Data entry for {test_acc.id}",
+            idempotency_id=str(time.time()),
+            input_type="test",
+        ).execute()
 
         peter_voxana_user_id = 550982168
         hs_data_entry = extract_and_sync_contact_with_follow_up(
             test_hs_client,
             test_gpt_client,
-            test_data1,
+            db_task=Task.create_task(test_data_entry_id, pipeline_id=test_pipeline.id),
+            text=test_data1,
             hub_id=test_pipeline.external_org_id,
             hubspot_owner_id=peter_voxana_user_id,
             local_hack=True,

@@ -114,9 +114,10 @@ class PromptLog(BasePromptLog):
 
 
 class PromptCache:
-    def __init__(self, cache_key: str, model: str, print_prompt: bool):
+    def __init__(self, cache_key: str, model: str, task_id: int, print_prompt: bool):
         self.cache_key = cache_key
         self.model = model
+        self.task_id = task_id
         self.print_prompt: bool = print_prompt
         self.prompt_log: Optional[PromptLog] = None
         self.cache_hit: bool = False
@@ -142,6 +143,8 @@ class PromptCache:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
+        self.prompt_log.task_id = self.task_id
+
         self.prompt_log.request_time_ms = int(1000 * (time.time() - self.start_time))
         if self.print_prompt:
             print(
@@ -243,10 +246,13 @@ class OpenAiClient:
     # TODO(peter): Do sth about max prompt length (4096 tokens INCLUDING the generated response)
     # TODO(P1, devx): We should templatize the prompt into "function body" and "parameters";
     #   then we can re-use the "body" to "fine-tune" a model and have faster responses.
-    def run_prompt(self, prompt: str, model=DEFAULT_MODEL, print_prompt=True):
+    def run_prompt(
+        self, prompt: str, model=DEFAULT_MODEL, task_id=None, print_prompt=True
+    ):
         with PromptCache(
             cache_key=prompt,
             model=model,
+            task_id=task_id,
             print_prompt=self._should_print_prompt(print_prompt),
         ) as pcm:
             if pcm.cache_hit:

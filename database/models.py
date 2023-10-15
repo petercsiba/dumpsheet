@@ -198,6 +198,32 @@ class BasePipeline(BaseModel):
         indexes = ((("organization", "destination"), True),)
 
 
+class BaseTask(BaseModel):
+    api_response = JSONField(null=True)
+    code_version = TextField(null=True)
+    created_at = DateTimeField(
+        constraints=[SQL("DEFAULT (now() AT TIME ZONE 'utc'::text)")]
+    )
+    data_entry = ForeignKeyField(
+        column_name="data_entry_id", field="id", model=BaseDataEntry
+    )
+    drafted_output = JSONField(null=True)
+    id = BigAutoField()
+    pipeline = ForeignKeyField(
+        column_name="pipeline_id", field="id", model=BasePipeline
+    )
+    retries_count = BigIntegerField(constraints=[SQL("DEFAULT '0'::bigint")])
+    state = TextField(constraints=[SQL("DEFAULT 'initiated'::text")])
+    udpated_at = DateTimeField(
+        constraints=[SQL("DEFAULT (now() AT TIME ZONE 'utc'::text)")]
+    )
+
+    class Meta:
+        schema = "public"
+        table_name = "task"
+        indexes = ((("data_entry", "pipeline"), True),)
+
+
 class BasePromptLog(BaseModel):
     completion_tokens = BigIntegerField(constraints=[SQL("DEFAULT '0'::bigint")])
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
@@ -208,6 +234,7 @@ class BasePromptLog(BaseModel):
     prompt_tokens = BigIntegerField(constraints=[SQL("DEFAULT '0'::bigint")])
     request_time_ms = BigIntegerField()
     result = TextField()
+    task = ForeignKeyField(column_name="task_id", field="id", model=BaseTask, null=True)
 
     class Meta:
         schema = "public"
