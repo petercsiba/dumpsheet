@@ -214,7 +214,7 @@ class BaseTask(BaseModel):
     )
     retries_count = BigIntegerField(constraints=[SQL("DEFAULT '0'::bigint")])
     state = TextField(constraints=[SQL("DEFAULT 'initiated'::text")])
-    udpated_at = DateTimeField(
+    updated_at = DateTimeField(
         constraints=[SQL("DEFAULT (now() AT TIME ZONE 'utc'::text)")]
     )
 

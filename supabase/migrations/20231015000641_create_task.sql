@@ -9,7 +9,7 @@ create table
     drafted_output json null,
     api_response json null,
     created_at timestamp with time zone not null default (now() at time zone 'utc'::text),
-    udpated_at timestamp with time zone not null default (now() at time zone 'utc'::text),
+    updated_at timestamp with time zone not null default (now() at time zone 'utc'::text),
     constraint task_pkey primary key (id),
     constraint task_data_entry_id_fkey foreign key (data_entry_id) references data_entry (id) on delete restrict,
     constraint task_pipeline_id_fkey foreign key (pipeline_id) references pipeline (id) on delete restrict,
