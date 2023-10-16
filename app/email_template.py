@@ -56,7 +56,7 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
 
       <!-- Footer -->
       <table align="center" width="100%" cellspacing="0" cellpadding="10" style="margin-top: 30px; ">
-        <[[tr>
+        <tr>
           <td>
             <table align="center" cellspacing="0" cellpadding="14"
                 style="background-color: white; border: 1px solid black; border-radius: 50px; width: auto;">
