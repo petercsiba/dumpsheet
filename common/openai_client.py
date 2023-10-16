@@ -114,7 +114,9 @@ class PromptLog(BasePromptLog):
 
 
 class PromptCache:
-    def __init__(self, cache_key: str, model: str, task_id: int, print_prompt: bool):
+    def __init__(
+        self, cache_key: str, model: str, task_id: Optional[int], print_prompt: bool
+    ):
         self.cache_key = cache_key
         self.model = model
         self.task_id = task_id
@@ -301,13 +303,14 @@ class OpenAiClient:
     # Swedish, Tagalog, Tamil, Thai, Turkish, Ukrainian, Urdu, Vietnamese, and Welsh.
     # NOTE: I verified that for English there is no difference between "transcribe" and "translate",
     # by changing it locally and seeing the translate is "cached_prompt: serving out of cache".
-    def transcribe_audio(self, audio_filepath, model="whisper-1"):
+    def transcribe_audio(self, audio_filepath, model="whisper-1", task_id=None):
         prompt_hint = "notes on my discussion from an in-person meeting or conference"
 
         # We mainly do caching
         with PromptCache(
             cache_key=audio_filepath,
             model=model,
+            task_id=task_id,
             print_prompt=self._should_print_prompt(True),
         ) as pcm:
             # We only use the cache for local runs to further speed up development (and reduce cost)
