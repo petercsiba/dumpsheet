@@ -580,7 +580,7 @@ def send_result(
         subject=f"{subject_prefix} {person.name}",
     )
     email_params.body_html = full_template(
-        pre_header=None,
+        pre_header=f"Contact and follow up information for {person.name}",
         title=email_params.subject,
         content=content_html,
     )

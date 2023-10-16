@@ -1,5 +1,3 @@
-import html
-import re
 from typing import Optional
 
 # title, content
@@ -14,7 +12,7 @@ _full_template = """
 
 <body style="margin: 0; padding: 0; background-color: #fdfefe; font-family: Arial, sans-serif;">
 
-<!-- Pre header - for now just use the title -->
+<!-- Pre-header - for now just use the title -->
 <div style="display: none; max-height: 0px; overflow: hidden;">
 {pre_header}
 </div>
@@ -58,7 +56,7 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
 
       <!-- Footer -->
       <table align="center" width="100%" cellspacing="0" cellpadding="10" style="margin-top: 30px; ">
-        <tr>
+        <[[tr>
           <td>
             <table align="center" cellspacing="0" cellpadding="14"
                 style="background-color: white; border: 1px solid black; border-radius: 50px; width: auto;">
@@ -85,17 +83,10 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
 """
 
 
-def _remove_html_tags(input_str):
-    clean = re.compile("<.*?>")
-    untagged_str = re.sub(clean, "", input_str)
-    return html.unescape(untagged_str)
-
-
 def full_template(title: str, content: str, pre_header: Optional[str]):
     if pre_header is None:
-        pre_header = _remove_html_tags(content)[:100]
-        if len(pre_header) < 20:
-            pre_header = title
+        pre_header = title
+    print(f"FILLING FULL_TEMPLATE {len(title)}, {len(content)}, {len(pre_header)}")
     return _full_template.format(title=title, content=content, pre_header=pre_header)
 
 
