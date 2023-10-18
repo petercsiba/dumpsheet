@@ -5,10 +5,12 @@ from http import HTTPStatus
 from typing import Any, Dict, List, Optional
 
 import pytz
-from hubspot.crm.properties import Option
+from hubspot.crm.properties import ModelProperty, Option
 
+from app.form import FormDefinition
 from app.hubspot_client import HubspotClient
 from app.hubspot_models import (
+    ALLOWED_FIELDS,
     CALL_FIELDS,
     CONTACT_FIELDS,
     GPT_IGNORE_LIST,
@@ -17,7 +19,6 @@ from app.hubspot_models import (
     AssociationType,
     FieldDefinition,
     FieldNames,
-    FormDefinition,
     HubspotObject,
     ObjectType,
 )
@@ -286,6 +287,29 @@ def extract_and_sync_contact_with_follow_up(
     )
 
 
+def _gen_field_from_properties_api_response(response: ModelProperty) -> FieldDefinition:
+    return FieldDefinition(
+        name=response.name,
+        field_type=response.field_type,
+        label=response.label,
+        description=response.description,
+        options=response.options,
+        group_name=response.group_name,
+        custom_field=response.hubspot_defined
+        is False,  # only if non-none and set to False it is a custom field
+    )
+
+
+def _gen_form_from_properties_api_response(
+    field_list: List[ModelProperty],
+) -> FormDefinition:
+    fields = []
+    for field_response in [f for f in field_list if f.name in ALLOWED_FIELDS]:
+        field: FieldDefinition = _gen_field_from_properties_api_response(field_response)
+        fields.append(field)
+    return FormDefinition(fields)
+
+
 test_data1 = """
 okay, then I spoke with Andrey Yursa he is from Zhilina which is funny he went to the private high school
 the english one in Zhilina and then he went to Suchany for the rest of his high school he played a
@@ -370,7 +394,7 @@ if __name__ == "__main__":
 
         # FOR CODE GEN
         # props = test_hs_client.list_custom_properties(object_type="contact")
-        # contact_def = FormDefinition.from_properties_api_response(props.results)
+        # contact_def = _gen_form_from_properties_api_response(props.results)
         # print(f"contact_def to_python_definition: {contact_def.to_python_definition()}")
         # exit()
 
