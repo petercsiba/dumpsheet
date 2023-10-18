@@ -49,13 +49,6 @@ class FieldNames(Enum):
 
 
 ALLOWED_FIELDS = set(item.value for item in FieldNames)
-GPT_MAX_NUM_OPTION_FIELDS = 10
-GPT_IGNORE_LIST = [
-    FieldNames.HS_OBJECT_ID.value,
-    FieldNames.HUBSPOT_OWNER_ID.value,
-    FieldNames.HS_CALL_CALLEE_OBJECT_ID,
-    FieldNames.HS_CALL_FROM_NUMBER,
-]
 
 
 # TODO(P1, devx): Create an Enum with the need for ".value"

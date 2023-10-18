@@ -7,17 +7,20 @@
 # TODO(P1, devx): This Haystack library looks quite good https://github.com/deepset-ai/haystack
 # TODO(P3, research, fine-tune): TLDR; NOT worth it. Feels like for repeated tasks it would be great to
 #  speed up and/or cost save https://platform.openai.com/docs/guides/fine-tuning/advanced-usage
+import datetime
 import hashlib
 import json
 import re
 import time
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import openai
+import pytz
 import tiktoken
 from peewee import InterfaceError
 
+from app.form import FieldDefinition, FormData, FormDefinition, Option
 from common.aws_utils import is_running_in_aws
 from common.config import OPEN_AI_API_KEY
 from common.storage_utils import get_fileinfo
@@ -32,6 +35,17 @@ DEFAULT_MODEL = "gpt-4-0613"  # Thanks Vishal
 BACKUP_MODEL = "gpt-3.5-turbo"
 BACKUP_MODEL_AFTER_NUM_RETRIES = 3
 # DEFAULT_MODEL = "gpt-3.5-turbo-0613"
+
+
+GPT_MAX_NUM_OPTION_FIELDS = 10
+# TODO(P0, hack): We should put this ignore list higher in the stack,
+#  e.g. into FormDefinition or yet better at FieldDefinition (to have it all at one place).
+GPT_IGNORE_LIST = [
+    "hs_object_id",
+    "hubspot_owner_id",
+    "hs_call_callee_object_id",
+    "hs_call_from_number",
+]
 
 
 def truncate_string(input_string):
@@ -249,7 +263,11 @@ class OpenAiClient:
     # TODO(P1, devx): We should templatize the prompt into "function body" and "parameters";
     #   then we can re-use the "body" to "fine-tune" a model and have faster responses.
     def run_prompt(
-        self, prompt: str, model=DEFAULT_MODEL, task_id=None, print_prompt=True
+        self,
+        prompt: str,
+        model=DEFAULT_MODEL,
+        task_id: Optional[int] = None,
+        print_prompt=True,
     ):
         with PromptCache(
             cache_key=prompt,
@@ -273,6 +291,82 @@ class OpenAiClient:
             # `pcm.__exit__` will update the database
 
             return gpt_result
+
+    # TODO(P1, devx): We should have a gpt_utils.py file to organize the logic from transformations.
+    # Main reason to separate Definition from Values is that we can generate GPT prompts in a generic-ish way.
+    # Sample output "industry": "which business area they specialize in professionally",
+    @staticmethod
+    def form_field_to_gpt_prompt(field: FieldDefinition) -> Optional[str]:
+        if field.name in GPT_IGNORE_LIST:
+            print(f"ignoring {field.name} for gpt prompt gen")
+            return None
+
+        result = f'"{field.name}": "{field.field_type} field representing {field.label}'
+
+        if bool(field.description):
+            result += f" described as {field.description}"
+        if bool(field.options) and isinstance(field.options, list):
+            if len(field.options) > GPT_MAX_NUM_OPTION_FIELDS:
+                print(f"too many options, shortening to {GPT_MAX_NUM_OPTION_FIELDS}")
+            options_slice: List[Option] = field.options[:GPT_MAX_NUM_OPTION_FIELDS]
+            option_values = [(opt.label, opt.value) for opt in options_slice]
+            result += (
+                f" restricted to these options defined as a list of (label, value) {option_values}"
+                " pick the most suitable value."
+            )
+        result += '"'
+
+        return result
+
+    def fill_in_form(
+        self,
+        form: FormDefinition,
+        task_id: Optional[int],
+        text: str,
+        print_prompt=False,
+        use_current_time: bool = False,
+    ) -> Tuple[Optional[FormData], Optional[str]]:
+        extra_context = ""
+        if use_current_time:
+            # Get the current UTC time and then convert it to local time.
+            local_now = datetime.datetime.now(pytz.timezone("America/Los_Angeles"))
+            # We omit minutes for 1. UX and 2. better caching of especially local test/research runs.
+            # 2023-10-03 02:30 PM PDT
+            now_with_hours_and_tz = local_now.strftime("%Y-%m-%d %I %p %Z")
+            extra_context = f"General context: Current time is {now_with_hours_and_tz}"
+
+        field_prompts = [
+            OpenAiClient.form_field_to_gpt_prompt(field) for field in form.fields
+        ]
+        form_prompt = ",\n".join([f for f in field_prompts if f is not None])
+
+        gpt_query = """
+            The following is a definition of form,
+            given as a list of form field labels, description, type (or options of possible values):
+            {form_prompt}
+            Using this note:
+            {note}
+            Fill in the form.
+            Return a valid JSON dictionary where keys are form labels, and values are filled in results.
+            For unknown values just use null.
+            {extra_context}
+            """.format(
+            form_prompt=form_prompt,
+            note=text,
+            extra_context=extra_context,
+        )
+        raw_response = self.run_prompt(
+            gpt_query, task_id=task_id, print_prompt=print_prompt
+        )
+        form_data_raw = gpt_response_to_json(raw_response)
+        if not isinstance(form_data_raw, dict):
+            err = f"gpt resulted form_data ain't a dict: {form_data_raw}"
+            print(f"ERROR: {err}")
+            return None, err
+
+        form_data = FormData(form, form_data_raw, omit_unknown_fields=True)
+        # TODO(P1, fullness): Would be nice to double-check if all GPT requested fields were actually returned.
+        return form_data, None
 
     # They claim to return 1536 dimension of normalized to 1 (cosine or euclid returns same)
     # TODO(P1, research): There are a LOT of unknowns here for me:

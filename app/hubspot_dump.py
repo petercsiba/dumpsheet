@@ -1,20 +1,16 @@
-import datetime
 import time
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional
 
-import pytz
-from hubspot.crm.properties import ModelProperty, Option
+from hubspot.crm.properties import ModelProperty
 
-from app.form import FormDefinition
+from app.form import FormData, FormDefinition
 from app.hubspot_client import HubspotClient
 from app.hubspot_models import (
     ALLOWED_FIELDS,
     CALL_FIELDS,
     CONTACT_FIELDS,
-    GPT_IGNORE_LIST,
-    GPT_MAX_NUM_OPTION_FIELDS,
     TASK_FIELDS,
     AssociationType,
     FieldDefinition,
@@ -22,7 +18,7 @@ from app.hubspot_models import (
     HubspotObject,
     ObjectType,
 )
-from common.openai_client import OpenAiClient, gpt_response_to_json
+from common.openai_client import OpenAiClient
 from database.account import Account
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.constants import DESTINATION_HUBSPOT_ID, OAUTH_DATA_TOKEN_TYPE_OAUTH
@@ -32,78 +28,6 @@ from database.oauth_data import OauthData
 from database.organization import Organization
 from database.pipeline import Pipeline
 from database.task import KEY_HUBSPOT_CALL, KEY_HUBSPOT_CONTACT, KEY_HUBSPOT_TASK, Task
-
-
-# Main reason to separate Definition from Values is that we can generate GPT prompts in a generic-ish way.
-# Sample output "industry": "which business area they specialize in professionally",
-def form_field_to_gpt_prompt(field: FieldDefinition) -> Optional[str]:
-    if field.name in GPT_IGNORE_LIST:
-        print(f"ignoring {field.name} for gpt prompt gen")
-        return None
-
-    result = f'"{field.name}": "{field.field_type} field representing {field.label}'
-
-    if bool(field.description):
-        result += f" described as {field.description}"
-    if bool(field.options) and isinstance(field.options, list):
-        if len(field.options) > GPT_MAX_NUM_OPTION_FIELDS:
-            print(f"too many options, shortening to {GPT_MAX_NUM_OPTION_FIELDS}")
-        options_slice: List[Option] = field.options[:GPT_MAX_NUM_OPTION_FIELDS]
-        option_values = [(opt.label, opt.value) for opt in options_slice]
-        result += (
-            f" restricted to these options defined as a list of (label, value) {option_values}"
-            " pick the most suitable value."
-        )
-    result += '"'
-
-    return result
-
-
-def form_definition_to_gpt_prompt(form: FormDefinition) -> str:
-    field_prompts = [form_field_to_gpt_prompt(field) for field in form.fields]
-    return ",\n".join([f for f in field_prompts if f is not None])
-
-
-def extract_form_data(
-    gpt_client: OpenAiClient, form: FormDefinition, task_id: int, text: str
-) -> Dict[str, Any]:
-    # Get the current UTC time and then convert it to local time.
-    local_now = datetime.datetime.now(pytz.timezone("America/Los_Angeles"))
-    gpt_query = """
-    The following is a definition of form, as a list of form field labels, description, type (or option list values):
-    {form_fields}
-    Using this note:
-    {note}
-    Fill in the form.
-    Return a valid JSON dictionary where keys are form labels, and values are filled in results.
-    For unknown values just use null.
-    General context: Current time is {now_with_hours_and_tz}
-    """.format(
-        form_fields=form_definition_to_gpt_prompt(form),
-        note=text,
-        # We omit minutes for 1. UX and 2. better caching of especially local test/research runs.
-        # 2023-10-03 02:30 PM PDT
-        now_with_hours_and_tz=local_now.strftime("%Y-%m-%d %I %p %Z"),
-    )
-    raw_response = gpt_client.run_prompt(gpt_query, task_id=task_id, print_prompt=False)
-    form_data_raw = gpt_response_to_json(raw_response)
-    if not isinstance(form_data_raw, dict):
-        print(f"ERROR: gpt resulted form_data ain't a dict: {form_data_raw}")
-        return form_data_raw
-
-    form_data = {}
-    for name, value in form_data_raw.items():
-        field = form.get_field(name)
-        if field is None:
-            print(
-                f"ERROR: gpt resulted field outside of the form definition: {name}: {value}, skipping"
-            )
-            continue
-
-        form_data[name] = field.validate_and_fix(value)
-
-    # TODO(P1, fullness): Would be nice to double-check if all GPT requested fields were actually returned.
-    return form_data
 
 
 @dataclass
@@ -136,18 +60,24 @@ class HubspotDataEntry:
         return f"{first_str} {last_str}"
 
 
-def _count_set_fields(form_data: Dict[str, Any]) -> int:
-    return sum(1 for value in form_data.values() if value is not None)
+def _count_set_fields(form_data: FormData) -> int:
+    return sum(1 for value in form_data.to_dict() if value is not None)
 
 
 # TODO(P1, devx): REFACTOR: We should wrap this into a HubspotObject for extra validation,
 #  * essentially take that code from extract_form_data and put it there.
-def _maybe_add_hubspot_owner_id(form_data, hubspot_owner_id):
+def _maybe_add_hubspot_owner_id(form_data: FormData, hubspot_owner_id):
     if bool(form_data) and bool(hubspot_owner_id):
+        int_hubspot_owner_id = None
         try:
             int_hubspot_owner_id = int(hubspot_owner_id)
-            form_data[FieldNames.HUBSPOT_OWNER_ID.value] = int_hubspot_owner_id
-        except Exception:
+            form_data.set_field_value(
+                FieldNames.HUBSPOT_OWNER_ID.value, int_hubspot_owner_id
+            )
+        except Exception as ex:
+            print(
+                f"WARNING: Cannot set hubspot_owner_id {int_hubspot_owner_id} cause {ex}"
+            )
             pass
 
 
@@ -169,17 +99,18 @@ def extract_and_sync_contact_with_follow_up(
             state="short",
         )
 
+    # CONTACT CREATION
     contact_form = FormDefinition(CONTACT_FIELDS)
-    contact_data = extract_form_data(
-        gpt_client, contact_form, task_id=db_task.id, text=text
+    contact_form_data, contact_err = gpt_client.fill_in_form(
+        form=contact_form, task_id=db_task.id, text=text
     )
-    _maybe_add_hubspot_owner_id(contact_data, hubspot_owner_id)
-    db_task.add_generated_output(KEY_HUBSPOT_CONTACT, contact_data)
+    _maybe_add_hubspot_owner_id(contact_form_data, hubspot_owner_id)
+    db_task.add_generated_output(KEY_HUBSPOT_CONTACT, contact_form_data)
 
     # When it would yield too little information, rather skip and make them re-enter.
-    if _count_set_fields(contact_data) <= 1:
+    if _count_set_fields(contact_form_data) <= 1:
         print(
-            f"fWARNING: incomplete data entry as we could only fill in very little {contact_data} from text: {text}"
+            f"fWARNING: incomplete data entry as too little fields filled for {contact_form_data} from text: {text}"
         )
         return HubspotDataEntry(
             transcript=text,
@@ -189,12 +120,15 @@ def extract_and_sync_contact_with_follow_up(
     # TODO(P1, ux): Figure out if you can create contacts without a communication channel
     if local_hack:
         # Just mock new contact for every run
-        if isinstance(contact_data, dict):
-            contact_data[
-                FieldNames.EMAIL.value
-            ] = f"example{int(time.time())}@gmail.com"
-            contact_data[FieldNames.PHONE.value] = f"+1{int(time.time())}"
-    contact_response = client.crm_contact_create(contact_data)
+        if bool(contact_form_data):
+            contact_form_data.set_field_value(
+                FieldNames.EMAIL.value, f"example{int(time.time())}@gmail.com"
+            )
+            contact_form_data.set_field_value(
+                FieldNames.PHONE.value, f"+1650210{int(time.time()) % 10000}"
+            )
+
+    contact_response = client.crm_contact_create(contact_form_data.to_dict())
     db_task.add_sync_response(
         KEY_HUBSPOT_CONTACT,
         contact_response.status,
@@ -202,31 +136,38 @@ def extract_and_sync_contact_with_follow_up(
     )
     contact_id = contact_response.hs_object_id
 
+    # CALL CREATION
     call_form = FormDefinition(CALL_FIELDS)
-    call_data = extract_form_data(gpt_client, call_form, task_id=db_task.id, text=text)
-    _maybe_add_hubspot_owner_id(call_data, hubspot_owner_id)
-    db_task.add_generated_output(KEY_HUBSPOT_CONTACT, call_data)
+    # use_current_time so hs_timestamp gets filled
+    call_form_data, call_err = gpt_client.fill_in_form(
+        form=call_form, task_id=db_task.id, text=text, use_current_time=True
+    )
+    _maybe_add_hubspot_owner_id(call_form_data, hubspot_owner_id)
+    db_task.add_generated_output(KEY_HUBSPOT_CONTACT, call_form_data)
 
-    call_response = client.crm_call_create(call_data)
+    call_response = client.crm_call_create(call_form_data.to_dict())
     db_task.add_sync_response(
         KEY_HUBSPOT_CALL, call_response.status, call_response.get_task_response()
     )
     call_id = call_response.hs_object_id
 
+    # TASK CREATION
     # TODO(P1, ux): Sometimes, there might be no task.
     hs_task_form = FormDefinition(TASK_FIELDS)
-    hs_task_data = extract_form_data(
-        gpt_client, hs_task_form, task_id=db_task.id, text=text
+    # use_current_time so hs_timestamp gets filled
+    hs_task_data, hs_task_err = gpt_client.fill_in_form(
+        form=hs_task_form, task_id=db_task.id, text=text, use_current_time=True
     )
     _maybe_add_hubspot_owner_id(hs_task_data, hubspot_owner_id)
     db_task.add_generated_output(KEY_HUBSPOT_CONTACT, hs_task_data)
 
-    hs_task_response = client.crm_task_create(hs_task_data)
+    hs_task_response = client.crm_task_create(hs_task_data.to_dict())
     db_task.add_sync_response(
         KEY_HUBSPOT_TASK, hs_task_response.status, hs_task_response.get_task_response()
     )
     hs_task_id = hs_task_response.hs_object_id
 
+    # ASSOCIATION CREATION
     contact_to_call_result = None
     if bool(contact_id) and bool(call_id):
         contact_to_call_result = client.crm_association_create(
@@ -245,7 +186,7 @@ def extract_and_sync_contact_with_follow_up(
     ):
         state = "success"
     else:
-        if contact_data is None or call_data is None or hs_task_data is None:
+        if contact_form_data is None or call_form_data is None or hs_task_data is None:
             state = "error_gpt"
         elif contact_response.status == HTTPStatus.CONFLICT:
             state = "warning_already_created"
@@ -276,13 +217,13 @@ def extract_and_sync_contact_with_follow_up(
         contact_to_task_result=contact_to_task_result,
         # TODO(P2, devx): This feels more like a new FormObject
         gpt_contact=HubspotObject.from_api_response_props(
-            hub_id, ObjectType.CONTACT, contact_form, contact_data
+            hub_id, ObjectType.CONTACT, contact_form, contact_form_data.to_dict()
         ),
         gpt_call=HubspotObject.from_api_response_props(
-            hub_id, ObjectType.CALL, call_form, call_data
+            hub_id, ObjectType.CALL, call_form, call_form_data.to_dict()
         ),
         gpt_task=HubspotObject.from_api_response_props(
-            hub_id, ObjectType.TASK, hs_task_form, hs_task_data
+            hub_id, ObjectType.TASK, hs_task_form, hs_task_data.to_dict()
         ),
     )
 

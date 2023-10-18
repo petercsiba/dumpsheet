@@ -13,6 +13,9 @@ class Option:
 
 
 # Treat this as a form field
+# TODO: Add default values, custom display transformations;
+# TODO: Make field_type an Enum
+# TODO: Remove group_name
 class FieldDefinition:
     def __init__(
         self,
@@ -30,7 +33,7 @@ class FieldDefinition:
         self.description = description
         self.options = options
         self.group_name = group_name
-        self.custom_field = custom_field
+        self.custom_field = bool(custom_field)
 
     @classmethod
     def _none_or_quoted_str(cls, value: Optional[str]) -> str:
@@ -99,7 +102,7 @@ class FieldDefinition:
         if value is None:
             return None
 
-        if value == "None" or value == "null":
+        if str(value).lower() in ["none", "null", "unknown"]:
             return None
 
         # Sometimes, GPT results in entire definition of the field, in that case extra the value
@@ -244,5 +247,55 @@ class FormDefinition:
         print(f"WARNING: Requested field {field_name} not in list")
         return None
 
+    def get_field_names(self) -> list[str]:
+        return [field.name for field in self.fields]
+
     def to_python_definition(self):
         return ",\n".join([field.to_python_definition() for field in self.fields])
+
+
+# Related to HubspotObject
+class FormData:
+    def __init__(
+        self,
+        form: FormDefinition,
+        data: Optional[dict] = None,
+        omit_unknown_fields: bool = False,
+    ):
+        self.form = form
+        self.data = {}
+        if data is None:
+            data = {}
+
+        for field_name, value in data.items():
+            self.set_field_value(
+                field_name, value, raise_key_error=not omit_unknown_fields
+            )
+
+    def get_field(self, field_name) -> FieldDefinition:
+        return self.form.get_field(field_name)
+
+    def get_value(self, field_name: str, default_value=None):
+        return self.data[field_name] if field_name in self.data else default_value
+
+    def set_field_value(self, field_name: str, value: Any, raise_key_error=False):
+        field = self.get_field(field_name)
+        if bool(field):
+            self.data[field_name] = field.validate_and_fix(value)
+        else:
+            # print(f"INFO: omitting `{field_name}` from")
+            error = f"Field '{field_name}' does not exist in FormDefinition {self.form.get_field_names()}"
+            if raise_key_error:
+                raise KeyError(error)
+            else:
+                print(f"WARNING: Skipping {error}")
+
+    # TODO: We maybe want ordered dict.
+    def to_dict(self) -> dict:
+        return self.data.copy()
+
+    def get_display_value(self, field_name: str) -> str:
+        field = self.get_field(field_name)
+        if bool(field):
+            return field.display_value(self.data.get(field_name))
+        return "None"
