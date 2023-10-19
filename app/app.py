@@ -12,6 +12,8 @@ from typing import List
 from urllib.parse import unquote_plus
 from uuid import UUID
 
+import pytz
+
 from app.datashare import PersonDataEntry
 from app.emails import (
     send_hubspot_result,
@@ -20,6 +22,8 @@ from app.emails import (
     send_result_rest_of_the_crowd,
     send_technical_failure_email,
 )
+from app.form import FormData
+from app.gsheets import GoogleClient, add_form_data_to_sheet
 from app.hubspot_client import HubspotClient
 from app.hubspot_dump import HubspotDataEntry, extract_and_sync_contact_with_follow_up
 from app.networking_dump import run_executive_assistant_to_get_drafts
@@ -111,6 +115,33 @@ def wait_for_email_updated_on_data_entry(
     return False
 
 
+# TODO(P1, features): Also support this for HubSpot dump.
+def sync_people_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
+    print(f"Gonna sync {len(form_datas)} FormDatas into GSheets")
+    google_client = GoogleClient()
+    google_client.login()
+
+    acc: Account = Account.get_by_id(account_id)
+    gsheet_id = acc.gsheet_id
+    email = acc.get_email()
+    if gsheet_id is None:
+        if email is None:
+            print(
+                f"ERROR: Cannot create gsheet for account {account_id} cause no email was found"
+            )
+            return
+
+        new_spreadsheet = google_client.create(f"Voxana Data Share - {acc.full_name}")
+        gsheet_id = new_spreadsheet.id
+        google_client.share_with(email)
+
+    google_client.open_by_key(gsheet_id)
+    # TODO(P0, UX): We should support multiple spreadsheets by FormDefinition.name - that would need be some refactor.
+    sheet = google_client.spreadsheet.get_worksheet(0)
+    for form_data in form_datas:
+        add_form_data_to_sheet(sheet, form_data)
+
+
 # Second lambda
 def process_transcript_from_data_entry(
     gpt_client: OpenAiClient,
@@ -130,11 +161,39 @@ def process_transcript_from_data_entry(
     # This the hack when DataEntry.account_id can be updated, so we re-fetch the stuff.
     data_entry = BaseDataEntry.get_by_id(data_entry.id)
 
+    if len(people_entries) == 0:
+        # If this is sent, this should be the only email sent for this data_entry
+        send_result_no_people_found(
+            account_id=data_entry.account_id,
+            idempotency_id_prefix=data_entry.idempotency_id,
+            full_transcript=data_entry.output_transcript,
+        )
+        return people_entries
+
     rest_of_the_crowd = []
+    legit_results = []
     for i, person in enumerate(people_entries):
         if not person.should_show_full_contact_card():
             rest_of_the_crowd.append(person)
             continue
+
+        person.form_data.set_field_value(
+            "recording_time", datetime.datetime.now(pytz.UTC)
+        )
+        legit_results.append(person)
+
+    # UPDATE SPREADSHEET
+    # TODO(P1, reliability): Once battle-tested, remove this
+    try:
+        sync_people_to_gsheets(
+            account_id=data_entry.account_id,
+            form_datas=[person.form_data for person in legit_results],
+        )
+    except Exception as ex:
+        print(f"ERROR: Cannot sync_people_to_gsheets cause {ex}")
+
+    # SEND EMAILS
+    for person in legit_results:
         # if user.contact_method() == "email":
         send_result(
             account_id=data_entry.account_id,
@@ -148,14 +207,6 @@ def process_transcript_from_data_entry(
             account_id=data_entry.account_id,
             idempotency_id_prefix=data_entry.idempotency_id,
             people=rest_of_the_crowd,
-        )
-
-    if len(people_entries) == 0:
-        # If this is sent, this should be the only email sent for this data_entry
-        send_result_no_people_found(
-            account_id=data_entry.account_id,
-            idempotency_id_prefix=data_entry.idempotency_id,
-            full_transcript=data_entry.output_transcript,
         )
 
     return people_entries

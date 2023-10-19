@@ -1,5 +1,9 @@
 beautifulsoup4
 boto3
+google-auth
+google-auth-oauthlib
+google-api-python-client
+gspread
 hubspot-api-client
 openai
 peewee

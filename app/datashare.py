@@ -4,6 +4,8 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from json import JSONEncoder
 from typing import Any, Dict, List, Optional, Type, get_args, get_origin
 
+from app.form import FormData
+
 
 def check_required_str(name, s):
     if s is None or len(s) == 0:
@@ -122,13 +124,13 @@ class PersonDataEntry:
     summarized_note: str = ""
     response_message_type: str = "sms"  # TODO: make this an enum
     their_needs: List[str] = field(default_factory=list)
-    # For everything else interesting, their children names, where are they from, what they like
-    additional_metadata: Dict[str, any] = field(default_factory=dict)
 
     # These are actual copy-paste-able drafts from the mentioned follow-ups, hard coded list and such
     next_draft: Optional[str] = None
 
     parsing_error: str = None
+    # Fields which will be synced to Spreadsheets
+    form_data: Optional[FormData] = None
 
     def get_summary_fields(self) -> Dict[str, str]:
         return {

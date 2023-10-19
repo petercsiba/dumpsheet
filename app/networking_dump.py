@@ -1,8 +1,8 @@
 import json
-from dataclasses import asdict
 from typing import Dict, List, Optional
 
 from app.datashare import PersonDataEntry
+from app.form import FieldDefinition, FormDefinition, Option
 from common.openai_client import (
     DEFAULT_MODEL,
     OpenAiClient,
@@ -118,26 +118,103 @@ Be careful to include all full original substrings with enough context merged in
     return result
 
 
-# TODO(P1, features): Dynamic summary categories based off:
-#   * Background of the speaker: https://www.reversecontact.com/case-studies
-#   * General question / note categories (chat-gpt)
-#   * Static list to fill-in if not enough (get top 5 say).
-#   * The above 3 lists consolidate with GPT.
-#   NOTE: This also needs more templates.
-summary_fields_preset = {
-    "role": "current role or latest job experience",
-    "industry": "which business area they specialize in professionally",
-    "impressions": "my first impression of them summarized into one sentence",
-    "their_needs": "list of what the person is looking for, null for empty",
-    "key_facts": "list of key facts each fact in a super-short up to 5 word brief, null for empty",
-    "my_action_items": "list of action items I explicitly assigned myself to address after the meeting, null for empty",
-    "suggested_response_item": (
-        "one key topic or item for my follow up response to the person, "
-        "default to 'great to meet you, let me know if I can ever do anything for you'"
+NETWORKING_FIELDS = [
+    FieldDefinition(
+        name="recording_time",
+        field_type="date",  # TODO(P2, ux): Maybe it should be date, but json only has timestamp.
+        label="Recorded Time",
+        description="Which date the recording took place",
+        ignore_in_prompt=True,  # Will be filled in manually
     ),
-    "response_message_type": "best message channel like email, sms, linkedin, whatsapp for me to respond on",
-    "suggested_revisit": "priority of when should i respond to them, PO (today), P1 (end of week), P2 (later)",
-}
+    FieldDefinition(
+        name="name",
+        field_type="text",
+        label="Name",
+        description="Name of the person I talked with",
+        ignore_in_prompt=True,  # Will be filled in manually
+    ),
+    FieldDefinition(
+        name="role",
+        field_type="text",
+        label="Role",
+        description="Current role or latest job experience",
+    ),
+    FieldDefinition(
+        name="industry",
+        field_type="text",
+        label="Industry",
+        description="which business area they specialize in professionally",
+    ),
+    FieldDefinition(
+        name="their_needs",
+        field_type="text",
+        label="Their Needs",
+        description="list of what the person is looking for, null for empty",
+    ),
+    FieldDefinition(
+        # TODO(P1, devx): We might want add list form type here.
+        name="my_action_items",
+        field_type="text",
+        label="My Action Items",
+        description=(
+            "list of action items I explicitly assigned myself to address after the meeting, null for empty"
+        ),
+    ),
+    FieldDefinition(
+        name="key_facts",
+        field_type="text",
+        label="Key Facts",
+        description="list of key facts each fact in a super-short up to 5 word brief, null for empty",
+    ),
+    FieldDefinition(
+        name="suggested_revisit",
+        field_type="select",
+        label="Suggested Revisit",
+        description=(
+            "priority of when should i respond to them, PO (today), P1 (end of week), P2 (later)"
+        ),
+        options=[
+            Option(label="P0 (today)", value="P0"),
+            Option(label="P1 (end of week)", value="P1"),
+            Option(label="P2 (later)", value="P2"),
+        ],
+        default_value="P2",
+    ),
+    FieldDefinition(
+        name="response_message_type",
+        field_type="select",
+        label="Response Message Channel",
+        description=(
+            "best message channel to keep the conversation going, either it is mentioned in the text, "
+            "and if not, then assume from how friendly / professional the chat was"
+        ),
+        options=[
+            Option(label="Email", value="email"),
+            Option(label="LinkedIn", value="linkedin"),
+            Option(label="WhatsApp", value="whatsapp"),
+            Option(label="Text", value="sms"),
+        ],
+        default_value="sms",
+    ),
+    FieldDefinition(
+        name="suggested_response_item",
+        field_type="text",
+        label="Suggested Response Item",
+        description=(
+            "one key topic or item for my follow up response to the person, "
+            "default to 'great to meet you, let me know if I can ever do anything for you'"
+        ),
+    ),
+    FieldDefinition(
+        name="summarized_note",
+        field_type="text",
+        label="Summarized Note",
+        description="short concise structured summary of the meeting note",
+        ignore_in_prompt=True,  # We only fill this in when the transcript is long enough
+    ),
+]
+NETWORKING_FORM = FormDefinition(NETWORKING_FIELDS)
+# "impressions": "my first impression of them summarized into one sentence",
 
 
 def summarize_note(gpt_client: OpenAiClient, raw_note: str):
@@ -154,12 +231,6 @@ def summarize_note(gpt_client: OpenAiClient, raw_note: str):
 def summarize_raw_note_to_person_data_entry(
     gpt_client: OpenAiClient, name: str, raw_note: str
 ) -> Optional[PersonDataEntry]:
-    query_summarize = """
-I want to structure the following note about {}
-into a single json dictionary with the following key value pairs: {}
-Keep it brief to the point.
-Output only the resulting json dictionary.
-My notes: {}"""
     person = PersonDataEntry()
     person.name = name
     person.transcript = raw_note
@@ -171,39 +242,35 @@ My notes: {}"""
             f"Skipping summary for {name} as transcript too short: "
             f"{len_transcript} < {MIN_PERSON_TRANSCRIPT_CHAR_LENGTH}"
         )
-        raw_summary = None
-        raw_response = f"Thanks for mentioning {name}! Unfortunately there is too little info to summarize from."
+        form_data = None
+        err = f"Thanks for mentioning {name}! Unfortunately there is too little info to summarize from."
     else:
-        # TODO(P1, bug): ParsingError: { "name": "Michmucho", "industry": "", "role": "", "vibes": "Unknown",
-        #  "priority": 3, "follow_ups": null, "needs": null }
-        raw_response = gpt_client.run_prompt(
-            query_summarize.format(name, json.dumps(summary_fields_preset), raw_note),
-            print_prompt=True,
+        form_data, err = gpt_client.fill_in_form(
+            form=NETWORKING_FORM, task_id=None, text=raw_note, print_prompt=True
         )
-        raw_summary = gpt_response_to_json(raw_response)
 
-    if raw_summary is None:
+    if form_data is None:
         print(f"ERROR: Could NOT parse summary for {name}, defaulting to hand-crafted")
         person.batch_into_one_email = True
-        person.parsing_error = raw_response
+        person.parsing_error = err
         return person
 
-    # person.mnemonic = raw_summary.get("mnemonic", None)
-    # person.mnemonic_explanation = raw_summary.get("mnemonic_explanation", None)c
-    person.role = raw_summary.get("role", person.role)
-    person.industry = raw_summary.get("industry", person.industry)
-    person.impressions = raw_summary.get("impressions", person.impressions)
-    person.key_facts = raw_summary.get("key_facts", person.key_facts)
-    person.my_action_items = raw_summary.get("my_action_items", person.my_action_items)
-    person.suggested_response_item = raw_summary.get(
+    # person.mnemonic = form_data.get_value("mnemonic", None)
+    # person.mnemonic_explanation = form_data.get_value("mnemonic_explanation", None)
+    # NOTE: Yeah, we should get rid of PersonDataEntry in favor of the FormData, but this refactor is already too big.
+    person.role = form_data.get_value("role", person.role)
+    person.industry = form_data.get_value("industry", person.industry)
+    person.impressions = form_data.get_value("impressions", person.impressions)
+    person.key_facts = form_data.get_value("key_facts", person.key_facts)
+    person.my_action_items = form_data.get_value(
+        "my_action_items", person.my_action_items
+    )
+    person.suggested_response_item = form_data.get_value(
         "suggested_response_item", person.suggested_response_item
     )
-    person.response_message_type = raw_summary.get("response_message_type")
-    if person.response_message_type is None:
-        person.response_message_type = "sms"
-    person.response_message_type.lower()
-    person.their_needs = raw_summary.get("their_needs", person.their_needs)
-    person.suggested_revisit = raw_summary.get(
+    person.response_message_type = form_data.get_value("response_message_type")
+    person.their_needs = form_data.get_value("their_needs", person.their_needs)
+    person.suggested_revisit = form_data.get_value(
         "suggested_revisit", person.suggested_revisit
     )
     person.summarized_note = (
@@ -211,8 +278,9 @@ My notes: {}"""
         if len(raw_note) < MIN_FULL_TRANSCRIPT_CHAR_LENGTH_TO_GENERATE_SUMMARY
         else summarize_note(gpt_client, raw_note)
     )
-    # TODO(P1, ux): Custom fields like their children names, or responses to recurring questions from me.
-    # person.additional_metadata = {}
+    form_data.set_field_value("name", name)
+    form_data.set_field_value("summarized_note", person.summarized_note)
+    person.form_data = form_data
     return person
 
 
@@ -279,6 +347,7 @@ My note {note}""".format(
 # NOTE: The original approach of sub-stringing the original string worked only like 70% right (GPT3.5):
 # * Many un-attributed gaps (which was painful to map)
 # * Repeat mentions doesn't work
+# TODO(P0, devx): Add task_id to the networking pipeline
 def run_executive_assistant_to_get_drafts(
     gpt_client: OpenAiClient, full_transcript: str
 ) -> List[PersonDataEntry]:
@@ -319,14 +388,4 @@ def run_executive_assistant_to_get_drafts(
     print("=== All summaries === ")
     # Sort by priority, these are now P0, P1 so do it ascending.
     person_data_entries = sorted(person_data_entries, key=lambda pde: pde.sort_key())
-
-    print(
-        json.dumps(
-            [
-                asdict(pde)
-                for pde in person_data_entries
-                if pde.should_show_full_contact_card()
-            ]
-        )
-    )
     return person_data_entries

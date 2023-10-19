@@ -70,6 +70,7 @@ class BaseUsers(BaseModel):
 class BaseAccount(BaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     full_name = TextField(null=True)
+    gsheet_id = TextField(null=True, unique=True)
     id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
     # To overcome ForeignKeyField circular dependency
     merged_into_id = UUIDField(null=True)
