@@ -399,7 +399,7 @@ def lambda_handler(event, context):
     if bool(data_entry):
         data_entry = BaseDataEntry.get_by_id(data_entry.id)
         if (
-            SKIP_PROCESSED_DATA_ENTRIES == 1
+            str(SKIP_PROCESSED_DATA_ENTRIES) == "1"
             and data_entry.state == STATE_UPLOAD_PROCESSED
         ):
             print("INFO: skipping data entry processing cause already processed")

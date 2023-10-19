@@ -218,7 +218,7 @@ def send_email(params: EmailLog) -> bool:
     params.bcc = DEBUG_RECIPIENTS
     raw_email = create_raw_email_with_attachments(params)
 
-    if not is_running_in_aws() or SKIP_SENDING_EMAILS == 1:
+    if not is_running_in_aws() or str(SKIP_SENDING_EMAILS) == "1":
         # TODO(P2, testing): Ideally we should also test the translation from params to raw email.
         print(
             f"Skipping ses.send_raw_email cause NOT in AWS or SKIP_SENDING_EMAILS={SKIP_SENDING_EMAILS} "
