@@ -84,8 +84,11 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({collec
                             onChange={(e) => setTermsAccepted(e.target.checked)}
                         />
                         <label className="ml-2">
-                            I agree with the <a href="https://www.voxana.ai/legal/terms-of-service" target="_blank"
-                                                rel="noopener noreferrer">terms of service</a>
+                            <a className="underline hover:no-underline"
+                               href="https://www.voxana.ai/legal/terms-of-service" target="_blank"
+                               rel="noopener noreferrer">
+                                terms of service
+                            </a>
                         </label>
                     </div>
                     <div className="flex justify-center pt-2">
@@ -110,7 +113,7 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({collec
                             <li className="mt-1">Syncing to HubSpot (if connected)</li>
                         </ul>
                     </p>
-                    <ProgressBar currentStep={3} />
+                    <ProgressBar currentStep={3}/>
                 </>
             )}
         </div>
