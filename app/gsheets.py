@@ -109,37 +109,43 @@ def update_row_with_range(sheet: Worksheet, row_number: int, values_list):
     col_letter = col_num_string(len(values_list))
     cell_range = f"A{row_number}:{col_letter}{row_number}"
     print(f"update_row_with_range row_number: {cell_range}")
-    sheet.update(cell_range, [values_list])
+    sheet.update(range_name=cell_range, values=[values_list])
 
 
+# The intent is to always fill in something relevant while NEVER messing with
+# existing stuff. So the logic finds the corresponding columns, and appends a new row.
+# This makes it stable against user renames, custom row appends.
 def add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
     # Access the first row to get the headers
     existing_headers = sheet.row_values(1)
 
-    # Your data dict, TODO: Use display values for fields.
-    data_dict = form_data.to_dict()
+    data = form_data.to_display_tuples()
+    # We use list here to preserve the FormDefinition order.
+    labels = [d[0] for d in data]
+    display_values = [d[1] for d in data]
+    label_values_map = {d[0]: d[1] for d in data}
 
     # If there are no headers, create one
     if not existing_headers:
         print("add_form_data_to_sheet: no headers, creating header with a row")
         # Set the headers to be the keys from the data_dict
-        sheet.insert_row(list(data_dict.keys()), 1)
+        sheet.insert_row(labels, 1)
         # Insert the data
-        sheet.insert_row(list(data_dict.values()), 2)
+        sheet.insert_row(display_values, 2)
         return
 
     # If headers exist, match keys and append data (this is a bit over-fancy)
     new_headers = []
     row_to_insert = []
 
-    for key in data_dict.keys():
-        if key in existing_headers:
-            col_idx = existing_headers.index(key) + 1
+    for label in labels:
+        if label in existing_headers:
+            col_idx = existing_headers.index(label) + 1
         else:
             # If a new header key, add a new column and set the value
             col_idx = len(existing_headers) + 1 + len(new_headers)
-            print(f"add_form_data_to_sheet: adding new header {key}")
-            new_headers.append(key)
+            print(f"add_form_data_to_sheet: adding new header {label}")
+            new_headers.append(label)
 
         row_to_insert.append(col_idx)
 
@@ -153,7 +159,7 @@ def add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
         update_row_with_range(sheet, 1, all_headers)
 
     # Create a list of values to append based on the order of all headers (existing + new)
-    values_to_append = [data_dict.get(header, "") for header in all_headers]
+    values_to_append = [label_values_map.get(header, "") for header in all_headers]
 
     # Append the new row
     sheet.append_row(values_to_append)

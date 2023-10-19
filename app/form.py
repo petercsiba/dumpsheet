@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Tuple
 
 import phonenumbers
 import pytz
@@ -23,14 +23,18 @@ class FieldDefinition:
         label: str,
         description: Optional[str] = None,
         options: Optional[List[Option]] = None,
+        ignore_in_prompt: bool = False,
         custom_field: Optional[bool] = None,
+        default_value: Any = None,
     ):
         self.name = name
         self.field_type = field_type
         self.label = label
         self.description = description
         self.options = options
+        self.ignore_in_prompt = ignore_in_prompt
         self.custom_field = bool(custom_field)
+        self.default_value = default_value
 
     @classmethod
     def _none_or_quoted_str(cls, value: Optional[str]) -> str:
@@ -79,6 +83,7 @@ class FieldDefinition:
             return option_labels.get(value, str(value))
 
         if self.field_type == "date":
+            # TODO: This feels hacky
             datetime_value = self._validate_date(value)
 
             # Convert the datetime to PST
@@ -135,12 +140,26 @@ class FieldDefinition:
         )
 
     # In JavaScript, date is actually a timestamp which ideally should be human-readable and ISO 8601
+    # TODO(P1, devx): We should better consolidate date util functions before it gets too much of a nightmare.
     def _validate_date(self, value: Any):
         if value is None:
             return None
 
+        if isinstance(value, datetime.datetime):
+            dt_value: datetime.datetime = value
+            if dt_value.tzinfo is None:
+                # If the parsed_date is naive, set it to the system's local timezone
+                local_timezone = datetime.datetime.now().astimezone().tzinfo
+                dt_value = dt_value.replace(tzinfo=local_timezone)
+            return dt_value
+
+        if not isinstance(value, str):
+            print(
+                f"WARNING: form date value ain't datetime nor str, weird stuff might happen {type(value)}: {value}"
+            )
+
         try:
-            parsed_date = parser.parse(value)
+            parsed_date = parser.parse(str(value))
 
             if (
                 parsed_date.tzinfo is None
@@ -222,6 +241,12 @@ class FieldDefinition:
         if isinstance(value, str) or value is None:
             return value
 
+        if isinstance(value, list):
+            return "\n".join(f"* {item}" for item in value)
+
+        if isinstance(value, dict):
+            return "\n".join(f"* {key}: {value}" for key, value in value.items())
+
         self._validation_error("unexpected text type", value)
         return str(value)
 
@@ -267,11 +292,26 @@ class FormData:
                 field_name, value, raise_key_error=not omit_unknown_fields
             )
 
+        # Fill in the defaults
+        for field in form.fields:
+            if field.name not in data or data[field.name] is None:
+                if field.default_value is not None:
+                    print(
+                        f"Filling in default value for {field.name} to {field.default_value}"
+                    )
+                    self.set_field_value(field.name, field.default_value)
+
     def get_field(self, field_name) -> FieldDefinition:
         return self.form.get_field(field_name)
 
     def get_value(self, field_name: str, default_value=None):
         return self.data[field_name] if field_name in self.data else default_value
+
+    def get_display_value(self, field_name: str) -> str:
+        field = self.get_field(field_name)
+        if bool(field):
+            return field.display_value(self.data.get(field_name))
+        return "None"
 
     def set_field_value(self, field_name: str, value: Any, raise_key_error=False):
         field = self.get_field(field_name)
@@ -285,12 +325,13 @@ class FormData:
             else:
                 print(f"WARNING: Skipping {error}")
 
+    def to_display_tuples(self) -> List[Tuple[str, str]]:
+        result = []
+        for field in self.form.fields:
+            result.append((field.label, self.get_display_value(field.name)))
+
+        return result
+
     # TODO: We maybe want ordered dict.
     def to_dict(self) -> dict:
         return self.data.copy()
-
-    def get_display_value(self, field_name: str) -> str:
-        field = self.get_field(field_name)
-        if bool(field):
-            return field.display_value(self.data.get(field_name))
-        return "None"

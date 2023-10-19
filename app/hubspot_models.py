@@ -222,6 +222,7 @@ CONTACT_FIELDS = [
             "and can be set manually or via Workflows."
         ),
         options=[],
+        ignore_in_prompt=True,
         custom_field=False,
     ),
     FieldDefinition(
@@ -353,6 +354,7 @@ CONTACT_FIELDS = [
             "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
         ),
         options=[],
+        ignore_in_prompt=True,
         custom_field=False,
     ),
 ]
@@ -375,6 +377,7 @@ CALL_FIELDS = [
             "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
         ),
         options=[],
+        ignore_in_prompt=True,
         custom_field=False,
     ),
     FieldDefinition(
@@ -386,6 +389,7 @@ CALL_FIELDS = [
             "This can be any HubSpot user or Salesforce integration user, and can be set manually or via Workflows."
         ),
         options=[],
+        ignore_in_prompt=True,
         custom_field=False,
     ),
     FieldDefinition(
@@ -397,6 +401,7 @@ CALL_FIELDS = [
             "This will be the recipient of the call for OUTBOUND calls, or the dialer of the call for INBOUND calls."
         ),
         options=[],
+        ignore_in_prompt=True,
         custom_field=False,
     ),
     FieldDefinition(
@@ -436,6 +441,7 @@ CALL_FIELDS = [
         label="From number",
         description="The phone number of the person that initiated the call",
         options=[],
+        ignore_in_prompt=True,
         custom_field=False,
     ),
     FieldDefinition(
@@ -507,6 +513,7 @@ TASK_FIELDS = [
             "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
         ),
         options=[],
+        ignore_in_prompt=True,
         custom_field=False,
     ),
     FieldDefinition(
@@ -518,6 +525,7 @@ TASK_FIELDS = [
             "This can be any HubSpot user or Salesforce integration user, and can be set manually or via Workflows."
         ),
         options=[],
+        ignore_in_prompt=True,
         custom_field=False,
     ),
     FieldDefinition(

@@ -1,9 +1,8 @@
 import json
-from dataclasses import asdict
 from typing import Dict, List, Optional
 
 from app.datashare import PersonDataEntry
-from app.form import FieldDefinition, FormDefinition
+from app.form import FieldDefinition, FormDefinition, Option
 from common.openai_client import (
     DEFAULT_MODEL,
     OpenAiClient,
@@ -121,10 +120,18 @@ Be careful to include all full original substrings with enough context merged in
 
 NETWORKING_FIELDS = [
     FieldDefinition(
+        name="recording_time",
+        field_type="date",  # TODO(P2, ux): Maybe it should be date, but json only has timestamp.
+        label="Recorded Time",
+        description="Which date the recording took place",
+        ignore_in_prompt=True,  # Will be filled in manually
+    ),
+    FieldDefinition(
         name="name",
         field_type="text",
         label="Name",
         description="Name of the person I talked with",
+        ignore_in_prompt=True,  # Will be filled in manually
     ),
     FieldDefinition(
         name="role",
@@ -145,6 +152,7 @@ NETWORKING_FIELDS = [
         description="list of what the person is looking for, null for empty",
     ),
     FieldDefinition(
+        # TODO(P1, devx): We might want add list form type here.
         name="my_action_items",
         field_type="text",
         label="My Action Items",
@@ -160,19 +168,33 @@ NETWORKING_FIELDS = [
     ),
     FieldDefinition(
         name="suggested_revisit",
-        field_type="text",
+        field_type="select",
         label="Suggested Revisit",
-        # TODO: Maybe Option
         description=(
             "priority of when should i respond to them, PO (today), P1 (end of week), P2 (later)"
         ),
+        options=[
+            Option(label="P0 (today)", value="P0"),
+            Option(label="P1 (end of week)", value="P1"),
+            Option(label="P2 (later)", value="P2"),
+        ],
+        default_value="P2",
     ),
     FieldDefinition(
         name="response_message_type",
-        # TODO: Maybe Option
-        field_type="text",
+        field_type="select",
         label="Response Message Channel",
-        description="best message channel like email, sms, linkedin, whatsapp for me to respond on",
+        description=(
+            "best message channel to keep the conversation going, either it is mentioned in the text, "
+            "and if not, then assume from how friendly / professional the chat was"
+        ),
+        options=[
+            Option(label="Email", value="email"),
+            Option(label="LinkedIn", value="linkedin"),
+            Option(label="WhatsApp", value="whatsapp"),
+            Option(label="Text", value="sms"),
+        ],
+        default_value="sms",
     ),
     FieldDefinition(
         name="suggested_response_item",
@@ -182,6 +204,13 @@ NETWORKING_FIELDS = [
             "one key topic or item for my follow up response to the person, "
             "default to 'great to meet you, let me know if I can ever do anything for you'"
         ),
+    ),
+    FieldDefinition(
+        name="summarized_note",
+        field_type="text",
+        label="Summarized Note",
+        description="short concise structured summary of the meeting note",
+        ignore_in_prompt=True,  # We only fill this in when the transcript is long enough
     ),
 ]
 NETWORKING_FORM = FormDefinition(NETWORKING_FIELDS)
@@ -239,8 +268,7 @@ def summarize_raw_note_to_person_data_entry(
     person.suggested_response_item = form_data.get_value(
         "suggested_response_item", person.suggested_response_item
     )
-    person.response_message_type = form_data.get_value("response_message_type", "sms")
-    person.response_message_type.lower()
+    person.response_message_type = form_data.get_value("response_message_type")
     person.their_needs = form_data.get_value("their_needs", person.their_needs)
     person.suggested_revisit = form_data.get_value(
         "suggested_revisit", person.suggested_revisit
@@ -250,8 +278,9 @@ def summarize_raw_note_to_person_data_entry(
         if len(raw_note) < MIN_FULL_TRANSCRIPT_CHAR_LENGTH_TO_GENERATE_SUMMARY
         else summarize_note(gpt_client, raw_note)
     )
-    # TODO(P1, ux): Custom fields like their children names, or responses to recurring questions from me.
-    # person.additional_metadata = {}
+    form_data.set_field_value("name", name)
+    form_data.set_field_value("summarized_note", person.summarized_note)
+    person.form_data = form_data
     return person
 
 
@@ -359,14 +388,4 @@ def run_executive_assistant_to_get_drafts(
     print("=== All summaries === ")
     # Sort by priority, these are now P0, P1 so do it ascending.
     person_data_entries = sorted(person_data_entries, key=lambda pde: pde.sort_key())
-
-    print(
-        json.dumps(
-            [
-                asdict(pde)
-                for pde in person_data_entries
-                if pde.should_show_full_contact_card()
-            ]
-        )
-    )
     return person_data_entries

@@ -38,14 +38,6 @@ BACKUP_MODEL_AFTER_NUM_RETRIES = 3
 
 
 GPT_MAX_NUM_OPTION_FIELDS = 10
-# TODO(P0, hack): We should put this ignore list higher in the stack,
-#  e.g. into FormDefinition or yet better at FieldDefinition (to have it all at one place).
-GPT_IGNORE_LIST = [
-    "hs_object_id",
-    "hubspot_owner_id",
-    "hs_call_callee_object_id",
-    "hs_call_from_number",
-]
 
 
 def truncate_string(input_string):
@@ -297,7 +289,7 @@ class OpenAiClient:
     # Sample output "industry": "which business area they specialize in professionally",
     @staticmethod
     def form_field_to_gpt_prompt(field: FieldDefinition) -> Optional[str]:
-        if field.name in GPT_IGNORE_LIST:
+        if field.ignore_in_prompt:
             print(f"ignoring {field.name} for gpt prompt gen")
             return None
 
@@ -359,6 +351,9 @@ class OpenAiClient:
             gpt_query, task_id=task_id, print_prompt=print_prompt
         )
         form_data_raw = gpt_response_to_json(raw_response)
+        if print_prompt:
+            print(f"fill_in_form response: {form_data_raw}")
+
         if not isinstance(form_data_raw, dict):
             err = f"gpt resulted form_data ain't a dict: {form_data_raw}"
             print(f"ERROR: {err}")

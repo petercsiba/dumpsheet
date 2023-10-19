@@ -340,7 +340,7 @@ def _format_summary_table_row(label: str, value: str) -> str:
         # 1. Personal Details: Katka is from Slovakia and has an MBA from Columbia.
         # 2. Professional Interests: She is involved in building AI voice assistants.
         # we could split by new line and see that 1., 2., ... etc.
-        display_value = value
+        display_value = value.replace("\n", "\n<br />")
     elif isinstance(value, list):
         li_items = "".join(
             f"""<li style="margin-bottom: 8px">{item}</li>""" for item in value
