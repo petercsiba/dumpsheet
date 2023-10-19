@@ -235,7 +235,6 @@ def _gen_field_from_properties_api_response(response: ModelProperty) -> FieldDef
         label=response.label,
         description=response.description,
         options=response.options,
-        group_name=response.group_name,
         custom_field=response.hubspot_defined
         is False,  # only if non-none and set to False it is a custom field
     )

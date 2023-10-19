@@ -222,7 +222,6 @@ CONTACT_FIELDS = [
             "and can be set manually or via Workflows."
         ),
         options=[],
-        group_name="sales_properties",
         custom_field=False,
     ),
     FieldDefinition(
@@ -231,7 +230,6 @@ CONTACT_FIELDS = [
         label="First Name",
         description="Contacts first name (not surname)",
         options=[],
-        group_name="contactinformation",
         custom_field=False,
     ),
     FieldDefinition(
@@ -240,7 +238,6 @@ CONTACT_FIELDS = [
         label="Last Name",
         description="Contacts last name (not given name)",
         options=[],
-        group_name="contactinformation",
         custom_field=False,
     ),
     FieldDefinition(
@@ -249,7 +246,6 @@ CONTACT_FIELDS = [
         label="Job Title",
         description="A contact's job title",
         options=[],
-        group_name="contactinformation",
         custom_field=False,
     ),
     FieldDefinition(
@@ -261,7 +257,6 @@ CONTACT_FIELDS = [
             "the contact's associated company."
         ),
         options=[],
-        group_name="contactinformation",
         custom_field=False,
     ),
     FieldDefinition(
@@ -270,7 +265,6 @@ CONTACT_FIELDS = [
         label="Industry",
         description="The Industry a contact is in",
         options=[],
-        group_name="contactinformation",
         custom_field=False,
     ),
     # NOTE: Unclear what are the rules to decide
@@ -317,7 +311,6 @@ CONTACT_FIELDS = [
         label="Email",
         description="A contact's email address",
         options=[],
-        group_name="contactinformation",
         custom_field=False,
     ),
     FieldDefinition(
@@ -326,7 +319,6 @@ CONTACT_FIELDS = [
         label="Phone Number",
         description="A contact's primary phone number",
         options=[],
-        group_name="contactinformation",
         custom_field=False,
     ),
     FieldDefinition(
@@ -335,7 +327,6 @@ CONTACT_FIELDS = [
         label="City",
         description="A contact's city of residence",
         options=[],
-        group_name="contactinformation",
         custom_field=False,
     ),
     FieldDefinition(
@@ -344,7 +335,6 @@ CONTACT_FIELDS = [
         label="State/Region",
         description="The contact's state of residence.",
         options=[],
-        group_name="contactinformation",
         custom_field=False,
     ),
     FieldDefinition(
@@ -353,7 +343,6 @@ CONTACT_FIELDS = [
         label="Country/Region",
         description="The contact's country/region of residence.",
         options=[],
-        group_name="contactinformation",
         custom_field=False,
     ),
     FieldDefinition(
@@ -364,7 +353,6 @@ CONTACT_FIELDS = [
             "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
         ),
         options=[],
-        group_name="contactinformation",
         custom_field=False,
     ),
 ]
@@ -387,7 +375,6 @@ CALL_FIELDS = [
             "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
         ),
         options=[],
-        group_name="callinformation",
         custom_field=False,
     ),
     FieldDefinition(
@@ -399,7 +386,6 @@ CALL_FIELDS = [
             "This can be any HubSpot user or Salesforce integration user, and can be set manually or via Workflows."
         ),
         options=[],
-        group_name="engagement",
         custom_field=False,
     ),
     FieldDefinition(
@@ -411,7 +397,6 @@ CALL_FIELDS = [
             "This will be the recipient of the call for OUTBOUND calls, or the dialer of the call for INBOUND calls."
         ),
         options=[],
-        group_name="call",
         custom_field=False,
     ),
     FieldDefinition(
@@ -423,7 +408,6 @@ CALL_FIELDS = [
             Option(label="Inbound", value="INBOUND"),
             Option(label="Outbound", value="OUTBOUND"),
         ],
-        group_name="call",
         custom_field=False,
     ),
     # TODO(P1, fullness): Seems ignored by GPT
@@ -444,7 +428,6 @@ CALL_FIELDS = [
             Option(label="No answer", value="73a0d17f-1163-4015-bdd5-ec830791da20"),
             Option(label="Wrong number", value="17b47fee-58de-441e-a44c-c6300d46f273"),
         ],
-        group_name="call",
         custom_field=False,
     ),
     FieldDefinition(
@@ -453,7 +436,6 @@ CALL_FIELDS = [
         label="From number",
         description="The phone number of the person that initiated the call",
         options=[],
-        group_name="call",
         custom_field=False,
     ),
     FieldDefinition(
@@ -474,7 +456,6 @@ CALL_FIELDS = [
             Option(label="Queued", value="QUEUED"),
             Option(label="Ringing", value="RINGING"),
         ],
-        group_name="call",
         custom_field=False,
     ),
     FieldDefinition(
@@ -483,7 +464,6 @@ CALL_FIELDS = [
         label="Call Title",
         description="The title of the call",
         options=[],
-        group_name="call",
         custom_field=False,
     ),
     FieldDefinition(
@@ -492,7 +472,6 @@ CALL_FIELDS = [
         label="To Number",
         description="The phone number of the person that was called",
         options=[],
-        group_name="call",
         custom_field=False,
     ),
     FieldDefinition(
@@ -501,7 +480,6 @@ CALL_FIELDS = [
         label="Activity date",
         description="The date that an engagement occurred",
         options=[],
-        group_name="engagement",
         custom_field=False,
     ),
     FieldDefinition(
@@ -515,7 +493,6 @@ CALL_FIELDS = [
         For better readability, use html paragraphs and bullet points.
         """,
         options=[],
-        group_name="call",
         custom_field=False,
     ),
 ]
@@ -530,7 +507,6 @@ TASK_FIELDS = [
             "The unique ID for this record. This value is automatically set by HubSpot and may not be modified."
         ),
         options=[],
-        group_name="taskinformation",
         custom_field=False,
     ),
     FieldDefinition(
@@ -542,7 +518,6 @@ TASK_FIELDS = [
             "This can be any HubSpot user or Salesforce integration user, and can be set manually or via Workflows."
         ),
         options=[],
-        group_name="engagement",
         custom_field=False,
     ),
     FieldDefinition(
@@ -551,7 +526,6 @@ TASK_FIELDS = [
         label="Task Title",
         description="The title of the task",
         options=[],
-        group_name="task",
         custom_field=False,
     ),
     FieldDefinition(
@@ -565,7 +539,6 @@ TASK_FIELDS = [
             Option(label="Medium", value="MEDIUM"),
             Option(label="High", value="HIGH"),
         ],
-        group_name="task",
         custom_field=False,
     ),
     FieldDefinition(
@@ -574,7 +547,6 @@ TASK_FIELDS = [
         label="Due date",
         description="The due date of the task",
         options=[],
-        group_name="engagement",
         custom_field=False,
     ),
     # NOTE: The user should set this
@@ -619,7 +591,6 @@ TASK_FIELDS = [
         label="To Dos",
         description="Action items and follows ups I need to do in concise bullet points ordered by priority top down",
         options=[],
-        group_name="task",
         custom_field=False,
     ),
 ]

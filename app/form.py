@@ -15,7 +15,6 @@ class Option:
 # Treat this as a form field
 # TODO: Add default values, custom display transformations;
 # TODO: Make field_type an Enum
-# TODO: Remove group_name
 class FieldDefinition:
     def __init__(
         self,
@@ -24,7 +23,6 @@ class FieldDefinition:
         label: str,
         description: Optional[str] = None,
         options: Optional[List[Option]] = None,
-        group_name: Optional[str] = None,
         custom_field: Optional[bool] = None,
     ):
         self.name = name
@@ -32,7 +30,6 @@ class FieldDefinition:
         self.label = label
         self.description = description
         self.options = options
-        self.group_name = group_name
         self.custom_field = bool(custom_field)
 
     @classmethod
@@ -57,7 +54,6 @@ class FieldDefinition:
             label="{label}",
             description={description},
             options={options},
-            group_name={group_name},
             custom_field={custom_field}
         )""".format(
             name=self.name,
@@ -65,7 +61,6 @@ class FieldDefinition:
             label=self.label,
             description=FieldDefinition._none_or_quoted_str(self.description),
             options=FieldDefinition._gen_options(self.options),
-            group_name=FieldDefinition._none_or_quoted_str(self.group_name),
             custom_field=str(self.custom_field),
         )
 
@@ -135,7 +130,7 @@ class FieldDefinition:
 
     def _validation_error(self, expected: str, value: Any):
         print(
-            f"WARNING: Invalid format for {self.group_name}.{self.name} "
+            f"WARNING: Invalid format for field {self.name} "
             f"expected {expected} (type={self.field_type}) given {value} (type={type(value)})"
         )
 
