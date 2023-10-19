@@ -8,7 +8,7 @@ import os
 import re
 import time
 import uuid
-from typing import List
+from typing import List, Optional
 from urllib.parse import unquote_plus
 from uuid import UUID
 
@@ -28,7 +28,10 @@ from app.hubspot_client import HubspotClient
 from app.hubspot_dump import HubspotDataEntry, extract_and_sync_contact_with_follow_up
 from app.networking_dump import run_executive_assistant_to_get_drafts
 from common.aws_utils import get_boto_s3_client, get_bucket_url
-from common.config import RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS
+from common.config import (
+    RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS,
+    SKIP_PROCESSED_DATA_ENTRIES,
+)
 from common.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
 from database.account import Account
@@ -38,7 +41,7 @@ from database.client import (
     connect_to_postgres_i_will_call_disconnect_i_promise,
 )
 from database.constants import DESTINATION_HUBSPOT_ID
-from database.data_entry import STATE_UPLOAD_TRANSCRIBED
+from database.data_entry import STATE_UPLOAD_PROCESSED, STATE_UPLOAD_TRANSCRIBED
 from database.email_log import EmailLog
 from database.models import BaseAccount, BaseDataEntry, BaseOrganization
 from database.organization import ORGANIZATION_ROLE_OWNER, Organization
@@ -332,7 +335,6 @@ def first_lambda_handler_wrapper(event, context) -> BaseDataEntry:
 
     # If a BaseDataEntry
     data_entry.state = STATE_UPLOAD_TRANSCRIBED
-    data_entry.processed_at = datetime.datetime.now()
     data_entry.save()
 
     return data_entry
@@ -386,7 +388,7 @@ def _event_idempotency_id(event):
 
 
 def lambda_handler(event, context):
-    data_entry = None
+    data_entry: Optional[BaseDataEntry] = None
     try:
         data_entry = first_lambda_handler_wrapper(event, context)
     except Exception as err:
@@ -395,10 +397,19 @@ def lambda_handler(event, context):
         send_technical_failure_email(err, _event_idempotency_id(event))
 
     if bool(data_entry):
+        data_entry = BaseDataEntry.get_by_id(data_entry.id)
+        if (
+            SKIP_PROCESSED_DATA_ENTRIES == 1
+            and data_entry.state == STATE_UPLOAD_PROCESSED
+        ):
+            print("INFO: skipping data entry processing cause already processed")
+            return
+
         try:
-            second_lambda_handler_wrapper(
-                data_entry,
-            )
+            second_lambda_handler_wrapper(data_entry)
+            data_entry.state = STATE_UPLOAD_PROCESSED
+            data_entry.processed_at = datetime.datetime.now()
+            data_entry.save()
         except Exception as err:
             send_technical_failure_email(err, str(data_entry.id), data_entry=data_entry)
     else:

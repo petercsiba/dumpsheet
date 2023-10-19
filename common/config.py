@@ -6,6 +6,9 @@ load_dotenv()
 
 ENV = os.environ.get("ENV")  # prod, local
 
+SKIP_PROCESSED_DATA_ENTRIES = os.environ.get("SKIP_PROCESSED_DATA_ENTRIES", 1)
+SKIP_SENDING_EMAILS = os.environ.get("SKIP_SENDING_EMAILS", 0)
+
 # AWS stuff
 DEFAULT_REGION = "us-west-2"
 

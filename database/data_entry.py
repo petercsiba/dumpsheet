@@ -4,6 +4,7 @@ from database.models import BaseDataEntry
 STATE_UPLOAD_INTENT = "upload_intent"
 STATE_UPLOAD_DONE = "upload_done"
 STATE_UPLOAD_TRANSCRIBED = "transcribed"  # processed_at
+STATE_UPLOAD_PROCESSED = "processed"
 
 
 # TODO(P0, admin): Way to retry failed data-entries (or by id). Ideally should take less than an hour to implement
