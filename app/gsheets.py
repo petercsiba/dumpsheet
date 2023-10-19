@@ -61,7 +61,9 @@ class GoogleClient:
             return None
 
         self.spreadsheet: Spreadsheet = self.gspread_client.create(spreadsheet_name)
-        print(f"Created spreadsheet {spreadsheet_name} of {type(self.spreadsheet)}")
+        print(
+            f"GoogleClient: Created spreadsheet {spreadsheet_name} of {type(self.spreadsheet)}"
+        )
 
         return self.spreadsheet
 
@@ -71,14 +73,18 @@ class GoogleClient:
             return None
 
         self.spreadsheet: Spreadsheet = self.gspread_client.open_by_key(spreadsheet_key)
-        print(f"Opened spreadsheet {spreadsheet_key} of {type(self.spreadsheet)}")
+        print(
+            f"GoogleClient: Opened spreadsheet {spreadsheet_key} of {type(self.spreadsheet)}"
+        )
 
         return self.spreadsheet
 
     def share_with(self, user_email):
         # Share spreadsheet
         file_id = self.spreadsheet.id
-        print(f"INFO: Sharing spreadsheet {self.spreadsheet.id} with {user_email}")
+        print(
+            f"GoogleClient: Sharing spreadsheet {self.spreadsheet.id} with {user_email}"
+        )
         user_permission = {
             "type": "user",
             "role": "writer",
@@ -108,7 +114,7 @@ def col_num_string(n):
 def update_row_with_range(sheet: Worksheet, row_number: int, values_list):
     col_letter = col_num_string(len(values_list))
     cell_range = f"A{row_number}:{col_letter}{row_number}"
-    print(f"update_row_with_range row_number: {cell_range}")
+    print(f"GoogleClient: update_row_with_range row_number: {cell_range}")
     sheet.update(range_name=cell_range, values=[values_list])
 
 
@@ -127,7 +133,9 @@ def add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
 
     # If there are no headers, create one
     if not existing_headers:
-        print("add_form_data_to_sheet: no headers, creating header with a row")
+        print(
+            "GoogleClient: add_form_data_to_sheet: no headers, creating header with a row"
+        )
         # Set the headers to be the keys from the data_dict
         sheet.insert_row(labels, 1)
         # Insert the data

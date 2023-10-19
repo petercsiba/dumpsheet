@@ -115,13 +115,29 @@ def wait_for_email_updated_on_data_entry(
     return False
 
 
-def sync_people_to_gsheets(form_datas: List[FormData]):
+# TODO(P1, features): Also support this for HubSpot dump.
+def sync_people_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
     print(f"Gonna sync {len(form_datas)} FormDatas into GSheets")
     google_client = GoogleClient()
     google_client.login()
-    google_client.open_by_key("10RbqaqCjB9qPZPUxE40FAs6t1zIveTUKRnSHhbIepis")
 
-    sheet = google_client.spreadsheet.sheet1
+    acc: Account = Account.get_by_id(account_id)
+    gsheet_id = acc.gsheet_id
+    email = acc.get_email()
+    if gsheet_id is None:
+        if email is None:
+            print(
+                f"ERROR: Cannot create gsheet for account {account_id} cause no email was found"
+            )
+            return
+
+        new_spreadsheet = google_client.create(f"Voxana Data Share - {acc.full_name}")
+        gsheet_id = new_spreadsheet.id
+        google_client.share_with(email)
+
+    google_client.open_by_key(gsheet_id)
+    # TODO(P0, UX): We should support multiple spreadsheets by FormDefinition.name - that would need be some refactor.
+    sheet = google_client.spreadsheet.get_worksheet(0)
     for form_data in form_datas:
         add_form_data_to_sheet(sheet, form_data)
 
@@ -167,7 +183,14 @@ def process_transcript_from_data_entry(
         legit_results.append(person)
 
     # UPDATE SPREADSHEET
-    sync_people_to_gsheets([person.form_data for person in legit_results])
+    # TODO(P1, reliability): Once battle-tested, remove this
+    try:
+        sync_people_to_gsheets(
+            account_id=data_entry.account_id,
+            form_datas=[person.form_data for person in legit_results],
+        )
+    except Exception as ex:
+        print(f"ERROR: Cannot sync_people_to_gsheets cause {ex}")
 
     # SEND EMAILS
     for person in legit_results:
