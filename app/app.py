@@ -136,6 +136,8 @@ def sync_people_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
 
         new_spreadsheet = google_client.create(f"Voxana Data Share - {acc.full_name}")
         gsheet_id = new_spreadsheet.id
+        acc.gsheet_id = gsheet_id
+        acc.save()
         google_client.share_with(email)
 
     google_client.open_by_key(gsheet_id)
