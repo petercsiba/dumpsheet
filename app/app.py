@@ -141,6 +141,8 @@ def sync_people_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
         if SKIP_SHARE_SPREADSHEET == "1":
             print("INFO: Skip sharing new spreadsheet cause SKIP_SHARE_SPREADSHEET")
             return
+
+        # TODO(P1, reliability): If not yet shared, then always share with the account email.
         google_client.share_with(email)
 
     google_client.open_by_key(gsheet_id)

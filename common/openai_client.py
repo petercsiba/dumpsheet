@@ -520,6 +520,9 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
     raw_response = re.sub(
         r"```[a-z\s]*?(.*?) ```", r"\1", raw_response, flags=re.DOTALL
     )
+    # Double comma is seldom ok: ,  ,
+    # Yes this happened, see 559719ecbb1012e05fc95d533295170dc4a339548ad602202a3c8dbac62138bc
+    raw_response = re.sub(r",\s*,", ",", raw_response)
     # For "Expecting property name enclosed in double quotes"
     # Welp - OMG this from PPrint :facepalm:
     raw_response = (
