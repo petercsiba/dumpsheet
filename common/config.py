@@ -7,7 +7,7 @@ load_dotenv()
 ENV = os.environ.get("ENV")  # prod, local
 
 # Launch / back-fill controls
-SKIP_NEW_SPREADSHEET = os.environ.get("SKIP_NEW_SPREADSHEET", "0")
+SKIP_SHARE_SPREADSHEET = os.environ.get("SKIP_SHARE_SPREADSHEET", "0")
 SKIP_PROCESSED_DATA_ENTRIES = os.environ.get("SKIP_PROCESSED_DATA_ENTRIES", "1")
 SKIP_SENDING_EMAILS = os.environ.get("SKIP_SENDING_EMAILS", "0")
 

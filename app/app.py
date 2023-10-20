@@ -30,8 +30,8 @@ from app.networking_dump import run_executive_assistant_to_get_drafts
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.config import (
     RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS,
-    SKIP_NEW_SPREADSHEET,
     SKIP_PROCESSED_DATA_ENTRIES,
+    SKIP_SHARE_SPREADSHEET,
 )
 from common.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
@@ -135,14 +135,14 @@ def sync_people_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
             )
             return
 
-        if SKIP_NEW_SPREADSHEET == "1":
-            print("INFO: Skip creating new spreadsheet cause SKIP_NEW_SPREADSHEET")
-            return
-
         new_spreadsheet = google_client.create(f"Voxana Data Share - {acc.full_name}")
         gsheet_id = new_spreadsheet.id
         acc.gsheet_id = gsheet_id
         acc.save()
+
+        if SKIP_SHARE_SPREADSHEET == "1":
+            print("INFO: Skip sharing new spreadsheet cause SKIP_SHARE_SPREADSHEET")
+            return
         google_client.share_with(email)
 
     google_client.open_by_key(gsheet_id)
