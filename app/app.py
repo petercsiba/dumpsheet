@@ -12,8 +12,6 @@ from typing import List, Optional
 from urllib.parse import unquote_plus
 from uuid import UUID
 
-import pytz
-
 from app.datashare import PersonDataEntry
 from app.emails import (
     send_hubspot_result,
@@ -192,7 +190,9 @@ def process_transcript_from_data_entry(
             continue
 
         person.form_data.set_field_value(
-            "recording_time", datetime.datetime.now(pytz.UTC)
+            # We use data_entry.created_at over .now(), cause created_at is best-effort when the recording happened.
+            "recording_time",
+            data_entry.created_at,
         )
         legit_results.append(person)
 
