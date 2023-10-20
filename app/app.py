@@ -30,6 +30,7 @@ from app.networking_dump import run_executive_assistant_to_get_drafts
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.config import (
     RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS,
+    SKIP_NEW_SPREADSHEET,
     SKIP_PROCESSED_DATA_ENTRIES,
 )
 from common.openai_client import OpenAiClient
@@ -132,6 +133,10 @@ def sync_people_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
             print(
                 f"ERROR: Cannot create gsheet for account {account_id} cause no email was found"
             )
+            return
+
+        if SKIP_NEW_SPREADSHEET == "1":
+            print("INFO: Skip creating new spreadsheet cause SKIP_NEW_SPREADSHEET")
             return
 
         new_spreadsheet = google_client.create(f"Voxana Data Share - {acc.full_name}")
