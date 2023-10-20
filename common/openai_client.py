@@ -495,6 +495,17 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
 
     # Here do some black-magic regex postprocessing for all previously encountered problems (mostly with GPT 3.5).
     orig_response = raw_response
+    # BEFORE DOING ALL THIS MAMBO-JAMBO, lets just try if GPT returned a valid JSON.
+    # As some of these replacements actually mess up valid json.
+    try:
+        # The model might have just crafted a valid json object
+        return json.loads(orig_response)
+    except json.decoder.JSONDecodeError as err:
+        if debug:
+            print(
+                f"WARNING: couldn't decode orig response cause {err}. Orig response {orig_response}"
+            )
+
     # Output: ```json <text> ```
     raw_response = re.sub(
         r"```[a-z\s]*?(.*?) ```", r"\1", raw_response, flags=re.DOTALL
@@ -529,6 +540,10 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
     raw_response = re.sub(
         r'("(?:[^"\\]|\\.)*")', lambda m: m.group(1).replace("\n", "\\n"), raw_response
     )
+    if "[" not in raw_response and "]" in raw_response:
+        # Happened with email upload vue79j44one1liatgmjf2kbbvgeqjebi95uutk01 - long output
+        raw_response = raw_response.replace("]", "")
+
     # if debug:
     #     print(f"converted {orig_response}\n\nto\n\n{raw_response}")
     try:
