@@ -201,9 +201,15 @@ if __name__ == "__main__":
     name = "Voxana - Peter Csiba - Networking Dump"
 
     test_key = "10RbqaqCjB9qPZPUxE40FAs6t1zIveTUKRnSHhbIepis"
+    katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
 
     test_google_client = GoogleClient()
     test_google_client.login()
+    test_google_client.open_by_key(katka_key)
+    test_google_client.share_with("petherz@gmail.com")
+
+    exit()
+    # TEST
     if test_key is None:
         new_spreadsheet = test_google_client.create(name)
         key = new_spreadsheet.id

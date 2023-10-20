@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from typing import Optional
 
@@ -26,9 +27,13 @@ class Task(BaseTask):
 
     @staticmethod
     def create_task(data_entry_id: uuid.UUID, pipeline_id: Optional[int]) -> "Task":
-        task_id = Task.insert(
-            data_entry_id=data_entry_id, pipeline_id=pipeline_id
-        ).execute()
+        # TODO(P2, devx): Update some field so we know it's a re-run, although timestamps would tell that.
+        task_id = (
+            Task.insert(data_entry_id=data_entry_id, pipeline_id=pipeline_id)
+            .on_conflict_ignore()
+            .execute()
+        )
+
         task = Task.get_by_id(task_id)
         return task
 
@@ -52,6 +57,7 @@ class Task(BaseTask):
             {
                 "key": key,
                 "output": output,
+                "timestamp": datetime.datetime.now().isoformat(),  # for json serializable
             }
         )
         self.save()
