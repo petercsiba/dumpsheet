@@ -77,3 +77,17 @@ if [ $? -ne 0 ]; then
 else
     echo "Successfully updated Lambda function."
 fi
+
+# ====== TESTING IN PROD ============
+# Upload a test file to S3 to trigger Lambda function
+echo "=== Upload test file to S3 bucket ==="
+sleep 10
+aws s3 cp testdata/jessica-lehane-email-upload-test-recording s3://draft-requests-from-ai-mail-voxana/ --profile $PROFILE_NAME
+
+# Handle the exit code
+if [ $? -ne 0 ]; then
+    echo "Failed to upload test file to S3, exiting."
+    exit 1
+else
+    echo "Successfully uploaded test file to S3."
+fi
