@@ -267,7 +267,7 @@ def send_email(params: EmailLog) -> bool:
 # E.g. "2023-10-05_193824-0500-James_white_for_testing.m4a" -> James White For Testing
 # or 2023-10-06_210315-0500-Andrej_Jursa_Vestberry.m4a.mp4
 def _make_human_readable(filename):
-    match = re.search(r"-([^-\d]+)(?=(?:\.\w+)+$)", filename)
+    match = re.search(r"\d{4}-\d{2}-\d{2}_\d{6}-\d{4}-([\w_\-]+)(?=\.\w+)", filename)
     if match:
         name_part = match.group(1)
         name_part = name_part.replace("_", " ")
@@ -699,6 +699,7 @@ if __name__ == "__main__":
     human_readable_tests = [
         "2023-10-05_193824-0500-James_white_for_testing.m4a",
         "2023-10-06_210315-0500-Andrej_Jursa_Vestberry.m4a.mp4",
+        "2023-10-20_090550-0700-Lisa_from_Roo_-_LBS.m4a",  # with an extra dash
     ]
     for test_case in human_readable_tests:
         print(_make_human_readable(test_case))
