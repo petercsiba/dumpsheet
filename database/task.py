@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 from app import utils
 from app.form import FormData
@@ -17,13 +18,14 @@ KEY_NETWORKING_DRAFT = "networking_draft"
 
 # Retains data from the done transcription -> action performed.
 # -- in the ETL world usually encompasses all the Task, Logs (Events) and Audit Trail (History).
-# Currently, the primary use case is for debugging rather than consistency, so things might be a bit messy here.
+# NOTE: Currently, we are still figuring out the best structure.
+# The primary use case is for debugging rather than consistency, so things might be a bit messy here.
 class Task(BaseTask):
     class Meta:
         db_table = "task"
 
     @staticmethod
-    def create_task(data_entry_id: uuid.UUID, pipeline_id: int) -> "Task":
+    def create_task(data_entry_id: uuid.UUID, pipeline_id: Optional[int]) -> "Task":
         task_id = Task.insert(
             data_entry_id=data_entry_id, pipeline_id=pipeline_id
         ).execute()
@@ -33,6 +35,7 @@ class Task(BaseTask):
     # Here "output" means "draft" in user-facing output,
     # one Task can handle multiple results.
     # `output` should be JSON serializable
+    # `key` does not need to be unique.
     def add_generated_output(self, key: str, form_data: FormData):
         if self.state != TASK_INITIATED:
             print(

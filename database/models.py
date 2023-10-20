@@ -211,7 +211,7 @@ class BaseTask(BaseModel):
     drafted_output = JSONField(null=True)
     id = BigAutoField()
     pipeline = ForeignKeyField(
-        column_name="pipeline_id", field="id", model=BasePipeline
+        column_name="pipeline_id", field="id", model=BasePipeline, null=True
     )
     retries_count = BigIntegerField(constraints=[SQL("DEFAULT '0'::bigint")])
     state = TextField(constraints=[SQL("DEFAULT 'initiated'::text")])

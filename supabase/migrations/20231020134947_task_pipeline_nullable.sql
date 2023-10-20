@@ -1,0 +1,1 @@
+ALTER TABLE public.task ALTER COLUMN pipeline_id DROP NOT NULL;

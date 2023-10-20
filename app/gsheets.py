@@ -172,6 +172,8 @@ def add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
     # Append the new row
     sheet.append_row(values_to_append)
 
+    print(f"GoogleClient: successfully added form_data; new_headers: {new_headers}")
+
 
 TEST_FIELDS = [
     FieldDefinition(

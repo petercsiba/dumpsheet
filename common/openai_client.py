@@ -169,6 +169,13 @@ class OpenAiClient:
         # In-memory representation of the above to mostly sum up stats.
         self.force_no_print_prompt = force_no_print_prompt
         self.prompt_stats: List[PromptLog] = []
+        self.task_id: Optional[int] = None
+
+    # This is so we do NOT have to pass task_id to every prompt, especially when running bunch of them to execute
+    # one task.
+    def set_task_id(self, task_id: int):
+        print(f"OpenAiClient: set_task_id = {task_id}")
+        self.task_id = task_id
 
     def _should_print_prompt(self, print_prompt_arg: bool):
         if self.force_no_print_prompt:
@@ -261,6 +268,9 @@ class OpenAiClient:
         task_id: Optional[int] = None,
         print_prompt=True,
     ):
+        if task_id is None:
+            task_id = self.task_id  # still can be None
+
         with PromptCache(
             cache_key=prompt,
             model=model,

@@ -157,6 +157,8 @@ def process_transcript_from_data_entry(
     gpt_client: OpenAiClient,
     data_entry: BaseDataEntry,
 ) -> List[PersonDataEntry]:
+    task = Task.create_task(data_entry_id=data_entry.id, pipeline_id=None)
+    gpt_client.set_task_id(task_id=task.id)
     # ===== Actually perform black magic
     # TODO(P1, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
     people_entries = run_executive_assistant_to_get_drafts(
@@ -180,6 +182,8 @@ def process_transcript_from_data_entry(
         )
         return people_entries
 
+    # TODO(P1, ux/reliability): Would be better to create / send emails as processed
+    # instead of waiting to collect everything here.
     rest_of_the_crowd = []
     legit_results = []
     for i, person in enumerate(people_entries):
@@ -191,6 +195,10 @@ def process_transcript_from_data_entry(
             "recording_time", datetime.datetime.now(pytz.UTC)
         )
         legit_results.append(person)
+
+    # SAVE TO TASK
+    for person in legit_results:
+        task.add_generated_output(person.name, person.form_data)
 
     # UPDATE SPREADSHEET
     # TODO(P1, reliability): Once battle-tested, remove this
