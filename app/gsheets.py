@@ -1,4 +1,3 @@
-import re
 from datetime import datetime
 from typing import List, Optional
 
@@ -261,24 +260,18 @@ def deduplicate(worksheet: Worksheet):
 
 
 def _convert_date_format(old_date_str: str):
-    # Use regular expression to extract the components of the old date-time format
-    match = re.match(
-        r"(\w{3}) (\d{1,2}) (\d{4}), (\d{1,2})([APMapm]{2}) (\w{3})", old_date_str
-    )
-    if match:
-        month, day, year, hour, meridian, timezone = match.groups()
+    # Try parsing the first format "Oct 24 2023, 2PM PDT"
+    try:
+        dt = datetime.strptime(old_date_str, "%b %d %Y, %I%p %Z")
+        return dt.strftime("%Y-%m-%d %H:%M %Z")
+    except ValueError:
+        pass
 
-        # Convert hour to 24-hour format
-        hour = int(hour)
-        if meridian.upper() == "PM" and hour != 12:
-            hour += 12
-        if meridian.upper() == "AM" and hour == 12:
-            hour = 0
-
-        # Create new format
-        new_format = f"{year}-{month}-{day} {hour:02d}:00 {timezone}"
-        return new_format
-    else:
+    # Try parsing the second format "2023-Oct-24 10:00 PDT"
+    try:
+        dt = datetime.strptime(old_date_str, "%Y-%b-%d %H:%M %Z")
+        return dt.strftime("%Y-%m-%d %H:%M %Z")
+    except ValueError:
         print(f"WARNING: cannot convert {old_date_str}")
         return None
 
