@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Optional
 
 import gspread
@@ -169,10 +170,58 @@ def add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
     # Create a list of values to append based on the order of all headers (existing + new)
     values_to_append = [label_values_map.get(header, "") for header in all_headers]
 
-    # Append the new row
-    sheet.append_row(values_to_append)
+    # Insert a new row at index 2 (below the header row)
+    sheet.insert_row(values_to_append, index=2)
 
     print(f"GoogleClient: successfully added form_data; new_headers: {new_headers}")
+
+
+# TODO: This would need some adjustments when people start doing multiple-entry for the same person
+
+
+def deduplicate(worksheet: Worksheet):
+    rows = worksheet.get_all_values()
+    header, rows = rows[0], rows[1:]
+    orig_row_length = len(rows)
+    print(f"gsheets.deduplicating {orig_row_length} rows")
+
+    try:
+        name_col = header.index("Name")
+        time_col = header.index("Recorded Time")
+    except ValueError:
+        raise Exception("Header does not contain 'Name' or 'Recording Time'.")
+
+    deduped_dict = {}
+    for row in rows:
+        name = row[name_col]
+        if name not in deduped_dict:
+            deduped_dict[name] = row
+        else:
+            current_time_str = row[time_col]
+            existing_time_str = deduped_dict[name][time_col]
+
+            if current_time_str and existing_time_str:  # Both times exist
+                current_time = datetime.strptime(current_time_str, "%b %d %Y, %I%p %Z")
+                existing_time = datetime.strptime(
+                    existing_time_str, "%b %d %Y, %I%p %Z"
+                )
+                if current_time < existing_time:
+                    deduped_dict[name][time_col] = current_time_str
+            elif current_time_str:  # Only current time exists
+                deduped_dict[name][time_col] = current_time_str
+
+            for i, cell in enumerate(row):
+                if (
+                    len(cell) > len(deduped_dict[name][i])
+                    or deduped_dict[name][i] == "None"
+                ):
+                    deduped_dict[name][i] = cell
+
+    deduped_rows = list(deduped_dict.values())
+    print(f"gsheets.deduplicated {orig_row_length} into {len(deduped_rows)} rows")
+    worksheet.clear()
+    worksheet.append_row(header)
+    worksheet.append_rows(deduped_rows)
 
 
 TEST_FIELDS = [
@@ -201,10 +250,16 @@ if __name__ == "__main__":
     name = "Voxana - Peter Csiba - Networking Dump"
 
     test_key = "10RbqaqCjB9qPZPUxE40FAs6t1zIveTUKRnSHhbIepis"
-    # katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
+    katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
 
     test_google_client = GoogleClient()
     test_google_client.login()
+
+    # PROD SCRIPTS
+    # if bool(katka_key):
+    #     test_google_client.open_by_key(katka_key)
+    #     katka_sheet = test_google_client.spreadsheet.get_worksheet(0)
+    #     deduplicate(katka_sheet)
 
     # TEST
     if test_key is None:

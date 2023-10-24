@@ -83,13 +83,13 @@ class FieldDefinition:
             return option_labels.get(value, str(value))
 
         if self.field_type == "date":
-            # TODO: This feels hacky
             datetime_value = self._validate_date(value)
 
             # Convert the datetime to PST
             pst = pytz.timezone("America/Los_Angeles")
             datetime_value = datetime_value.astimezone(pst)
 
+            # TODO(ux, P0): For spreadsheets we should output just YYYY-MM-DD, so it's easier to sort by.
             return datetime_value.strftime("%b %d %Y, %-I%p %Z")
 
         # TODO(P0, hack): Add special handling on the FieldDefinition; especially HubSpot fields like ObjId can use it
