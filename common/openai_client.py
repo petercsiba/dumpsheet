@@ -320,6 +320,25 @@ class OpenAiClient:
 
         return result
 
+    @staticmethod
+    def form_to_gpt_prompt(form: FormDefinition):
+        field_prompts = [
+            OpenAiClient.form_field_to_gpt_prompt(field) for field in form.fields
+        ]
+        return ",\n".join([f for f in field_prompts if f is not None])
+
+    @staticmethod
+    def _maybe_add_current_time_to_prompt(use_current_time: bool) -> str:
+        if not use_current_time:
+            return ""
+
+        # Get the current UTC time and then convert it to local time.
+        local_now = datetime.datetime.now(pytz.timezone("America/Los_Angeles"))
+        # We omit minutes for 1. UX and 2. better caching of especially local test/research runs.
+        # 2023-10-03 02:30 PM PDT
+        now_with_hours_and_tz = local_now.strftime("%Y-%m-%d %I %p %Z")
+        return f"\nGeneral context: Current time is {now_with_hours_and_tz}"
+
     def fill_in_form(
         self,
         form: FormDefinition,
@@ -328,29 +347,20 @@ class OpenAiClient:
         print_prompt=False,
         use_current_time: bool = False,
     ) -> Tuple[Optional[FormData], Optional[str]]:
-        extra_context = ""
-        if use_current_time:
-            # Get the current UTC time and then convert it to local time.
-            local_now = datetime.datetime.now(pytz.timezone("America/Los_Angeles"))
-            # We omit minutes for 1. UX and 2. better caching of especially local test/research runs.
-            # 2023-10-03 02:30 PM PDT
-            now_with_hours_and_tz = local_now.strftime("%Y-%m-%d %I %p %Z")
-            extra_context = f"General context: Current time is {now_with_hours_and_tz}"
-
-        field_prompts = [
-            OpenAiClient.form_field_to_gpt_prompt(field) for field in form.fields
-        ]
-        form_prompt = ",\n".join([f for f in field_prompts if f is not None])
+        extra_context = OpenAiClient._maybe_add_current_time_to_prompt(
+            use_current_time=use_current_time
+        )
+        form_prompt = OpenAiClient.form_to_gpt_prompt(form)
 
         gpt_query = """
             The following is a definition of form,
-            given as a list of form field labels, description, type (or options of possible values):
+            given as a list of form field labels, description and type (or options of possible values):
             {form_prompt}
             Using this note:
             {note}
             Fill in the form.
             Return a valid JSON dictionary where keys are form labels, and values are filled in results.
-            For unknown values just use null.
+            For unknown field values just use null.
             {extra_context}
             """.format(
             form_prompt=form_prompt,
@@ -370,8 +380,67 @@ class OpenAiClient:
             return None, err
 
         form_data = FormData(form, form_data_raw, omit_unknown_fields=True)
-        # TODO(P1, fullness): Would be nice to double-check if all GPT requested fields were actually returned.
+        # TODO(P1, correctness): Would be nice to double-check if all GPT requested fields were actually returned.
         return form_data, None
+
+    def fill_in_multi_entry_form(
+        self,
+        form: FormDefinition,
+        task_id: Optional[int],
+        text: str,
+        print_prompt=False,
+        use_current_time: bool = False,
+    ) -> Tuple[List[FormData], Optional[str]]:
+        extra_context = OpenAiClient._maybe_add_current_time_to_prompt(
+            use_current_time=use_current_time
+        )
+        form_prompt = OpenAiClient.form_to_gpt_prompt(form)
+
+        gpt_query = """
+            The following is a definition of form,
+            given as a list of form field labels, description and type (or options of possible values):
+            {form_prompt}
+
+            I include a text which is an answer to the form, note that there can be multiple entries to the form.
+            Fill in the form and return a valid JSON list of dictionaries. Only return that JSON list of dictionaries.
+            For each form entry, return one list item, and if there are no responses found just return an empty list.
+            Every list item is a form response represented as a dictionary,
+            where keys are form labels and values are filled in results.
+            For unknown field values just use null.
+
+            This the answer text:
+            {note}
+
+            {extra_context}
+            """.format(
+            form_prompt=form_prompt,
+            note=text,
+            extra_context=extra_context,
+        )
+        raw_response = self.run_prompt(
+            gpt_query, task_id=task_id, print_prompt=print_prompt
+        )
+        form_data_raw = gpt_response_to_json(raw_response)
+        if print_prompt:
+            print(f"fill_in_form response: {form_data_raw}")
+
+        if not isinstance(form_data_raw, list):
+            err = f"gpt resulted form_data ain't a list: {form_data_raw}"
+            print(f"ERROR: {err}")
+            return [], err
+
+        results = []
+        for form_item in form_data_raw:
+            if not isinstance(form_item, dict):
+                # only warning as it is better to return something than nothing
+                print(f"WARNING: form_item result is not a dict: {form_item}, skipping")
+                continue
+            # TODO(P1, correctness): Would be nice to double-check if all GPT requested fields were actually returned.
+            results.append(
+                FormData(form=form, data=form_item, omit_unknown_fields=True)
+            )
+
+        return results, None
 
     # They claim to return 1536 dimension of normalized to 1 (cosine or euclid returns same)
     # TODO(P1, research): There are a LOT of unknowns here for me:

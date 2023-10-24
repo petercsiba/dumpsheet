@@ -20,6 +20,7 @@ from app.emails import (
     send_result_rest_of_the_crowd,
     send_technical_failure_email,
 )
+from app.food_dump import run_food_ingredient_extraction
 from app.form import FormData, FormName
 from app.gsheets import GoogleClient
 from app.hubspot_client import HubspotClient
@@ -120,21 +121,14 @@ def wait_for_email_updated_on_data_entry(
 
 
 # TODO(P1, features): Also support this for HubSpot dump.
-def sync_people_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
+def sync_form_datas_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
     print(f"Gonna sync {len(form_datas)} FormDatas into GSheets")
     google_client = GoogleClient()
     google_client.login()
 
     acc: Account = Account.get_by_id(account_id)
     gsheet_id = acc.gsheet_id
-    email = acc.get_email()
     if gsheet_id is None:
-        if email is None:
-            print(
-                f"ERROR: Cannot create gsheet for account {account_id} cause no email was found"
-            )
-            return
-
         new_spreadsheet = google_client.create(f"Voxana Data Share - {acc.full_name}")
         gsheet_id = new_spreadsheet.id
         acc.gsheet_id = gsheet_id
@@ -145,7 +139,14 @@ def sync_people_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
             return
 
         # TODO(P1, reliability): If not yet shared, then always share with the account email.
-        google_client.share_with(email)
+        email = acc.get_email()
+        if email is None:
+            # Even if no email - we still continue filling in the sheet as it can be shared later on.
+            print(
+                f"WARNING: Cannot share gsheet for account {account_id} cause no email was found"
+            )
+        else:
+            google_client.share_with(email)
 
     google_client.open_by_key(gsheet_id)
 
@@ -241,7 +242,7 @@ def process_networking_transcript(
     # UPDATE SPREADSHEET
     # TODO(P1, reliability): Once battle-tested, remove this
     try:
-        sync_people_to_gsheets(
+        sync_form_datas_to_gsheets(
             account_id=data_entry.account_id,
             form_datas=[person.form_data for person in legit_results],
         )
@@ -308,7 +309,28 @@ def process_food_log_transcript(
     data_entry: BaseDataEntry,
 ) -> List[FormData]:
     print("process_food_log_transcript")
-    return []
+
+    task = Task.create_task(workflow_name="food_log", data_entry_id=data_entry.id)
+    gpt_client.set_task_id(task.id)
+
+    form_datas = run_food_ingredient_extraction(
+        gpt_client=gpt_client,
+        full_transcript=data_entry.output_transcript,
+    )
+    for i, form_data in enumerate(form_datas):
+        # TODO(devx, P0): We need to generate an unique id for each row so we can better track it.
+        task.add_generated_output(key=str(i), form_data=form_data)
+
+    # To process and upload the Hubspot entries, we do not need an email address.
+    # But to send a confirmation, we do need one.
+    if not wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=3 * 60):
+        print(
+            f"WARNING: email missing for data_entry {data_entry.id} - cannot send results email"
+        )
+
+    sync_form_datas_to_gsheets(data_entry.account_id, form_datas=form_datas)
+
+    return form_datas
 
 
 def parse_uuid_from_string(input_string):
