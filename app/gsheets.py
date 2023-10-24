@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import List, Optional
 
 import gspread
+import pytz
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from gspread import Spreadsheet, Worksheet
@@ -236,11 +237,8 @@ def deduplicate(worksheet: Worksheet):
             existing_time_str = deduped_dict[name][time_col]
 
             if current_time_str and existing_time_str:  # Both times exist
-                current_time = datetime.strptime(current_time_str, "%b %d %Y, %I%p %Z")
-                existing_time = datetime.strptime(
-                    existing_time_str, "%b %d %Y, %I%p %Z"
-                )
-                if current_time < existing_time:
+                # Assuming format is "%Y-%m-%d %H:%M %Z", then we can just compare the strings
+                if current_time_str < existing_time_str:
                     deduped_dict[name][time_col] = current_time_str
             elif current_time_str:  # Only current time exists
                 deduped_dict[name][time_col] = current_time_str
@@ -263,6 +261,8 @@ def _convert_date_format(old_date_str: str):
     # Try parsing the first format "Oct 24 2023, 2PM PDT"
     try:
         dt = datetime.strptime(old_date_str, "%b %d %Y, %I%p %Z")
+        tz = pytz.timezone(dt.strftime("%Z"))
+        dt = tz.localize(dt.replace(tzinfo=None))
         return dt.strftime("%Y-%m-%d %H:%M %Z")
     except ValueError:
         pass
@@ -270,6 +270,8 @@ def _convert_date_format(old_date_str: str):
     # Try parsing the second format "2023-Oct-24 10:00 PDT"
     try:
         dt = datetime.strptime(old_date_str, "%Y-%b-%d %H:%M %Z")
+        tz = pytz.timezone(dt.strftime("%Z"))
+        dt = tz.localize(dt.replace(tzinfo=None))
         return dt.strftime("%Y-%m-%d %H:%M %Z")
     except ValueError:
         print(f"WARNING: cannot convert {old_date_str}")
@@ -320,8 +322,8 @@ if __name__ == "__main__":
     test_spreadsheet_name = "Voxana - Peter Csiba - Networking Dump"
 
     test_key = "10RbqaqCjB9qPZPUxE40FAs6t1zIveTUKRnSHhbIepis"
-    peter_key = "1-FyMc_W6d1PTuR4re5d5-uVowmgVWQtpEDjDsP1KplY"
-
+    # peter_key = "1-FyMc_W6d1PTuR4re5d5-uVowmgVWQtpEDjDsP1KplY"
+    peter_key = None
     # katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
     katka_key = None
 
@@ -334,13 +336,16 @@ if __name__ == "__main__":
         test_google_client.open_by_key(katka_key)
         katka_sheet = test_google_client.spreadsheet.get_worksheet(0)
         # deduplicate(katka_sheet)
-        convert_dates(katka_sheet, "B6:B196")
+        # convert_dates(katka_sheet, "B6:B196")
         exit()
 
     if bool(peter_key):
         print("working on peter's spreadsheet")
         test_google_client.open_by_key(peter_key)
-        test_google_client.share_with("petherz@gmail.com")
+        peter_sheet = test_google_client.spreadsheet.get_worksheet(0)
+        # convert_dates(peter_sheet, "A2:A245")
+        # deduplicate(peter_sheet)
+        # test_google_client.share_with("petherz@gmail.com")
         exit()
 
     # TEST
