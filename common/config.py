@@ -4,7 +4,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-ENV = os.environ.get("ENV")  # prod, local
+ENV = os.environ.get("ENV")
+ENV_PROD = "prod"
+ENV_LOCAL = "local"
+ENV_TEST = "test"
 
 # Launch / back-fill controls
 SKIP_SHARE_SPREADSHEET = os.environ.get("SKIP_SHARE_SPREADSHEET", "0")

@@ -27,11 +27,13 @@ from app.hubspot_dump import HubspotDataEntry, extract_and_sync_contact_with_fol
 from app.networking_dump import run_executive_assistant_to_get_drafts
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.config import (
+    ENV,
+    ENV_LOCAL,
     RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS,
     SKIP_PROCESSED_DATA_ENTRIES,
     SKIP_SHARE_SPREADSHEET,
 )
-from common.openai_client import OpenAiClient
+from common.openai_client import CHEAPER_MODEL, OpenAiClient
 from common.twillio_client import TwilioClient
 from database.account import Account
 from database.client import (
@@ -151,10 +153,44 @@ def sync_people_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
 
 
 # Second lambda
+FORM_CLASSIFICATION = {
+    FormName.NETWORKING.value: "a person i talk to at an event or virtually",
+    FormName.FOOD_LOG.value: "an ingredient i ate",
+}
+
+
+def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> FormName:
+    topics = "\n".join(
+        f"* {name} -> {description}"
+        for name, description in FORM_CLASSIFICATION.items()
+    )
+    query = """
+    For the below transcript, decide which topics it talks about.
+    The topics are structured as a list of topic name -> description.
+    Only output the topic name.
+    Topics: {topics}
+    Transcript: {transcript}
+    """.format(
+        topics=topics,
+        transcript=transcript,
+    )
+    raw_response = gpt_client.run_prompt(query, model=CHEAPER_MODEL)
+    if raw_response in FORM_CLASSIFICATION:
+        print(f"classified transcript as {raw_response}")
+        return FormName.from_str(raw_response)
+
+    default_classification = FormName.NETWORKING
+    print(
+        f"WARNING: classified transcript as unknown type: {raw_response}; defaulting to {default_classification}"
+    )
+    return default_classification
+
+
 def process_networking_transcript(
     gpt_client: OpenAiClient,
     data_entry: BaseDataEntry,
 ) -> List[PersonDataEntry]:
+    # TODO: We should move task creation higher
     task = Task.create_task(
         workflow_name=FormName.NETWORKING.value, data_entry_id=data_entry.id
     )
@@ -267,6 +303,14 @@ def process_hubspot_transcript(
     return data
 
 
+def process_food_log_transcript(
+    gpt_client: OpenAiClient,
+    data_entry: BaseDataEntry,
+) -> List[FormData]:
+    print("process_food_log_transcript")
+    return []
+
+
 def parse_uuid_from_string(input_string):
     uuid_pattern = re.compile(
         r"[0-9a-f]{8}-"
@@ -374,18 +418,30 @@ def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
         hs_client = HubspotClient(
             org.get_oauth_data_id_for_destination(DESTINATION_HUBSPOT_ID)
         )
-        process_hubspot_transcript(
+        return process_hubspot_transcript(
             hs_client=hs_client,
             gpt_client=gpt_client,
             data_entry=data_entry,
         )
-    else:
-        # Our OG product
-        # NOTE: When we actually separate them - be careful about re-tries to clear the output.
-        process_networking_transcript(
-            gpt_client=gpt_client,
-            data_entry=data_entry,
-        )
+
+    if (
+        str(data_entry.account.id) == "c6b5882d-929a-41c5-8eb0-3740965b8e8e"
+        or ENV == ENV_LOCAL
+    ):
+        if (
+            get_workflow_name(gpt_client, data_entry.output_transcript)
+            == FormName.FOOD_LOG
+        ):
+            return process_food_log_transcript(
+                gpt_client=gpt_client, data_entry=data_entry
+            )
+
+    # Our OG product
+    # NOTE: When we actually separate them - be careful about re-tries to clear the output.
+    return process_networking_transcript(
+        gpt_client=gpt_client,
+        data_entry=data_entry,
+    )
 
 
 def _event_idempotency_id(event):
@@ -527,10 +583,18 @@ if __name__ == "__main__":
                 data_entry=orig_data_entry,
             )
         else:
-            # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
-            process_networking_transcript(
-                gpt_client=open_ai_client,
-                data_entry=orig_data_entry,
+            workflow_name = get_workflow_name(
+                open_ai_client, loaded_data_entry.output_transcript
             )
+            if workflow_name == FormName.FOOD_LOG:
+                process_food_log_transcript(
+                    gpt_client=open_ai_client, data_entry=loaded_data_entry
+                )
+            elif workflow_name == FormName.NETWORKING:
+                # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
+                process_networking_transcript(
+                    gpt_client=open_ai_client,
+                    data_entry=orig_data_entry,
+                )
 
         EmailLog.save_last_email_log_to("result-app-app.html")

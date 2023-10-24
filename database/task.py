@@ -36,6 +36,7 @@ class Task(BaseTask):
         task = Task.get_by_id(task_id)
         return task
 
+    # NOTE: This is somewhat redundant to PromptLog - but here we only collect final user-visible outputs.
     # Here "output" means "draft" in user-facing output,
     # one Task can handle multiple results.
     # `output` should be JSON serializable

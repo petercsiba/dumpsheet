@@ -29,8 +29,8 @@ from database.models import BasePromptLog
 
 # TODO(P1, specify organization id): Header OpenAI-Organization
 openai.api_key = OPEN_AI_API_KEY
-# https://platform.openai.com/docs/models/gpt-4
-DEFAULT_MODEL = "gpt-4-0613"  # Thanks Vishal
+DEFAULT_MODEL = "gpt-4"
+CHEAPER_MODEL = "gpt-3.5-turbo"
 # Sometimes seems the newest models experience downtime-so try to backup.
 BACKUP_MODEL = "gpt-3.5-turbo"
 BACKUP_MODEL_AFTER_NUM_RETRIES = 3

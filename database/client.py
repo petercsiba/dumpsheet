@@ -5,6 +5,8 @@ from typing import Any, Generator, Optional
 from dotenv import load_dotenv
 from peewee import DatabaseProxy, OperationalError, PostgresqlDatabase
 
+from common.config import ENV_LOCAL, ENV_PROD
+
 # The DatabaseProxy simply defers the configuration of the database until a later time,
 # but all interaction with the database (like connecting) should be done via the actual Database instance.
 database_proxy = DatabaseProxy()
@@ -89,9 +91,9 @@ def connect_to_postgres_i_will_call_disconnect_i_promise(
     )
 
     host = kwargs["host"]
-    if ENV == "local":
+    if ENV == ENV_LOCAL:
         assert "localhost" in host, "local env can only connect to local postgres"
-    elif ENV == "prod":
+    elif ENV == ENV_PROD:
         assert "localhost" not in host, "prod env cannot connect to local postgres"
     else:
         raise Exception(

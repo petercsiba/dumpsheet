@@ -5,7 +5,7 @@ from uuid import UUID
 
 import pytest
 
-from common.config import ENV
+from common.config import ENV, ENV_LOCAL, ENV_TEST
 from database.account import Account
 from database.client import (
     POSTGRES_LOGIN_URL_FROM_ENV,
@@ -22,7 +22,10 @@ from ...upload_voice.app import TWILIO_FUNCTIONS_API_KEY
 
 @pytest.fixture(scope="module", autouse=True)
 def db_connection():
-    assert ENV in ["local", "test"], "you can only run tests in non-prod environments"
+    assert ENV in [
+        ENV_LOCAL,
+        ENV_TEST,
+    ], "you can only run tests in non-prod environments"
 
     db = connect_to_postgres_i_will_call_disconnect_i_promise(
         POSTGRES_LOGIN_URL_FROM_ENV

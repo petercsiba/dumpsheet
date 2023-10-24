@@ -263,6 +263,13 @@ class FormName(Enum):
     def value(self):
         return self._value_
 
+    @staticmethod
+    def from_str(str_value: str):
+        for form in FormName:
+            if form.value == str_value:
+                return form
+        return None
+
 
 # Mostly used for code-gen
 class FormDefinition:

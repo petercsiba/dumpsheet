@@ -1,12 +1,7 @@
 from typing import List
 
-from app.form import FormDefinition, FormName
+from app.form import FormDefinition
 from common.openai_client import OpenAiClient
-
-FORM_CLASSIFICATION = {
-    FormName.NETWORKING: "a person i talk to at an event or virtually",
-    FormName.FOOD_LOG: "an ingredient i ate",
-}
 
 
 def decide_on_workflow(gpt_client: OpenAiClient, text: str):
