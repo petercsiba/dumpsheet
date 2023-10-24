@@ -6,12 +6,10 @@ from typing import Any, Dict, List, Optional
 from hubspot.crm.properties import ModelProperty
 
 from app.form import FormData, FormDefinition, FormName
+from app.form_library import get_form
 from app.hubspot_client import HubspotClient
 from app.hubspot_models import (
     ALLOWED_FIELDS,
-    CALL_FIELDS,
-    CONTACT_FIELDS,
-    TASK_FIELDS,
     AssociationType,
     FieldDefinition,
     FieldNames,
@@ -100,7 +98,7 @@ def extract_and_sync_contact_with_follow_up(
         )
 
     # CONTACT CREATION
-    contact_form = FormDefinition(FormName.HUBSPOT_CONTACT, CONTACT_FIELDS)
+    contact_form = get_form(FormName.HUBSPOT_CONTACT)
     contact_form_data, contact_err = gpt_client.fill_in_form(
         form=contact_form, task_id=db_task.id, text=text
     )
@@ -137,7 +135,7 @@ def extract_and_sync_contact_with_follow_up(
     contact_id = contact_response.hs_object_id
 
     # CALL CREATION
-    call_form = FormDefinition(FormName.HUBSPOT_MEETING, CALL_FIELDS)
+    call_form = get_form(FormName.HUBSPOT_MEETING)
     # use_current_time so hs_timestamp gets filled
     call_form_data, call_err = gpt_client.fill_in_form(
         form=call_form, task_id=db_task.id, text=text, use_current_time=True
@@ -153,7 +151,7 @@ def extract_and_sync_contact_with_follow_up(
 
     # TASK CREATION
     # TODO(P1, ux): Sometimes, there might be no task.
-    hs_task_form = FormDefinition(FormName.HUBSPOT_TASK, TASK_FIELDS)
+    hs_task_form = get_form(FormName.HUBSPOT_TASK)
     # use_current_time so hs_timestamp gets filled
     hs_task_data, hs_task_err = gpt_client.fill_in_form(
         form=hs_task_form, task_id=db_task.id, text=text, use_current_time=True

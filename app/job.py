@@ -6,3 +6,15 @@
 # *
 # *
 # *
+from typing import List
+
+from app.form import FormDefinition, FormName
+
+FORM_CLASSIFICATION = {
+    FormName.NETWORKING: "a person i talk to at an event or virtually",
+    FormName.FOOD_LOG: "an ingredient i ate",
+}
+
+
+def do_job(text: str, candidate_forms: List[FormDefinition]):
+    pass

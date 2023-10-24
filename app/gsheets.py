@@ -7,6 +7,7 @@ from googleapiclient.discovery import build
 from gspread import Spreadsheet, Worksheet
 
 from app.form import FieldDefinition, FormData, FormDefinition, FormName
+from app.form_library import FOOD_LOG_FIELDS
 from common.config import GOOGLE_FORMS_SERVICE_ACCOUNT_PRIVATE_KEY
 
 # TODO(P1, devx): Move FieldDefinition, FormDefinition into this library; they act as:
@@ -274,42 +275,6 @@ TEST_FIELDS = [
         name="industry",
         field_type="text",
         label="Industry",
-        description="which business area they specialize in professionally",
-    ),
-]
-
-
-FOOD_LOG_FIELDS = [
-    FieldDefinition(
-        name="date",
-        field_type="date",
-        label="Date",
-        description="Date of the log entry",
-    ),
-    FieldDefinition(
-        name="time",
-        field_type="text",  # TODO: implement
-        label="Time",
-        description="Time of day of the log entry in HH:00 format",
-    ),
-    FieldDefinition(
-        name="ingredient",
-        field_type="text",
-        label="Ingredient",
-        description="one food item like you would see on an ingredients list",
-    ),
-    FieldDefinition(
-        name="amount",
-        field_type="text",
-        label="Amount",
-        description=(
-            "approximate amount of the ingredient taken, if not specified it can be just using 'a bit' or 'some"
-        ),
-    ),
-    FieldDefinition(
-        name="activity",
-        field_type="text",
-        label="Activity",
         description="which business area they specialize in professionally",
     ),
 ]

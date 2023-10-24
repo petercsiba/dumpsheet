@@ -553,8 +553,10 @@ def gpt_response_to_json(raw_response: Optional[str], debug=True):
     raw_response = re.sub(
         r'("(?:[^"\\]|\\.)*")', lambda m: m.group(1).replace("\n", "\\n"), raw_response
     )
+    # Sometimes it just does do backslash to try making a newline (like in a shellscript)
+    raw_response = re.sub(r"\\+\n\s*", "\\\\n", raw_response)
+    # Happened with email upload vue79j44one1liatgmjf2kbbvgeqjebi95uutk01 - long output
     if "[" not in raw_response and "]" in raw_response:
-        # Happened with email upload vue79j44one1liatgmjf2kbbvgeqjebi95uutk01 - long output
         raw_response = raw_response.replace("]", "")
 
     # if debug:

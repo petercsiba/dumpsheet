@@ -2,7 +2,8 @@ import json
 from typing import Dict, List, Optional
 
 from app.datashare import PersonDataEntry
-from app.form import FieldDefinition, FormDefinition, FormName, Option
+from app.form import FormName
+from app.form_library import get_form
 from common.openai_client import (
     DEFAULT_MODEL,
     OpenAiClient,
@@ -118,105 +119,6 @@ Be careful to include all full original substrings with enough context merged in
     return result
 
 
-NETWORKING_FIELDS = [
-    FieldDefinition(
-        name="recording_time",
-        field_type="date",  # TODO(P2, ux): Maybe it should be date, but json only has timestamp.
-        label="Recorded Time",
-        description="Which date the recording took place",
-        ignore_in_prompt=True,  # Will be filled in manually
-    ),
-    FieldDefinition(
-        name="name",
-        field_type="text",
-        label="Name",
-        description="Name of the person I talked with",
-        ignore_in_prompt=True,  # Will be filled in manually
-    ),
-    FieldDefinition(
-        name="role",
-        field_type="text",
-        label="Role",
-        description="Current role or latest job experience",
-    ),
-    FieldDefinition(
-        name="industry",
-        field_type="text",
-        label="Industry",
-        description="which business area they specialize in professionally",
-    ),
-    FieldDefinition(
-        name="their_needs",
-        field_type="text",
-        label="Their Needs",
-        description="list of what the person is looking for, null for empty",
-    ),
-    FieldDefinition(
-        # TODO(P1, devx): We might want add list form type here.
-        name="my_action_items",
-        field_type="text",
-        label="My Action Items",
-        description=(
-            "list of action items I explicitly assigned myself to address after the meeting, null for empty"
-        ),
-    ),
-    FieldDefinition(
-        name="key_facts",
-        field_type="text",
-        label="Key Facts",
-        description="list of key facts each fact in a super-short up to 5 word brief, null for empty",
-    ),
-    FieldDefinition(
-        name="suggested_revisit",
-        field_type="select",
-        label="Suggested Revisit",
-        description=(
-            "priority of when should i respond to them, PO (today), P1 (end of week), P2 (later)"
-        ),
-        options=[
-            Option(label="P0 (today)", value="P0"),
-            Option(label="P1 (end of week)", value="P1"),
-            Option(label="P2 (later)", value="P2"),
-        ],
-        default_value="P2",
-    ),
-    FieldDefinition(
-        name="response_message_type",
-        field_type="select",
-        label="Response Message Channel",
-        description=(
-            "best message channel to keep the conversation going, either it is mentioned in the text, "
-            "and if not, then assume from how friendly / professional the chat was"
-        ),
-        options=[
-            Option(label="Email", value="email"),
-            Option(label="LinkedIn", value="linkedin"),
-            Option(label="WhatsApp", value="whatsapp"),
-            Option(label="Text", value="sms"),
-        ],
-        default_value="sms",
-    ),
-    FieldDefinition(
-        name="suggested_response_item",
-        field_type="text",
-        label="Suggested Response Item",
-        description=(
-            "one key topic or item for my follow up response to the person, "
-            "default to 'great to meet you, let me know if I can ever do anything for you'"
-        ),
-    ),
-    FieldDefinition(
-        name="summarized_note",
-        field_type="text",
-        label="Summarized Note",
-        description="short concise structured summary of the meeting note",
-        ignore_in_prompt=True,  # We only fill this in when the transcript is long enough
-    ),
-]
-NETWORKING_FORM = FormDefinition(FormName.NETWORKING, NETWORKING_FIELDS)
-# "impressions": "my first impression of them summarized into one sentence",
-
-
 def summarize_note(gpt_client: OpenAiClient, raw_note: str):
     return gpt_client.run_prompt(
         f"""Summarize my following meeting note into a short concise structured output,
@@ -246,7 +148,10 @@ def summarize_raw_note_to_person_data_entry(
         err = f"Thanks for mentioning {name}! Unfortunately there is too little info to summarize from."
     else:
         form_data, err = gpt_client.fill_in_form(
-            form=NETWORKING_FORM, task_id=None, text=raw_note, print_prompt=True
+            form=get_form(form_name=FormName.NETWORKING),
+            task_id=None,
+            text=raw_note,
+            print_prompt=True,
         )
 
     if form_data is None:
