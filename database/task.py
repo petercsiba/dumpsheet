@@ -1,6 +1,5 @@
 import datetime
 import uuid
-from typing import Optional
 
 from app import utils
 from app.form import FormData
@@ -26,10 +25,10 @@ class Task(BaseTask):
         db_table = "task"
 
     @staticmethod
-    def create_task(data_entry_id: uuid.UUID, pipeline_id: Optional[int]) -> "Task":
+    def create_task(workflow_name: str, data_entry_id: uuid.UUID) -> "Task":
         # TODO(P2, devx): Update some field so we know it's a re-run, although timestamps would tell that.
         task_id = (
-            Task.insert(data_entry_id=data_entry_id, pipeline_id=pipeline_id)
+            Task.insert(workflow_name=workflow_name, data_entry_id=data_entry_id)
             .on_conflict_ignore()
             .execute()
         )

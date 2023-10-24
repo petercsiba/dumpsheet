@@ -2,7 +2,7 @@ import os
 import random
 import time
 
-from app.app import process_transcript_from_data_entry
+from app.app import process_networking_transcript
 from common.openai_client import OpenAiClient
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from input.email import process_email_input
@@ -14,7 +14,7 @@ def process_file(gpt_client: OpenAiClient, file_contents):
         raw_email=file_contents,
     )
 
-    people_entries = process_transcript_from_data_entry(
+    people_entries = process_networking_transcript(
         gpt_client=gpt_client,
         data_entry=orig_data_entry,
     )

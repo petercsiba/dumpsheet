@@ -345,12 +345,13 @@ if __name__ == "__main__":
             input_type="test",
         ).execute()
 
+        db_task = Task.create_task("test", test_data_entry_id)
         peter_voxana_user_id = 550982168
         hs_data_entry = extract_and_sync_contact_with_follow_up(
             test_hs_client,
             test_gpt_client,
-            db_task=Task.create_task(test_data_entry_id, pipeline_id=test_pipeline.id),
             text=test_data1,
+            db_task=db_task,
             hub_id=test_pipeline.external_org_id,
             hubspot_owner_id=peter_voxana_user_id,
             local_hack=True,

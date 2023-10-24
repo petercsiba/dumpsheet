@@ -20,7 +20,7 @@ from app.emails import (
     send_result_rest_of_the_crowd,
     send_technical_failure_email,
 )
-from app.form import FormData
+from app.form import FormData, FormName
 from app.gsheets import GoogleClient
 from app.hubspot_client import HubspotClient
 from app.hubspot_dump import HubspotDataEntry, extract_and_sync_contact_with_follow_up
@@ -151,11 +151,13 @@ def sync_people_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
 
 
 # Second lambda
-def process_transcript_from_data_entry(
+def process_networking_transcript(
     gpt_client: OpenAiClient,
     data_entry: BaseDataEntry,
 ) -> List[PersonDataEntry]:
-    task = Task.create_task(data_entry_id=data_entry.id, pipeline_id=None)
+    task = Task.create_task(
+        workflow_name=FormName.NETWORKING.value, data_entry_id=data_entry.id
+    )
     gpt_client.set_task_id(task_id=task.id)
     # ===== Actually perform black magic
     # TODO(P1, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
@@ -230,17 +232,17 @@ def process_transcript_from_data_entry(
     return people_entries
 
 
-def process_transcript_for_organization(
+def process_hubspot_transcript(
     hs_client: HubspotClient,
     gpt_client: OpenAiClient,
     data_entry: BaseDataEntry,
 ) -> HubspotDataEntry:
+    task = Task.create_task(workflow_name="hubspot", data_entry_id=data_entry.id)
     acc: Account = Account.get_by_id(data_entry.account_id)
     pipeline = Pipeline.get_or_none_for_org_id(
         acc.organization_id, DESTINATION_HUBSPOT_ID
     )
     hub_id = pipeline.external_org_id if bool(pipeline) else None
-    task = Task.create_task(data_entry_id=data_entry.id, pipeline_id=pipeline.id)
 
     # TODO(P1, ux): Maybe we should wait_for_email_updated_on_data_entry
     #   But then might be better to update without email confirmations.
@@ -372,7 +374,7 @@ def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
         hs_client = HubspotClient(
             org.get_oauth_data_id_for_destination(DESTINATION_HUBSPOT_ID)
         )
-        process_transcript_for_organization(
+        process_hubspot_transcript(
             hs_client=hs_client,
             gpt_client=gpt_client,
             data_entry=data_entry,
@@ -380,7 +382,7 @@ def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
     else:
         # Our OG product
         # NOTE: When we actually separate them - be careful about re-tries to clear the output.
-        process_transcript_from_data_entry(
+        process_networking_transcript(
             gpt_client=gpt_client,
             data_entry=data_entry,
         )
@@ -519,14 +521,14 @@ if __name__ == "__main__":
                     DESTINATION_HUBSPOT_ID
                 )
             )
-            process_transcript_for_organization(
+            process_hubspot_transcript(
                 hs_client=test_hs_client,
                 gpt_client=open_ai_client,
                 data_entry=orig_data_entry,
             )
         else:
             # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
-            process_transcript_from_data_entry(
+            process_networking_transcript(
                 gpt_client=open_ai_client,
                 data_entry=orig_data_entry,
             )
