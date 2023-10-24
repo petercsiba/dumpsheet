@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import List, Optional
 
@@ -213,6 +214,7 @@ def _add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
 # TODO: This would need some adjustments when people start doing multiple-entry for the same person
 
 
+# ==== PROD SCRIPTS =====
 def deduplicate(worksheet: Worksheet):
     rows = worksheet.get_all_values()
     header, rows = rows[0], rows[1:]
@@ -258,6 +260,47 @@ def deduplicate(worksheet: Worksheet):
     worksheet.append_rows(deduped_rows)
 
 
+def _convert_date_format(old_date_str: str):
+    # Use regular expression to extract the components of the old date-time format
+    match = re.match(
+        r"(\w{3}) (\d{1,2}) (\d{4}), (\d{1,2})([APMapm]{2}) (\w{3})", old_date_str
+    )
+    if match:
+        month, day, year, hour, meridian, timezone = match.groups()
+
+        # Convert hour to 24-hour format
+        hour = int(hour)
+        if meridian.upper() == "PM" and hour != 12:
+            hour += 12
+        if meridian.upper() == "AM" and hour == 12:
+            hour = 0
+
+        # Create new format
+        new_format = f"{year}-{month}-{day} {hour:02d}:00 {timezone}"
+        return new_format
+    else:
+        print(f"WARNING: cannot convert {old_date_str}")
+        return None
+
+
+def convert_dates(worksheet: Worksheet, cell_range="A2:A100"):
+    cells = worksheet.range(cell_range)
+    print(f"gonna convert_dates for up to {len(cells)}")
+
+    converted_count = 0
+    for cell in cells:
+        if cell.value:  # Check if cell is not empty
+            orig_value = cell.value
+            new_value = _convert_date_format(orig_value)
+            if bool(new_value) and orig_value != new_value:
+                converted_count += 1
+                cell.value = new_value
+
+    # Update the cells in batch
+    worksheet.update_cells(cells)
+    print(f"convert_dates converted {converted_count} cells")
+
+
 TEST_FIELDS = [
     FieldDefinition(
         name="name",
@@ -284,16 +327,19 @@ if __name__ == "__main__":
     test_spreadsheet_name = "Voxana - Peter Csiba - Networking Dump"
 
     test_key = "10RbqaqCjB9qPZPUxE40FAs6t1zIveTUKRnSHhbIepis"
-    katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
+    # katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
+    katka_key = None
 
     test_google_client = GoogleClient()
     test_google_client.login()
 
     # PROD SCRIPTS
-    # if bool(katka_key):
-    #     test_google_client.open_by_key(katka_key)
-    #     katka_sheet = test_google_client.spreadsheet.get_worksheet(0)
-    #     deduplicate(katka_sheet)
+    if bool(katka_key):
+        test_google_client.open_by_key(katka_key)
+        katka_sheet = test_google_client.spreadsheet.get_worksheet(0)
+        # deduplicate(katka_sheet)
+        convert_dates(katka_sheet, "B6:B196")
+        exit()
 
     # TEST
     if test_key is None:

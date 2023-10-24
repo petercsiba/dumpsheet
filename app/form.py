@@ -94,8 +94,8 @@ class FieldDefinition:
             pst = pytz.timezone("America/Los_Angeles")
             datetime_value = datetime_value.astimezone(pst)
 
-            # TODO(ux, P0): For spreadsheets we should output just YYYY-MM-DD HH:ii, so it's easier to sort by.
-            return datetime_value.strftime("%b %d %Y, %-I%p %Z")
+            # We output more machine-like so it can be sorted in Excel
+            return datetime_value.strftime("%Y-%m-%d %H:%M %Z")
 
         # TODO(P0, hack): Add special handling on the FieldDefinition; especially HubSpot fields like ObjId can use it
         if self.name in ["firstname", "lastname"]:
