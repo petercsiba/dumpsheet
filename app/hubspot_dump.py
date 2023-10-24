@@ -141,7 +141,7 @@ def extract_and_sync_contact_with_follow_up(
         form=call_form, task_id=db_task.id, text=text, use_current_time=True
     )
     _maybe_add_hubspot_owner_id(call_form_data, hubspot_owner_id)
-    db_task.add_generated_output(KEY_HUBSPOT_CONTACT, call_form_data)
+    db_task.add_generated_output(KEY_HUBSPOT_CALL, call_form_data)
 
     call_response = client.crm_call_create(call_form_data.to_dict())
     db_task.add_sync_response(
@@ -157,7 +157,7 @@ def extract_and_sync_contact_with_follow_up(
         form=hs_task_form, task_id=db_task.id, text=text, use_current_time=True
     )
     _maybe_add_hubspot_owner_id(hs_task_data, hubspot_owner_id)
-    db_task.add_generated_output(KEY_HUBSPOT_CONTACT, hs_task_data)
+    db_task.add_generated_output(KEY_HUBSPOT_TASK, hs_task_data)
 
     hs_task_response = client.crm_task_create(hs_task_data.to_dict())
     db_task.add_sync_response(
