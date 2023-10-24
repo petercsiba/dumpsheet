@@ -320,6 +320,8 @@ if __name__ == "__main__":
     test_spreadsheet_name = "Voxana - Peter Csiba - Networking Dump"
 
     test_key = "10RbqaqCjB9qPZPUxE40FAs6t1zIveTUKRnSHhbIepis"
+    peter_key = "1-FyMc_W6d1PTuR4re5d5-uVowmgVWQtpEDjDsP1KplY"
+
     # katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
     katka_key = None
 
@@ -328,10 +330,17 @@ if __name__ == "__main__":
 
     # PROD SCRIPTS
     if bool(katka_key):
+        print("working on katka's spreadsheet")
         test_google_client.open_by_key(katka_key)
         katka_sheet = test_google_client.spreadsheet.get_worksheet(0)
         # deduplicate(katka_sheet)
         convert_dates(katka_sheet, "B6:B196")
+        exit()
+
+    if bool(peter_key):
+        print("working on peter's spreadsheet")
+        test_google_client.open_by_key(peter_key)
+        test_google_client.share_with("petherz@gmail.com")
         exit()
 
     # TEST

@@ -114,16 +114,10 @@ NETWORKING_FIELDS = [
 
 FOOD_LOG_FIELDS = [
     FieldDefinition(
-        name="date",
+        name="recording_time",
         field_type="date",
-        label="Date",
-        description="Date of the log entry",
-    ),
-    FieldDefinition(
-        name="time",
-        field_type="text",  # TODO: implement
-        label="Time",
-        description="Time of day of the log entry in HH:00 format",
+        label="Recording Time",
+        description="Date time of the log entry",
     ),
     FieldDefinition(
         name="ingredient",

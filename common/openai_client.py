@@ -336,7 +336,7 @@ class OpenAiClient:
         local_now = datetime.datetime.now(pytz.timezone("America/Los_Angeles"))
         # We omit minutes for 1. UX and 2. better caching of especially local test/research runs.
         # 2023-10-03 02:30 PM PDT
-        now_with_hours_and_tz = local_now.strftime("%Y-%m-%d %I %p %Z")
+        now_with_hours_and_tz = local_now.strftime("%Y-%m-%d %H:%M %Z")
         return f"\nGeneral context: Current time is {now_with_hours_and_tz}"
 
     def fill_in_form(
