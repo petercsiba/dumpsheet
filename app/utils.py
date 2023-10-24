@@ -2,6 +2,8 @@ import datetime
 import json
 from typing import Any
 
+import pytz
+
 
 def _is_json_serializable(obj):
     try:
@@ -31,3 +33,7 @@ def to_json_serializable(d: dict) -> Any:
         )
         d = str(d)
     return d
+
+
+def get_local_timezone() -> pytz.tzinfo:
+    return datetime.datetime.now().astimezone().tzinfo

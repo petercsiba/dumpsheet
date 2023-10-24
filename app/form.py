@@ -6,6 +6,8 @@ import phonenumbers
 import pytz
 from dateutil import parser
 
+from app.utils import get_local_timezone
+
 
 class Option:
     def __init__(self, label, value):
@@ -143,23 +145,19 @@ class FieldDefinition:
         )
 
     # In JavaScript, date is actually a timestamp which ideally should be human-readable and ISO 8601
-    # TODO(P1, devx): We should better consolidate date util functions before it gets too much of a nightmare.
     def _validate_date(self, value: Any):
         if value is None:
             return None
 
         if isinstance(value, datetime.datetime):
-            dt_value: datetime.datetime = value
+            dt_value = value
             if dt_value.tzinfo is None:
-                # If the parsed_date is naive, set it to the system's local timezone
-                local_timezone = datetime.datetime.now().astimezone().tzinfo
-                dt_value = dt_value.replace(tzinfo=local_timezone)
+                dt_value = dt_value.replace(tzinfo=get_local_timezone())
             return dt_value
 
         if not isinstance(value, str):
-            print(
-                f"WARNING: form date value ain't datetime nor str, weird stuff might happen {type(value)}: {value}"
-            )
+            print(f"WARNING: Unrecognized date type {type(value)}: {value}")
+            return None
 
         try:
             parsed_date = parser.parse(str(value))
@@ -168,10 +166,8 @@ class FieldDefinition:
                 parsed_date.tzinfo is None
                 or parsed_date.tzinfo.utcoffset(parsed_date) is None
             ):
-                # Localize the naive datetime to UTC
                 parsed_date = pytz.UTC.localize(parsed_date)
 
-                # Convert to 1pm PST
                 pst = pytz.timezone("America/Los_Angeles")
                 parsed_date = pst.localize(
                     datetime.datetime.combine(
@@ -185,7 +181,6 @@ class FieldDefinition:
         except (TypeError, ValueError) as e:
             print(f"WARNING parsing date: {e}")
             self._validation_error("timestamp", value)
-            # If parsing fails or input is None, default to the current date-time in UTC
             return datetime.datetime.now(pytz.UTC)
 
     def _validate_html(self, value: Any):
