@@ -14,8 +14,8 @@ class Option:
 
 
 # Treat this as a form field
-# TODO: Add default values, custom display transformations;
-# TODO: Make field_type an Enum
+# TODO(P1, devx): Make field_type an Enum
+# TODO: Custom display transformations;
 class FieldDefinition:
     def __init__(
         self,
@@ -72,6 +72,8 @@ class FieldDefinition:
     def _has_options(self):
         return self.field_type in ["radio", "select"]
 
+    # TODO(ux, p1): Feels like the display_value should be outside of form.py, cause it depends on the output dest
+    #   being like email, spreadsheet, app or webapp. Database / Python kinda counts too.
     def display_value(self, value):
         if value is None:
             # TODO(P0, hack): Add a FieldDefinition.required
@@ -90,7 +92,7 @@ class FieldDefinition:
             pst = pytz.timezone("America/Los_Angeles")
             datetime_value = datetime_value.astimezone(pst)
 
-            # TODO(ux, P0): For spreadsheets we should output just YYYY-MM-DD, so it's easier to sort by.
+            # TODO(ux, P0): For spreadsheets we should output just YYYY-MM-DD HH:ii, so it's easier to sort by.
             return datetime_value.strftime("%b %d %Y, %-I%p %Z")
 
         # TODO(P0, hack): Add special handling on the FieldDefinition; especially HubSpot fields like ObjId can use it

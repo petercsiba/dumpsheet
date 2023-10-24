@@ -398,15 +398,15 @@ class OpenAiClient:
 
         gpt_query = """
             The following is a definition of form,
-            given as a list of form field labels, description and type (or options of possible values):
+            described as a list of form field labels, description and type (or options of possible values):
             {form_prompt}
 
-            I include a text which is an answer to the form, note that there can be multiple entries to the form.
+            Below is the text which is one or multiple answers to the form.
             Fill in the form and return a valid JSON list of dictionaries. Only return that JSON list of dictionaries.
-            For each form entry, return one list item, and if there are no responses found just return an empty list.
-            Every list item is a form response represented as a dictionary,
+            For each form response, return one list item, every list item is represented as a dictionary,
             where keys are form labels and values are filled in results.
             For unknown field values just use null.
+            If there are no form responses at all or the text is irrelevant, then just return an empty list.
 
             This the answer text:
             {note}
