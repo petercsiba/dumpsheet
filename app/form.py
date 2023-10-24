@@ -1,4 +1,5 @@
 import datetime
+from enum import Enum
 from typing import Any, List, Optional, Tuple
 
 import phonenumbers
@@ -251,10 +252,23 @@ class FieldDefinition:
         return str(value)
 
 
+class FormName(Enum):
+    NETWORKING = "networking"
+    HUBSPOT_CONTACT = "hubspot_contact"
+    HUBSPOT_TASK = "hubspot_task"
+    HUBSPOT_MEETING = "hubspot_meeting"
+    FOOD_LOG = "food_log"
+
+    @property
+    def value(self):
+        return self._value_
+
+
 # Mostly used for code-gen
 class FormDefinition:
-    def __init__(self, fields: List[FieldDefinition]):
+    def __init__(self, form_name: FormName, fields: List[FieldDefinition]):
         # Idea: Add a GPT explanation of the form, so we can classify the voice-memo.
+        self.form_name = form_name
         self.fields = fields
 
     def get_field(self, field_name):
@@ -264,7 +278,7 @@ class FormDefinition:
 
         # This function is oftentimes used to check if name is in the field list so only warning.
         # It's a bit annoying, but can be lifesaving when developing.
-        print(f"WARNING: Requested field {field_name} not in list")
+        print(f"WARNING: Requested field {self.form_name}.{field_name} not in list")
         return None
 
     def get_field_names(self) -> list[str]:
@@ -297,7 +311,7 @@ class FormData:
             if field.name not in data or data[field.name] is None:
                 if field.default_value is not None:
                     print(
-                        f"Filling in default value for {field.name} to {field.default_value}"
+                        f"Filling in default value for {form.form_name}.{field.name} to {field.default_value}"
                     )
                     self.set_field_value(field.name, field.default_value)
 
@@ -318,8 +332,10 @@ class FormData:
         if bool(field):
             self.data[field_name] = field.validate_and_fix(value)
         else:
-            # print(f"INFO: omitting `{field_name}` from")
-            error = f"Field '{field_name}' does not exist in FormDefinition {self.form.get_field_names()}"
+            error = (
+                f"Field '{self.form.form_name}.{field_name}' "
+                f"does not exist in FormDefinition {self.form.get_field_names()}"
+            )
             if raise_key_error:
                 raise KeyError(error)
             else:

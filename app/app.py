@@ -21,7 +21,7 @@ from app.emails import (
     send_technical_failure_email,
 )
 from app.form import FormData
-from app.gsheets import GoogleClient, add_form_data_to_sheet
+from app.gsheets import GoogleClient
 from app.hubspot_client import HubspotClient
 from app.hubspot_dump import HubspotDataEntry, extract_and_sync_contact_with_follow_up
 from app.networking_dump import run_executive_assistant_to_get_drafts
@@ -146,10 +146,8 @@ def sync_people_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
         google_client.share_with(email)
 
     google_client.open_by_key(gsheet_id)
-    # TODO(P0, UX): We should support multiple spreadsheets by FormDefinition.name - that would need be some refactor.
-    sheet = google_client.spreadsheet.get_worksheet(0)
-    for form_data in form_datas:
-        add_form_data_to_sheet(sheet, form_data)
+
+    google_client.add_form_datas_to_spreadsheet(form_datas)
 
 
 # Second lambda

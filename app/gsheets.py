@@ -1,12 +1,12 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 import gspread
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from gspread import Spreadsheet, Worksheet
 
-from app.form import FieldDefinition, FormData, FormDefinition
+from app.form import FieldDefinition, FormData, FormDefinition, FormName
 from common.config import GOOGLE_FORMS_SERVICE_ACCOUNT_PRIVATE_KEY
 
 # TODO(P1, devx): Move FieldDefinition, FormDefinition into this library; they act as:
@@ -102,6 +102,18 @@ class GoogleClient:
             sendNotificationEmail=True,  # TODO(P1, ux): This we should personalize
         ).execute()
 
+    def add_form_datas_to_spreadsheet(self, form_datas: List[FormData]):
+        sheet_cache = {}
+
+        for form_data in form_datas:
+            form_name = form_data.form.form_name.value
+            if form_name not in sheet_cache:
+                sheet_cache[form_name] = get_or_create_worksheet(
+                    self.spreadsheet, form_name
+                )
+
+            _add_form_data_to_sheet(sheet_cache[form_name], form_data)
+
 
 def col_num_string(n):
     s = ""
@@ -119,10 +131,31 @@ def update_row_with_range(sheet: Worksheet, row_number: int, values_list):
     sheet.update(range_name=cell_range, values=[values_list])
 
 
+def get_or_create_worksheet(spreadsheet, name: FormName):
+    all_worksheets = spreadsheet.worksheets()
+
+    # Try to find the worksheet with the given name
+    worksheet = next((ws for ws in all_worksheets if ws.title == name), None)
+
+    if worksheet is not None:
+        return worksheet
+
+    # If default "Sheet1" exists, rename it
+    default_worksheet = all_worksheets[0]
+    if default_worksheet.title == "Sheet1":
+        print(f"GoogleClient: get_or_create_worksheet update_title to {name}")
+        default_worksheet.update_title(name)
+        return default_worksheet
+
+    # Otherwise, create a new worksheet with the given name
+    print(f"GoogleClient: get_or_create_worksheet add_worksheet title={name}")
+    return spreadsheet.add_worksheet(title=name, rows="100", cols="26")
+
+
 # The intent is to always fill in something relevant while NEVER messing with
 # existing stuff. So the logic finds the corresponding columns, and appends a new row.
 # This makes it stable against user renames, custom row appends.
-def add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
+def _add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
     # Access the first row to get the headers
     existing_headers = sheet.row_values(1)
 
@@ -246,8 +279,44 @@ TEST_FIELDS = [
 ]
 
 
+FOOD_LOG_FIELDS = [
+    FieldDefinition(
+        name="date",
+        field_type="date",
+        label="Date",
+        description="Date of the log entry",
+    ),
+    FieldDefinition(
+        name="time",
+        field_type="text",  # TODO: implement
+        label="Time",
+        description="Time of day of the log entry in HH:00 format",
+    ),
+    FieldDefinition(
+        name="ingredient",
+        field_type="text",
+        label="Ingredient",
+        description="one food item like you would see on an ingredients list",
+    ),
+    FieldDefinition(
+        name="amount",
+        field_type="text",
+        label="Amount",
+        description=(
+            "approximate amount of the ingredient taken, if not specified it can be just using 'a bit' or 'some"
+        ),
+    ),
+    FieldDefinition(
+        name="activity",
+        field_type="text",
+        label="Activity",
+        description="which business area they specialize in professionally",
+    ),
+]
+
+
 if __name__ == "__main__":
-    name = "Voxana - Peter Csiba - Networking Dump"
+    test_spreadsheet_name = "Voxana - Peter Csiba - Networking Dump"
 
     test_key = "10RbqaqCjB9qPZPUxE40FAs6t1zIveTUKRnSHhbIepis"
     katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
@@ -263,22 +332,24 @@ if __name__ == "__main__":
 
     # TEST
     if test_key is None:
-        new_spreadsheet = test_google_client.create(name)
+        new_spreadsheet = test_google_client.create(test_spreadsheet_name)
         key = new_spreadsheet.id
         test_google_client.share_with("petherz@gmail.com")
     else:
         test_google_client.open_by_key(test_key)
 
-    test_sheet = test_google_client.spreadsheet.sheet1
-
     test_form_data1 = FormData(
-        FormDefinition(TEST_FIELDS),
+        FormDefinition(FormName.NETWORKING, TEST_FIELDS),
         {"name": "Peter Csiba", "role": "Swears a lot", "industry": "Tech-something"},
     )
-    add_form_data_to_sheet(test_sheet, test_form_data1)
-
     test_form_data2 = FormData(
-        FormDefinition(TEST_FIELDS),
+        FormDefinition(FormName.NETWORKING, TEST_FIELDS),
         {"name": "Katka Sabo", "role": "I like to demo", "industry": "Business"},
     )
-    add_form_data_to_sheet(test_sheet, test_form_data2)
+    test_form_data3 = FormData(
+        FormDefinition(FormName.FOOD_LOG, FOOD_LOG_FIELDS),
+        {"date": "2023-10-23", "time": "16:00", "ingredient": "Rice", "activity": None},
+    )
+    test_google_client.add_form_datas_to_spreadsheet(
+        [test_form_data1, test_form_data2, test_form_data3]
+    )

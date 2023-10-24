@@ -311,11 +311,11 @@ class HubspotClient:
 # Essentially an admin console, please do NOT check-in refresh tokens.
 if __name__ == "__main__":
     with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
-        oauth_data_id = OauthData.insert(
+        test_oauth_data_id = OauthData.insert(
             token_type=OAUTH_DATA_TOKEN_TYPE_OAUTH,
             refresh_token=ADMIN_CONSOLE_HUBSPOT_REFRESH_TOKEN,
         ).execute()
-        client = HubspotClient(oauth_data_id=oauth_data_id)
+        client = HubspotClient(oauth_data_id=test_oauth_data_id)
         # owners_response = client.list_owners()
         # Account.get_or_onboard_for_hubspot(
         #     uuid.UUID("8b0bfb51-5552-4408-bedd-87d6e1261e86"), owners_response

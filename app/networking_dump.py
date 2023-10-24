@@ -2,7 +2,7 @@ import json
 from typing import Dict, List, Optional
 
 from app.datashare import PersonDataEntry
-from app.form import FieldDefinition, FormDefinition, Option
+from app.form import FieldDefinition, FormDefinition, FormName, Option
 from common.openai_client import (
     DEFAULT_MODEL,
     OpenAiClient,
@@ -213,7 +213,7 @@ NETWORKING_FIELDS = [
         ignore_in_prompt=True,  # We only fill this in when the transcript is long enough
     ),
 ]
-NETWORKING_FORM = FormDefinition(NETWORKING_FIELDS)
+NETWORKING_FORM = FormDefinition(FormName.NETWORKING, NETWORKING_FIELDS)
 # "impressions": "my first impression of them summarized into one sentence",
 
 

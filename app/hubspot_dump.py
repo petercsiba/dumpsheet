@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from hubspot.crm.properties import ModelProperty
 
-from app.form import FormData, FormDefinition
+from app.form import FormData, FormDefinition, FormName
 from app.hubspot_client import HubspotClient
 from app.hubspot_models import (
     ALLOWED_FIELDS,
@@ -100,7 +100,7 @@ def extract_and_sync_contact_with_follow_up(
         )
 
     # CONTACT CREATION
-    contact_form = FormDefinition(CONTACT_FIELDS)
+    contact_form = FormDefinition(FormName.HUBSPOT_CONTACT, CONTACT_FIELDS)
     contact_form_data, contact_err = gpt_client.fill_in_form(
         form=contact_form, task_id=db_task.id, text=text
     )
@@ -137,7 +137,7 @@ def extract_and_sync_contact_with_follow_up(
     contact_id = contact_response.hs_object_id
 
     # CALL CREATION
-    call_form = FormDefinition(CALL_FIELDS)
+    call_form = FormDefinition(FormName.HUBSPOT_MEETING, CALL_FIELDS)
     # use_current_time so hs_timestamp gets filled
     call_form_data, call_err = gpt_client.fill_in_form(
         form=call_form, task_id=db_task.id, text=text, use_current_time=True
@@ -153,7 +153,7 @@ def extract_and_sync_contact_with_follow_up(
 
     # TASK CREATION
     # TODO(P1, ux): Sometimes, there might be no task.
-    hs_task_form = FormDefinition(TASK_FIELDS)
+    hs_task_form = FormDefinition(FormName.HUBSPOT_TASK, TASK_FIELDS)
     # use_current_time so hs_timestamp gets filled
     hs_task_data, hs_task_err = gpt_client.fill_in_form(
         form=hs_task_form, task_id=db_task.id, text=text, use_current_time=True
@@ -241,13 +241,14 @@ def _gen_field_from_properties_api_response(response: ModelProperty) -> FieldDef
 
 
 def _gen_form_from_properties_api_response(
+    form_name: FormName,
     field_list: List[ModelProperty],
 ) -> FormDefinition:
     fields = []
     for field_response in [f for f in field_list if f.name in ALLOWED_FIELDS]:
         field: FieldDefinition = _gen_field_from_properties_api_response(field_response)
         fields.append(field)
-    return FormDefinition(fields)
+    return FormDefinition(form_name, fields)
 
 
 test_data1 = """
