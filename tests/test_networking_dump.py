@@ -2,7 +2,7 @@ from typing import List
 
 import pytest
 
-from app.networking_dump import extract_everyone_i_have_talked_to
+from app.contacts_dump import extract_everyone_i_have_talked_to
 from common.openai_client import OpenAiClient
 from database.client import (
     POSTGRES_LOGIN_URL_FROM_ENV,

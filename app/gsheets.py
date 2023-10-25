@@ -319,7 +319,7 @@ TEST_FIELDS = [
 
 
 if __name__ == "__main__":
-    test_spreadsheet_name = "Voxana - Peter Csiba - Networking Dump"
+    test_spreadsheet_name = "Voxana Data Entry - Peter Csiba"
 
     test_key = "10RbqaqCjB9qPZPUxE40FAs6t1zIveTUKRnSHhbIepis"
     # peter_key = "1-FyMc_W6d1PTuR4re5d5-uVowmgVWQtpEDjDsP1KplY"
@@ -357,11 +357,11 @@ if __name__ == "__main__":
         test_google_client.open_by_key(test_key)
 
     test_form_data1 = FormData(
-        FormDefinition(FormName.NETWORKING, TEST_FIELDS),
+        FormDefinition(FormName.CONTACTS, TEST_FIELDS),
         {"name": "Peter Csiba", "role": "Swears a lot", "industry": "Tech-something"},
     )
     test_form_data2 = FormData(
-        FormDefinition(FormName.NETWORKING, TEST_FIELDS),
+        FormDefinition(FormName.CONTACTS, TEST_FIELDS),
         {"name": "Katka Sabo", "role": "I like to demo", "industry": "Business"},
     )
     test_form_data3 = FormData(

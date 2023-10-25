@@ -250,7 +250,7 @@ class FieldDefinition:
 
 
 class FormName(Enum):
-    NETWORKING = "networking"
+    CONTACTS = "contacts"
     HUBSPOT_CONTACT = "hubspot_contact"
     HUBSPOT_TASK = "hubspot_task"
     HUBSPOT_MEETING = "hubspot_meeting"

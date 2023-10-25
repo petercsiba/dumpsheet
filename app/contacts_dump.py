@@ -148,7 +148,7 @@ def summarize_raw_note_to_person_data_entry(
         err = f"Thanks for mentioning {name}! Unfortunately there is too little info to summarize from."
     else:
         form_data, err = gpt_client.fill_in_form(
-            form=get_form(form_name=FormName.NETWORKING),
+            form=get_form(form_name=FormName.CONTACTS),
             task_id=None,
             text=raw_note,
             print_prompt=True,

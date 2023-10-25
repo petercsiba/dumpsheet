@@ -2,8 +2,8 @@ from app.form import FieldDefinition, FormDefinition, FormName, Option
 
 
 def get_form(form_name: FormName) -> FormDefinition:
-    if form_name == FormName.NETWORKING:
-        return FormDefinition(FormName.NETWORKING, NETWORKING_FIELDS)
+    if form_name == FormName.CONTACTS:
+        return FormDefinition(FormName.CONTACTS, CONTACTS_FIELDS)
     if form_name == FormName.FOOD_LOG:
         return FormDefinition(FormName.FOOD_LOG, FOOD_LOG_FIELDS)
     if form_name == FormName.HUBSPOT_CONTACT:
@@ -15,7 +15,7 @@ def get_form(form_name: FormName) -> FormDefinition:
     raise ValueError(f"unknown form_name: {form_name.value}")
 
 
-NETWORKING_FIELDS = [
+CONTACTS_FIELDS = [
     FieldDefinition(
         name="recording_time",
         field_type="date",  # TODO(P2, ux): Maybe it should be date, but json only has timestamp.

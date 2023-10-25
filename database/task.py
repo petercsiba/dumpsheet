@@ -13,7 +13,6 @@ TASK_TERMINATED = "terminated"
 KEY_HUBSPOT_CONTACT = "hubspot_contact"
 KEY_HUBSPOT_CALL = "hubspot_call"
 KEY_HUBSPOT_TASK = "hubspot_task"
-KEY_NETWORKING_DRAFT = "networking_draft"
 
 
 # Retains data from the done transcription -> action performed.

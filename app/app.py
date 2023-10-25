@@ -12,6 +12,7 @@ from typing import List, Optional
 from urllib.parse import unquote_plus
 from uuid import UUID
 
+from app.contacts_dump import run_executive_assistant_to_get_drafts
 from app.datashare import PersonDataEntry
 from app.emails import (
     send_hubspot_result,
@@ -25,7 +26,6 @@ from app.form import FormData, FormName
 from app.gsheets import GoogleClient
 from app.hubspot_client import HubspotClient
 from app.hubspot_dump import HubspotDataEntry, extract_and_sync_contact_with_follow_up
-from app.networking_dump import run_executive_assistant_to_get_drafts
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.config import (
     ENV,
@@ -155,7 +155,7 @@ def sync_form_datas_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]
 
 # Second lambda
 FORM_CLASSIFICATION = {
-    FormName.NETWORKING.value: "a person i talk to at an event or virtually",
+    FormName.CONTACTS.value: "a person i talk to at an event or virtually",
     FormName.FOOD_LOG.value: "an ingredient i ate",
 }
 
@@ -180,7 +180,7 @@ def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> FormName:
         print(f"classified transcript as {raw_response}")
         return FormName.from_str(raw_response)
 
-    default_classification = FormName.NETWORKING
+    default_classification = FormName.CONTACTS
     print(
         f"WARNING: classified transcript as unknown type: {raw_response}; defaulting to {default_classification}"
     )
@@ -193,7 +193,7 @@ def process_networking_transcript(
 ) -> List[PersonDataEntry]:
     # TODO: We should move task creation higher
     task = Task.create_task(
-        workflow_name=FormName.NETWORKING.value, data_entry_id=data_entry.id
+        workflow_name=FormName.CONTACTS.value, data_entry_id=data_entry.id
     )
     gpt_client.set_task_id(task_id=task.id)
     # ===== Actually perform black magic
@@ -612,7 +612,7 @@ if __name__ == "__main__":
                 process_food_log_transcript(
                     gpt_client=open_ai_client, data_entry=loaded_data_entry
                 )
-            elif workflow_name == FormName.NETWORKING:
+            elif workflow_name == FormName.CONTACTS:
                 # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
                 process_networking_transcript(
                     gpt_client=open_ai_client,
