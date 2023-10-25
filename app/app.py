@@ -107,14 +107,7 @@ def sync_form_datas_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]
             return
 
         # TODO(P1, reliability): If not yet shared, then always share with the account email.
-        email = acc.get_email()
-        if email is None:
-            # Even if no email - we still continue filling in the sheet as it can be shared later on.
-            print(
-                f"WARNING: Cannot share gsheet for account {account_id} cause no email was found"
-            )
-        else:
-            google_client.share_with(email)
+        google_client.share_with(acc)
 
     google_client.open_by_key(gsheet_id)
 

@@ -1,3 +1,6 @@
+import re
+import time
+import uuid
 from datetime import datetime
 from typing import List, Optional, Tuple
 
@@ -5,11 +8,17 @@ import gspread
 import pytz
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from gspread import Spreadsheet, Worksheet
 
+from app.email_template import button_template, simple_email_body_html
+from app.emails import send_email
 from app.form import FieldDefinition, FormData, FormDefinition, FormName
 from app.form_library import FOOD_LOG_FIELDS
 from common.config import GOOGLE_FORMS_SERVICE_ACCOUNT_PRIVATE_KEY
+from database.account import Account
+from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
+from database.email_log import EmailLog
 
 # TODO(P1, devx): Move FieldDefinition, FormDefinition into this library; they act as:
 # * form headers
@@ -82,25 +91,85 @@ class GoogleClient:
 
         return self.spreadsheet
 
-    def share_with(self, user_email):
+    @staticmethod
+    # Attempts to extract invalidSharingRequest
+    def _get_error_reason(gsheets_err: HttpError):
+        # error_details should be like:
+        # [{'message': 'Bad Request. User message: "You are trying ... vite this recipient."',
+        # 'domain': 'global', 'reason': 'invalidSharingRequest'}]
+        if (
+            isinstance(gsheets_err.error_details, dict)
+            and "reason" in gsheets_err.error_details
+        ):
+            return gsheets_err.error_details["reason"]
+
+        match = re.search(r"'reason': '([^']+)'", str(gsheets_err))
+        if match:
+            return match.group(1)
+
+        # reason is of form: Bad Request. User message: "You are trying ...  to invite this recipient
+        return gsheets_err.reason
+
+    def share_with(self, acc: Account):
+        email = acc.get_email()
+        if email is None:
+            # Even if no email - we still continue filling in the sheet as it can be shared later on.
+            print(
+                f"WARNING: Cannot share gsheet for account {acc.id} cause no email was found"
+            )
+            return
+
         # Share spreadsheet
         file_id = self.spreadsheet.id
-        print(f"gsheets  Sharing spreadsheet {self.spreadsheet.id} with {user_email}")
+
+        print(f"gsheets  Sharing spreadsheet {self.spreadsheet.id} with {email}")
         user_permission = {
             "type": "user",
             "role": "writer",
             # 'role': 'owner',  # TODO: would be nice to have the user as owner
             # Consent is required to transfer ownership of a file to another user.
-            "emailAddress": user_email,
+            "emailAddress": email,
             # 'allowFileDiscovery': True  # allowFileDiscovery is not valid for individual users
         }
-        self.drive_service.permissions().create(
-            fileId=file_id,
-            body=user_permission,
-            fields="id",
-            # transferOwnership=True,  # For role=owner
-            sendNotificationEmail=True,  # TODO(P1, ux): This we should personalize
-        ).execute()
+        try:
+            # First, we try to share with sendNotificationEmail=False and sending a customized email.
+            self.drive_service.permissions().create(
+                fileId=file_id,
+                body=user_permission,
+                fields="id",
+                # transferOwnership=True,  # For role=owner
+                sendNotificationEmail=False,
+            ).execute()
+
+            # Construct the shareable link
+            shareable_link = f"https://docs.google.com/spreadsheets/d/{file_id}/edit"
+            send_gsheets_shareable_link(
+                account_id=acc.id, shareable_link=shareable_link
+            )
+
+        except HttpError as gsheets_err:
+            print(
+                f"WARNING: gsheets cannot share spreadsheet {self.spreadsheet.id} "
+                f"with {email} cause {gsheets_err.reason}"
+            )
+            # For non-existing Google accounts sendNotificationEmail must be true, otherwise an error is received:
+            # You are trying to invite peter+localtest@voxana.ai.
+            # Since there is no Google account associated with this email address,
+            # you must check the "Notify people" box to invite this recipient.
+            if "invalidSharingRequest" in GoogleClient._get_error_reason(gsheets_err):
+                print(
+                    "gsheets invalidSharingRequest, retrying with sendNotificationEmail=True"
+                )
+                self.drive_service.permissions().create(
+                    fileId=file_id,
+                    body=user_permission,
+                    fields="id",
+                    # transferOwnership=True,  # For role=owner
+                    # This will send a semi-ugly email from sheets@voxana.iam.gserviceaccount.com shared a spreadsheet
+                    sendNotificationEmail=True,
+                ).execute()
+            else:
+                raise gsheets_err
 
     def add_form_datas_to_spreadsheet(self, form_datas: List[FormData]):
         sheet_cache = {}
@@ -113,6 +182,29 @@ class GoogleClient:
                 )
 
             _add_form_data_to_sheet(sheet_cache[form_name], form_data)
+
+
+def send_gsheets_shareable_link(account_id: uuid.UUID, shareable_link: str):
+    email_params = EmailLog.get_email_reply_params_for_account_id(
+        account_id=account_id,
+        idempotency_id=str(account_id),  # One shareable link for account (for now)
+        subject="Your Voxana Spreadsheet - with all the data you enter at one place",
+    )
+
+    email_params.body_html = simple_email_body_html(
+        title=email_params.subject,
+        content_text="""
+        <p>Hi, </p>
+        <p>
+            Click below to access your Voxana Spreadsheet
+            - which will get automatically updated with each voice memo.
+        </p>
+        <p>{button_html}</p>
+        """.format(
+            button_html=button_template("Open in Google Sheets", shareable_link)
+        ),
+    )
+    send_email(params=email_params)
 
 
 def col_num_string(n):
@@ -336,10 +428,14 @@ TEST_FIELDS = [
 ]
 
 
-if __name__ == "__main__":
-    test_spreadsheet_name = "Voxana Data Entry - Peter Csiba"
+def test_gsheets():
+    test_acc = Account.get_or_onboard_for_email(
+        "peter+nogoogleaccount@voxana.ai", utm_source="test"
+    )
 
+    test_spreadsheet_name = f"Voxana Data Entry - Peter Csiba - {time.time()}"
     test_key = "10RbqaqCjB9qPZPUxE40FAs6t1zIveTUKRnSHhbIepis"
+    # test_key = None
     # peter_key = "1-FyMc_W6d1PTuR4re5d5-uVowmgVWQtpEDjDsP1KplY"
     peter_key = None
     # katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
@@ -352,7 +448,7 @@ if __name__ == "__main__":
     if bool(katka_key):
         print("working on katka's spreadsheet")
         test_google_client.open_by_key(katka_key)
-        katka_sheet = test_google_client.spreadsheet.get_worksheet(0)
+        # katka_sheet = test_google_client.spreadsheet.get_worksheet(0)
         # deduplicate(katka_sheet)
         # convert_dates(katka_sheet, "B6:B196")
         exit()
@@ -360,7 +456,7 @@ if __name__ == "__main__":
     if bool(peter_key):
         print("working on peter's spreadsheet")
         test_google_client.open_by_key(peter_key)
-        peter_sheet = test_google_client.spreadsheet.get_worksheet(0)
+        # peter_sheet = test_google_client.spreadsheet.get_worksheet(0)
         # convert_dates(peter_sheet, "A2:A245")
         # deduplicate(peter_sheet)
         # test_google_client.share_with("petherz@gmail.com")
@@ -368,9 +464,9 @@ if __name__ == "__main__":
 
     # TEST
     if test_key is None:
-        new_spreadsheet = test_google_client.create(test_spreadsheet_name)
-        key = new_spreadsheet.id
-        test_google_client.share_with("petherz@gmail.com")
+        test_google_client.create(test_spreadsheet_name)
+        test_google_client.share_with(test_acc)
+        EmailLog.save_last_email_log_to("result-app-gsheets.html")
     else:
         test_google_client.open_by_key(test_key)
 
@@ -389,3 +485,8 @@ if __name__ == "__main__":
     test_google_client.add_form_datas_to_spreadsheet(
         [test_form_data1, test_form_data2, test_form_data3]
     )
+
+
+if __name__ == "__main__":
+    with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
+        test_gsheets()

@@ -166,3 +166,19 @@ def simple_email_body_html(
             content=content_text,
         ),
     )
+
+
+def button_template(text: str, href: str):
+    return f"""
+      <table align="center" cellspacing="0" cellpadding="14" style="border-radius: 50px; width: auto;
+                background-color: black;">
+        <tr>
+          <td align="center">
+            <a href="{href}" target="_blank" rel="noopener noreferrer" style="text-decoration: none; color: white;
+                font-size: 18px; font-weight: 600; letter-spacing: 0.05em;">
+              {text}
+            </a>
+          </td>
+        </tr>
+      </table>
+    """
