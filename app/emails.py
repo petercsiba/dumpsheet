@@ -3,6 +3,7 @@
 # https://app.supabase.com/project/kubtuncgxkefdlzdnnue/settings/auth
 import os
 import re
+import time
 import traceback
 import uuid
 from email.header import decode_header
@@ -36,6 +37,7 @@ from common.config import (
 )
 from common.storage_utils import pretty_filesize_path
 from common.twillio_client import TwilioClient
+from database.account import Account
 from database.email_log import EmailLog
 from database.models import BaseDataEntry
 
@@ -329,6 +331,25 @@ def send_confirmation(params: EmailLog, attachment_paths):
             ),
         )
         send_email(params=params)
+
+
+def send_app_upload_confirmation(params: EmailLog):
+    params.idempotency_id = f"{params.idempotency_id}-confirmation"
+    params.body_html = simple_email_body_html(
+        title=params.subject,
+        content_text="""
+        <p>Hi, </p>
+        <p>I am confirming receipt of your voice memo upload through the Voxana WebApp!</p>
+        <p>It will take me a few minutes until I:
+        <ul>
+        <li>Process it,</li>
+        <li>Email you the results and</li>
+        <li>Update your spreadsheet.</li>
+        </ul>
+        <p>See you in a bit, Voxana.</p>
+        """,
+    )
+    send_email(params=params)
 
 
 def _format_summary_table_row(label: str, value: str) -> str:
@@ -693,6 +714,40 @@ def send_technical_failure_email(
     )
 
     return result
+
+
+# We use data_entry_id, as the underlying account_id can change in the demo onboarding flow
+# Yeah, I know it's kinda junk - we try to track how users come to the platform and merge same emails.
+# NOTE: Maximum Lambda run-time is 15 minutes, so waiting longer does not make sense.
+def wait_for_email_updated_on_data_entry(
+    data_entry_id: UUID, max_wait_seconds: int = 10 * 60, wait_cycle_seconds: int = 10
+) -> bool:
+    start_time = time.time()
+    end_time = start_time + max_wait_seconds
+
+    while time.time() < end_time:
+        updated_data_entry = BaseDataEntry.get_by_id(data_entry_id)
+        account_id = updated_data_entry.account_id
+        acc: Account = Account.get_by_id(account_id)
+        if acc.get_email() is not None:
+            print(f"account {account_id} has email set")
+
+            # TODO(P2, hack): This is the multi-channel onboarding flow account consolidation hack
+            if bool(acc.merged_into_id) and account_id != acc.merged_into_id:
+                print(
+                    f"fixing up data entry to redirect account_id {account_id} to {acc.merged_into_id}"
+                )
+                updated_data_entry.account_id = acc.merged_into_id
+                updated_data_entry.save()
+
+            return True
+
+        print(
+            f"waiting {wait_cycle_seconds} seconds for user to input their email address"
+        )
+        time.sleep(wait_cycle_seconds)
+
+    return False
 
 
 if __name__ == "__main__":

@@ -20,6 +20,7 @@ from app.emails import (
     send_result_no_people_found,
     send_result_rest_of_the_crowd,
     send_technical_failure_email,
+    wait_for_email_updated_on_data_entry,
 )
 from app.food_dump import run_food_ingredient_extraction
 from app.form import FormData, FormName
@@ -85,39 +86,6 @@ def wait_for_sms_email_update():
     #                     "Great success - email was updated and we can send them a nice confirmation too!"
     #                 )
     #                 break
-
-
-# We use data_entry_id, as the underlying account_id can change in the demo onboarding flow
-# Yeah, I know it's kinda junk - we try to track how users come to the platform and merge same emails.
-# NOTE: Maximum Lambda run-time is 15 minutes, so waiting longer does not make sense.
-def wait_for_email_updated_on_data_entry(
-    data_entry_id: UUID, max_wait_seconds: int = 10 * 60
-) -> bool:
-    start_time = time.time()
-    end_time = start_time + max_wait_seconds
-
-    while time.time() < end_time:
-        updated_data_entry = BaseDataEntry.get_by_id(data_entry_id)
-        account_id = updated_data_entry.account_id
-        acc: Account = Account.get_by_id(account_id)
-        if acc.get_email() is not None:
-            print(f"account {account_id} has email set")
-
-            # TODO(P2, hack): This is the multi-channel onboarding flow account consolidation hack
-            if bool(acc.merged_into_id) and account_id != acc.merged_into_id:
-                print(
-                    f"fixing up data entry to redirect account_id {account_id} to {acc.merged_into_id}"
-                )
-                updated_data_entry.account_id = acc.merged_into_id
-                updated_data_entry.save()
-
-            return True
-
-        # Wait for 10 seconds
-        print("waiting for user to input their email address")
-        time.sleep(10)
-
-    return False
 
 
 # TODO(P1, features): Also support this for HubSpot dump.
