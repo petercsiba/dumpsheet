@@ -1,3 +1,4 @@
+import { Analytics } from '@vercel/analytics/react';
 import dynamic from "next/dynamic";
 import {AccountProvider} from "@/contexts/AccountContext";
 import ConnectHubspotButton from "@/components/ConnectHubspotButton";
@@ -76,6 +77,7 @@ export default function Home() {
               </div>
           </div>
 
+          <Analytics />
       </AccountProvider>
   );
 };
