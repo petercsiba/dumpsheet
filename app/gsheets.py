@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import gspread
 import pytz
@@ -65,7 +65,7 @@ class GoogleClient:
 
         self.spreadsheet: Spreadsheet = self.gspread_client.create(spreadsheet_name)
         print(
-            f"GoogleClient: Created spreadsheet {spreadsheet_name} of {type(self.spreadsheet)}"
+            f"gsheets  Created spreadsheet {spreadsheet_name} of {type(self.spreadsheet)}"
         )
 
         return self.spreadsheet
@@ -77,7 +77,7 @@ class GoogleClient:
 
         self.spreadsheet: Spreadsheet = self.gspread_client.open_by_key(spreadsheet_key)
         print(
-            f"GoogleClient: Opened spreadsheet {spreadsheet_key} of {type(self.spreadsheet)}"
+            f"gsheets  Opened spreadsheet {spreadsheet_key} of {type(self.spreadsheet)}"
         )
 
         return self.spreadsheet
@@ -85,9 +85,7 @@ class GoogleClient:
     def share_with(self, user_email):
         # Share spreadsheet
         file_id = self.spreadsheet.id
-        print(
-            f"GoogleClient: Sharing spreadsheet {self.spreadsheet.id} with {user_email}"
-        )
+        print(f"gsheets  Sharing spreadsheet {self.spreadsheet.id} with {user_email}")
         user_permission = {
             "type": "user",
             "role": "writer",
@@ -129,7 +127,7 @@ def col_num_string(n):
 def update_row_with_range(sheet: Worksheet, row_number: int, values_list):
     col_letter = col_num_string(len(values_list))
     cell_range = f"A{row_number}:{col_letter}{row_number}"
-    print(f"GoogleClient: update_row_with_range row_number: {cell_range}")
+    print(f"gsheets update_row_with_range row_number: {cell_range}")
     sheet.update(range_name=cell_range, values=[values_list])
 
 
@@ -145,36 +143,55 @@ def get_or_create_worksheet(spreadsheet, name: FormName):
     # If default "Sheet1" exists, rename it
     default_worksheet = all_worksheets[0]
     if default_worksheet.title == "Sheet1":
-        print(f"GoogleClient: get_or_create_worksheet update_title to {name}")
+        print(f"gsheets get_or_create_worksheet update_title to {name}")
         default_worksheet.update_title(name)
         return default_worksheet
 
     # Otherwise, create a new worksheet with the given name
-    print(f"GoogleClient: get_or_create_worksheet add_worksheet title={name}")
+    print(f"gsheets get_or_create_worksheet add_worksheet title={name}")
     return spreadsheet.add_worksheet(title=name, rows="100", cols="26")
+
+
+def _find_most_likely_header(
+    sheet: Worksheet, labels: list, row_limit=10
+) -> Tuple[int, Optional[list]]:
+    most_matching_cols = 0
+    most_matching_row = 0
+
+    for row_num in range(1, row_limit + 1):
+        row_values = sheet.row_values(row_num)
+        matching_cols = len(set(row_values).intersection(set(labels)))
+
+        if matching_cols > most_matching_cols:
+            most_matching_cols = matching_cols
+            most_matching_row = row_num
+
+    existing_headers = (
+        sheet.row_values(most_matching_row) if most_matching_row > 0 else None
+    )
+    print(
+        f"gsheets _find_most_likely_header returned {most_matching_row} with existing_header {existing_headers}"
+    )
+    return most_matching_row, existing_headers
 
 
 # The intent is to always fill in something relevant while NEVER messing with
 # existing stuff. So the logic finds the corresponding columns, and appends a new row.
 # This makes it stable against user renames, custom row appends.
 def _add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
-    # Access the first row to get the headers
-    existing_headers = sheet.row_values(1)
-
     data = form_data.to_display_tuples()
-    # We use list here to preserve the FormDefinition order.
     labels = [d[0] for d in data]
     display_values = [d[1] for d in data]
-    label_values_map = {d[0]: d[1] for d in data}
 
-    # If there are no headers, create one
-    if not existing_headers:
-        print(
-            "GoogleClient: add_form_data_to_sheet: no headers, creating header with a row"
-        )
-        # Set the headers to be the keys from the data_dict
+    # Find most likely header row
+    header_row_num, existing_headers = _find_most_likely_header(sheet, labels)
+
+    # If the sheet is empty, make the header first row
+    if header_row_num == 0:
+        print("gsheets is empty, creating header with a row")
+        # TODO(P0, ux): Create the fancy aggregates and stuff here.
+        # NOTE: insert_row will create NEW rows and do NOT override stuff.
         sheet.insert_row(labels, 1)
-        # Insert the data
         sheet.insert_row(display_values, 2)
         return
 
@@ -188,7 +205,7 @@ def _add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
         else:
             # If a new header key, add a new column and set the value
             col_idx = len(existing_headers) + 1 + len(new_headers)
-            print(f"add_form_data_to_sheet: adding new header {label}")
+            print(f"gsheets add_form_data_to_sheet: adding new header {label}")
             new_headers.append(label)
 
         row_to_insert.append(col_idx)
@@ -200,15 +217,16 @@ def _add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
         # The [[]] indicates empty columns
         sheet.insert_cols([[]] * len(new_headers), start_col)
         all_headers += new_headers
-        update_row_with_range(sheet, 1, all_headers)
+        update_row_with_range(sheet, row_number=header_row_num, values_list=all_headers)
 
     # Create a list of values to append based on the order of all headers (existing + new)
+    label_values_map = {d[0]: d[1] for d in data}
     values_to_append = [label_values_map.get(header, "") for header in all_headers]
 
     # Insert a new row at index 2 (below the header row)
-    sheet.insert_row(values_to_append, index=2)
+    sheet.insert_row(values_to_append, index=header_row_num + 1)
 
-    print(f"GoogleClient: successfully added form_data; new_headers: {new_headers}")
+    print(f"gsheets: successfully added form_data; new_headers: {new_headers}")
 
 
 # TODO: This would need some adjustments when people start doing multiple-entry for the same person
@@ -219,7 +237,7 @@ def deduplicate(worksheet: Worksheet):
     rows = worksheet.get_all_values()
     header, rows = rows[0], rows[1:]
     orig_row_length = len(rows)
-    print(f"gsheets.deduplicating {orig_row_length} rows")
+    print(f"gsheets deduplicating {orig_row_length} rows")
 
     try:
         name_col = header.index("Name")
@@ -274,13 +292,13 @@ def _convert_date_format(old_date_str: str):
         dt = tz.localize(dt.replace(tzinfo=None))
         return dt.strftime("%Y-%m-%d %H:%M %Z")
     except ValueError:
-        print(f"WARNING: cannot convert {old_date_str}")
+        print(f"WARNING: gsheets cannot convert {old_date_str}")
         return None
 
 
 def convert_dates(worksheet: Worksheet, cell_range="A2:A100"):
     cells = worksheet.range(cell_range)
-    print(f"gonna convert_dates for up to {len(cells)}")
+    print(f"gsheets gonna convert_dates for up to {len(cells)}")
 
     converted_count = 0
     for cell in cells:
@@ -293,7 +311,7 @@ def convert_dates(worksheet: Worksheet, cell_range="A2:A100"):
 
     # Update the cells in batch
     worksheet.update_cells(cells)
-    print(f"convert_dates converted {converted_count} cells")
+    print(f"gsheets convert_dates converted {converted_count} cells")
 
 
 TEST_FIELDS = [
@@ -366,7 +384,7 @@ if __name__ == "__main__":
     )
     test_form_data3 = FormData(
         FormDefinition(FormName.FOOD_LOG, FOOD_LOG_FIELDS),
-        {"date": "2023-10-23", "time": "16:00", "ingredient": "Rice", "activity": None},
+        {"recording_time": "2023-10-23", "ingredient": "Rice", "activity": None},
     )
     test_google_client.add_form_datas_to_spreadsheet(
         [test_form_data1, test_form_data2, test_form_data3]
