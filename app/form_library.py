@@ -40,7 +40,10 @@ NETWORKING_FIELDS = [
         name="industry",
         field_type="text",
         label="Industry",
-        description="which business area they specialize in professionally",
+        description=(
+            "which business industry area they specialize in professionally, "
+            "e.g. construction, tech, fintech, business, consulting, marketing"
+        ),
     ),
     FieldDefinition(
         name="their_needs",
