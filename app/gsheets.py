@@ -1,3 +1,4 @@
+import json
 import re
 import time
 import uuid
@@ -9,12 +10,13 @@ import pytz
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from gspread import Spreadsheet, Worksheet
+from gspread import Client, Spreadsheet, Worksheet
 
 from app.email_template import button_template, simple_email_body_html
 from app.emails import send_email
 from app.form import FieldDefinition, FormData, FormDefinition, FormName
 from app.form_library import FOOD_LOG_FIELDS
+from app.gsheets_view import get_overlay_cell_format
 from common.config import GOOGLE_FORMS_SERVICE_ACCOUNT_PRIVATE_KEY
 from database.account import Account
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
@@ -47,12 +49,19 @@ _google_credentials_json = {
 #                                 Max rows: 1002, max columns: 26', 'status': 'INVALID_ARGUMENT'}
 class GoogleClient:
     def __init__(self):
-        self.gspread_client = None
+        # The 3rd party library providing python-ic abstraction on top-of the Google API.
+        self.gspread_client: Optional[Client] = None
+        # Compared to gspread_client a lower-level client on the HTTP abstraction level,
+        # has more capabilities but harder to work with.
+        self.sheets_service = None
         self.drive_service = None
+        # Current spreadsheet that we are working on
         self.spreadsheet: Optional[Spreadsheet] = None
 
     def login(self):
         # Initialize API
+        # We do it explicitly here, so we don't have to deal with materializing the json file
+        # gc = gspread.service_account(filename='path/to/service_account.json')
         scopes = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive",
@@ -63,6 +72,7 @@ class GoogleClient:
             )
             print("Login to google services")
             self.gspread_client = gspread.authorize(credentials)
+            self.sheets_service = build("sheets", "v4", credentials=credentials)
             self.drive_service = build("drive", "v3", credentials=credentials)
         except Exception as ex:
             print(f"ERROR: Cannot initialize Google Spreadsheets {ex}")
@@ -182,6 +192,66 @@ class GoogleClient:
                 )
 
             _add_form_data_to_sheet(sheet_cache[form_name], form_data)
+
+    def get_worksheet_name(self, index=0):
+        worksheet: Worksheet = self.spreadsheet.worksheets()[
+            index
+        ]  # index=0 is guaranteed to exist\
+        return worksheet.title
+
+    # Documentation: https://chat.openai.com/share/5967ea0a-3d56-40c0-8735-92b1f65d12fa
+    def get_all_unique_cell_formats(self, cell_range="A1:Z10") -> List[dict]:
+        sheet_range = f"{self.get_worksheet_name()}!{cell_range}"
+        print(
+            f"gsheets get_all_unique_cell_formats for range {sheet_range} in {self.spreadsheet.id}"
+        )
+
+        # We use sheets_service over gspread_client cause it allows us to get the formatting information in batch
+        request = self.sheets_service.spreadsheets().get(
+            spreadsheetId=self.spreadsheet.id,
+            ranges=sheet_range,
+            fields="sheets.data.rowData.values.effectiveFormat",
+        )
+        response = request.execute()
+
+        # Initialize set to store unique formats
+        unique_formats = set()
+
+        # Loop through the rows and cells to get unique formats
+        for sheet in response["sheets"]:
+            for row in sheet["data"][0]["rowData"]:
+                for cell in row["values"]:
+                    if "effectiveFormat" in cell:
+                        # Convert to a json string representation so it's hashable for the unique set
+                        unique_format = json.dumps(
+                            cell["effectiveFormat"], sort_keys=True
+                        )
+                        unique_formats.add(unique_format)
+
+        # Convert back to dict for later use if needed
+        return [json.loads(s) for s in unique_formats]
+
+    # NOTE: Conditional formatting rules are on the spreadsheet level and have go be applied
+    # with somewhat weird rules (and not for each cell).
+    def get_all_unique_conditional_formats(self) -> List[dict]:
+        print(
+            f"gsheets get_all_unique_conditional_formats in spreadsheet {self.spreadsheet.id}"
+        )
+        request = self.sheets_service.spreadsheets().get(
+            spreadsheetId=self.spreadsheet.id, fields="sheets.conditionalFormats"
+        )
+
+        response = request.execute()
+
+        # Collect unique conditional formats
+        unique_conditional_formats = set()
+        for sheet in response["sheets"]:
+            if "conditionalFormats" in sheet:
+                for conditional_format in sheet["conditionalFormats"]:
+                    unique_str = json.dumps(conditional_format, sort_keys=True)
+                    unique_conditional_formats.add(unique_str)
+
+        return [json.loads(s) for s in unique_conditional_formats]
 
 
 def send_gsheets_shareable_link(account_id: uuid.UUID, shareable_link: str):
@@ -438,8 +508,8 @@ def test_gsheets():
     # test_key = None
     # peter_key = "1-FyMc_W6d1PTuR4re5d5-uVowmgVWQtpEDjDsP1KplY"
     peter_key = None
-    # katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
-    katka_key = None
+    katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
+    # katka_key = None
 
     test_google_client = GoogleClient()
     test_google_client.login()
@@ -448,6 +518,20 @@ def test_gsheets():
     if bool(katka_key):
         print("working on katka's spreadsheet")
         test_google_client.open_by_key(katka_key)
+        unique_formats = test_google_client.get_all_unique_cell_formats(
+            cell_range="B6:C10"
+        )
+        overlay_formats = []
+        for uf in unique_formats:
+            base, diff = get_overlay_cell_format(uf)
+            overlay_formats.append(diff)
+        # print(json.dumps(overlay_formats, indent=4))
+
+        unique_conditional_formats = (
+            test_google_client.get_all_unique_conditional_formats()
+        )
+        print(json.dumps(unique_conditional_formats, indent=4))
+
         # katka_sheet = test_google_client.spreadsheet.get_worksheet(0)
         # deduplicate(katka_sheet)
         # convert_dates(katka_sheet, "B6:B196")
