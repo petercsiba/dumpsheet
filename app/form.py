@@ -133,6 +133,8 @@ class FieldDefinition:
             return self._validate_number(value)
         if self.field_type == "phonenumber":
             return self._validate_phonenumber(value)
+        if self.field_type == "bool":
+            return self._validate_bool(value)
         if self._has_options():
             return self._validate_select(value, self.options)
         print(f"WARNING: No validator for field type {self.field_type}: {value}")
@@ -206,6 +208,13 @@ class FieldDefinition:
             self._validation_error("cannot parse", value)
 
         return None
+
+    def _validate_bool(self, value: Any):
+        try:
+            return bool(value)
+        except ValueError:
+            self._validation_error("bool", value)
+            return False
 
     def _validate_select(self, value: Any, options: List[Option]):
         option_values = [option.value for option in options]

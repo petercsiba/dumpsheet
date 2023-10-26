@@ -24,7 +24,7 @@ from app.emails import (
 )
 from app.food_dump import run_food_ingredient_extraction
 from app.form import FormData, FormName
-from app.gsheets import GoogleClient
+from app.gsheets import TEMPLATE_CONTACTS_SPREADSHEET_ID, GoogleClient
 from app.hubspot_client import HubspotClient
 from app.hubspot_dump import HubspotDataEntry, extract_and_sync_contact_with_follow_up
 from common.aws_utils import get_boto_s3_client, get_bucket_url
@@ -95,9 +95,11 @@ def sync_form_datas_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]
     google_client.login()
 
     acc: Account = Account.get_by_id(account_id)
-    gsheet_id = acc.gsheet_id
-    if gsheet_id is None:
-        new_spreadsheet = google_client.create(f"Voxana Data Share - {acc.full_name}")
+    if acc.gsheet_id is None:
+        new_spreadsheet = google_client.copy_from(
+            TEMPLATE_CONTACTS_SPREADSHEET_ID,
+            new_name=f"Voxana Data Share - {acc.full_name}",
+        )
         gsheet_id = new_spreadsheet.id
         acc.gsheet_id = gsheet_id
         acc.save()
@@ -109,7 +111,7 @@ def sync_form_datas_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]
         # TODO(P1, reliability): If not yet shared, then always share with the account email.
         google_client.share_with(acc)
 
-    google_client.open_by_key(gsheet_id)
+    google_client.open_by_key(acc.gsheet_id)
 
     google_client.add_form_datas_to_spreadsheet(form_datas)
 

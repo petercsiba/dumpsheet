@@ -10,7 +10,13 @@ import pytz
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from gspread import Client, Spreadsheet, Worksheet
+from gspread import Client, Spreadsheet, Worksheet, utils
+from gspread.utils import rowcol_to_a1
+from gspread_formatting import (
+    ConditionalFormatRule,
+    ConditionalFormatRules,
+    get_conditional_format_rules,
+)
 
 from app.email_template import button_template, simple_email_body_html
 from app.emails import send_email
@@ -42,6 +48,10 @@ _google_credentials_json = {
 }
 
 
+# https://docs.google.com/spreadsheets/d/1cF1INs_VErKmTGgCJJ20YjbL-2ZBFQtiN9ZeNlJxBLE/edit#gid=627329407
+TEMPLATE_CONTACTS_SPREADSHEET_ID = "1cF1INs_VErKmTGgCJJ20YjbL-2ZBFQtiN9ZeNlJxBLE"
+
+
 # Bit hacky as it is responsible for both authorization with Google API, AND managing the spreadsheet itself.
 # Stateful.
 # Some errors to share to set expectations:
@@ -70,6 +80,7 @@ class GoogleClient:
             credentials = Credentials.from_service_account_info(
                 _google_credentials_json, scopes=scopes
             )
+            # TODO(P1, devx/ux): Lazy load these
             print("Login to google services")
             self.gspread_client = gspread.authorize(credentials)
             self.sheets_service = build("sheets", "v4", credentials=credentials)
@@ -88,6 +99,23 @@ class GoogleClient:
         )
 
         return self.spreadsheet
+
+    def copy_from(self, template_spreadsheet_id: str, new_name):
+        print("gsheets copy_from template_spreadsheet_id")
+        request = self.drive_service.files().copy(fileId=template_spreadsheet_id)
+        response = request.execute()
+        new_spreadsheet_id = response["id"]
+        print(
+            f"gsheets copy_from success {template_spreadsheet_id} -> {new_spreadsheet_id}"
+        )
+
+        # Rename the new spreadsheet using Drive API
+        rename_request = self.drive_service.files().update(
+            fileId=new_spreadsheet_id, body={"name": new_name}
+        )
+        rename_request.execute()
+
+        self.open_by_key(response["id"])
 
     def open_by_key(self, spreadsheet_key) -> Optional[Spreadsheet]:
         if self.gspread_client is None:
@@ -191,17 +219,193 @@ class GoogleClient:
                     self.spreadsheet, form_name
                 )
 
-            _add_form_data_to_sheet(sheet_cache[form_name], form_data)
+            header_row_index = _add_form_data_to_sheet(
+                sheet_cache[form_name], form_data
+            )
+            # For "plain" worksheets we skip this
+            if header_row_index > 1:
+                # TODO(P1, ux): Even if we update the formulas with the API,
+                # the values itself do NOT refresh. This is weird.
+                self.update_formulas(
+                    worksheet_title=sheet_cache[form_name].title,
+                    cell_range=f"A1:Z{header_row_index-1}",
+                    start_row_index=header_row_index + 1,
+                )
 
-    def get_worksheet_name(self, index=0):
-        worksheet: Worksheet = self.spreadsheet.worksheets()[
-            index
-        ]  # index=0 is guaranteed to exist\
+        # TODO(P1, ux): Even when we completely replace all conditional formattings in the sheet,
+        # they do NOT get re-applied, so we do NOT do it for now.
+        # self.refresh_conditional_formatting_on_all_sheets()
+
+    # Documentation: half of https://chat.openai.com/share/fc19b2b0-4bd9-4c8d-9e18-5bf59f77d702
+    def update_formulas(self, worksheet_title, cell_range, start_row_index: int):
+        range_name = f"{worksheet_title}!{cell_range}"
+        print(
+            f"gsheets update_formulas for {range_name} start_row_index {start_row_index}"
+        )
+
+        def replacer(match):
+            start_col = match.group(1)
+            start_row = int(match.group(2))
+            range_colon = match.group(3)
+            end_col = match.group(4)
+            end_row = match.group(5)
+
+            print(f"match replacer {start_row}, {range_colon}, {end_row}")
+
+            updated_start_row = min(start_row, start_row_index)
+
+            # If it's a range, keep the end row as is
+            if range_colon:
+                return f"{start_col}{updated_start_row}:{end_col}{end_row}"
+            else:
+                return f"{start_col}{updated_start_row}"
+
+        # Fetch cells with formulas
+        result = (
+            self.sheets_service.spreadsheets()
+            .values()
+            .batchGet(
+                spreadsheetId=self.spreadsheet.id,
+                ranges=[range_name],  # contains worksheet name
+                valueRenderOption="FORMULA",
+            )
+            .execute()
+        )
+
+        pattern = re.compile(r"(\$?[A-Z]+\$?)(\d+)(:?)(\$?[A-Z]*\$?)(\d*)")
+        cells_to_update = []
+
+        for value_range in result["valueRanges"]:
+            values = value_range["values"]
+            for row_idx, row in enumerate(values):
+                for col_idx, cell in enumerate(row):
+                    if cell.startswith("="):
+                        new_formula = re.sub(pattern, replacer, cell)
+                        if new_formula != cell:
+                            print(f"gsheets update_formulas {cell} -> {new_formula}")
+                            cells_to_update.append(
+                                {
+                                    "range": f"{worksheet_title}!{utils.rowcol_to_a1(row_idx + 1, col_idx + 1)}",
+                                    "values": [[new_formula]],
+                                }
+                            )
+
+        # Update cells with new formulas
+        if len(cells_to_update) > 0:
+            # NOTE: This should also re-calculate the formula, but I am unsure if it does after insert_row.
+            self.sheets_service.spreadsheets().values().batchUpdate(
+                spreadsheetId=self.spreadsheet.id,
+                body={"data": cells_to_update, "valueInputOption": "USER_ENTERED"},
+            ).execute()
+
+        print(f"gsheets update_formulas total updated {len(cells_to_update)}")
+
+    # TODO: Add parameters if we ever gonna use it - this is now for checkboxes.
+    def add_conditional_formatting(self):
+        print("gsheets add_conditional_formatting")
+        # Define the conditional formatting rule
+        request_body = {
+            "requests": [
+                {
+                    "addConditionalFormatRule": {
+                        "rule": {
+                            "ranges": [
+                                {
+                                    "sheetId": self.spreadsheet.worksheets()[0].id,
+                                    "startRowIndex": 5,
+                                    "endRowIndex": 200,
+                                    "startColumnIndex": 1,
+                                    "endColumnIndex": 2,
+                                }
+                            ],
+                            "booleanRule": {
+                                "condition": {
+                                    "type": "CUSTOM_FORMULA",
+                                    "values": [{"userEnteredValue": "=B6=TRUE"}],
+                                },
+                                "format": {
+                                    "backgroundColor": {
+                                        "red": 0.0,
+                                        "green": 1.0,
+                                        "blue": 0.0,
+                                    }
+                                },
+                            },
+                        },
+                        "index": 0,
+                    }
+                }
+            ]
+        }
+
+        # Send the request to add the conditional formatting rule
+        return (
+            self.sheets_service.spreadsheets()
+            .batchUpdate(spreadsheetId=self.spreadsheet.id, body=request_body)
+            .execute()
+        )
+
+    def refresh_conditional_formatting_on_all_sheets(self):
+        # Loop through each worksheet in the spreadsheet
+        for worksheet in self.spreadsheet.worksheets():
+            GoogleClient.refresh_conditional_formatting(worksheet)
+
+    # The intent of this function was to re-apply all conditional formatting on the spreadsheet,
+    # BUT even though we logically do it, the UI does NOT pick it up.
+    @staticmethod
+    def refresh_conditional_formatting(worksheet: Worksheet):
+        print(f"gsheets refresh_conditional_formatting on worksheet {worksheet.title})")
+
+        # Fetch all existing rules
+        rules_obj: ConditionalFormatRules = get_conditional_format_rules(worksheet)
+        saved_rules: list[ConditionalFormatRule] = rules_obj.rules.copy()
+        if len(saved_rules) == 0:
+            print(
+                f"gsheets refresh_conditional_formatting skipping worksheet {worksheet.title} as no rules"
+            )
+            return
+
+        # Clear existing rules
+        rules_obj.clear()
+        rules_obj.save()
+
+        # Reapply saved rules
+        for saved_rule in saved_rules:
+            # WTF please, don't even ask, this took me well above an hour to figure out.
+            # Somehow the Google API response value can NOT be used in the Google API request :/
+            # I.e. it returns NUMBER_EQ == TRUE, but it only takes CUSTOM_FORMULA
+            condition = saved_rule.booleanRule.condition
+            if condition.type == "NUMBER_EQ":
+                for i, value in enumerate(condition.values):
+                    if value.userEnteredValue in ["FALSE", "TRUE"]:
+                        condition.type = "CUSTOM_FORMULA"
+                        grid_range = saved_rule.ranges[0]
+                        first_cell_a1 = rowcol_to_a1(
+                            grid_range.startRowIndex + 1,
+                            grid_range.startColumnIndex + 1,
+                        )
+                        new_rule = f"={first_cell_a1}={value.userEnteredValue}"
+                        print(
+                            f"gsheets refresh_conditional_formatting updating rule to {new_rule}"
+                        )
+                        condition.values[i].userEnteredValue = new_rule
+                        break
+
+            # rules_obj.rules.append(saved_rule)
+            rules_obj.insert(0, saved_rule)
+            try:
+                rules_obj.save()
+            except Exception as e:
+                print(f"ERROR: Failed to apply rule: {saved_rule} cause {e}")
+
+    def get_worksheet_title(self, index=0):
+        # index=0 is guaranteed to exist
+        worksheet: Worksheet = self.spreadsheet.worksheets()[index]
         return worksheet.title
 
     # Documentation: https://chat.openai.com/share/5967ea0a-3d56-40c0-8735-92b1f65d12fa
     def get_all_unique_cell_formats(self, cell_range="A1:Z10") -> List[dict]:
-        sheet_range = f"{self.get_worksheet_name()}!{cell_range}"
+        sheet_range = f"{self.get_worksheet_title()}!{cell_range}"
         print(
             f"gsheets get_all_unique_cell_formats for range {sheet_range} in {self.spreadsheet.id}"
         )
@@ -340,7 +544,7 @@ def _find_most_likely_header(
 # The intent is to always fill in something relevant while NEVER messing with
 # existing stuff. So the logic finds the corresponding columns, and appends a new row.
 # This makes it stable against user renames, custom row appends.
-def _add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
+def _add_form_data_to_sheet(sheet: Worksheet, form_data: FormData) -> int:
     data = form_data.to_display_tuples()
     labels = [d[0] for d in data]
     display_values = [d[1] for d in data]
@@ -351,11 +555,10 @@ def _add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
     # If the sheet is empty, make the header first row
     if header_row_num == 0:
         print("gsheets is empty, creating header with a row")
-        # TODO(P0, ux): Create the fancy aggregates and stuff here.
-        # NOTE: insert_row will create NEW rows and do NOT override stuff.
+        # NOTE: insert_row will create NEW rows and does NOT override stuff.
         sheet.insert_row(labels, 1)
         sheet.insert_row(display_values, 2)
-        return
+        return 1
 
     # If headers exist, match keys and append data (this is a bit over-fancy)
     new_headers = []
@@ -385,10 +588,12 @@ def _add_form_data_to_sheet(sheet: Worksheet, form_data: FormData):
     label_values_map = {d[0]: d[1] for d in data}
     values_to_append = [label_values_map.get(header, "") for header in all_headers]
 
-    # Insert a new row at index 2 (below the header row)
-    sheet.insert_row(values_to_append, index=header_row_num + 1)
+    # Insert a new row below the header row
+    new_row_index = header_row_num + 1
+    sheet.insert_row(values_to_append, index=new_row_index)
 
     print(f"gsheets: successfully added form_data; new_headers: {new_headers}")
+    return header_row_num
 
 
 # TODO: This would need some adjustments when people start doing multiple-entry for the same person
@@ -495,21 +700,28 @@ TEST_FIELDS = [
         label="Industry",
         description="which business area they specialize in professionally",
     ),
+    FieldDefinition(
+        name="is_done",
+        field_type="bool",
+        label="Done?",
+        ignore_in_prompt=True,
+        default_value=False,
+    ),
 ]
 
 
 def test_gsheets():
     test_acc = Account.get_or_onboard_for_email(
-        "peter+nogoogleaccount@voxana.ai", utm_source="test"
+        "peter@voxana.ai", utm_source="test", full_name="Peter Csiba"
     )
 
     test_spreadsheet_name = f"Voxana Data Entry - Peter Csiba - {time.time()}"
-    test_key = "10RbqaqCjB9qPZPUxE40FAs6t1zIveTUKRnSHhbIepis"
-    # test_key = None
+    # test_key = "10RbqaqCjB9qPZPUxE40FAs6t1zIveTUKRnSHhbIepis"
+    test_key = None
     # peter_key = "1-FyMc_W6d1PTuR4re5d5-uVowmgVWQtpEDjDsP1KplY"
     peter_key = None
-    katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
-    # katka_key = None
+    # katka_key = "1yB9tPcElKdBpDb-H0BbHjbTvuT0zSY--FIKsmnsvm_M"
+    katka_key = None
 
     test_google_client = GoogleClient()
     test_google_client.login()
@@ -548,7 +760,10 @@ def test_gsheets():
 
     # TEST
     if test_key is None:
-        test_google_client.create(test_spreadsheet_name)
+        # test_google_client.create(test_spreadsheet_name)
+        test_google_client.copy_from(
+            TEMPLATE_CONTACTS_SPREADSHEET_ID, test_spreadsheet_name
+        )
         test_google_client.share_with(test_acc)
         EmailLog.save_last_email_log_to("result-app-gsheets.html")
     else:

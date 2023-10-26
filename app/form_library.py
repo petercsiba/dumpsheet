@@ -18,10 +18,26 @@ def get_form(form_name: FormName) -> FormDefinition:
 CONTACTS_FIELDS = [
     FieldDefinition(
         name="recording_time",
-        field_type="date",  # TODO(P2, ux): Maybe it should be date, but json only has timestamp.
+        field_type="date",
         label="Recorded Time",
         description="Which date the recording took place",
         ignore_in_prompt=True,  # Will be filled in manually
+    ),
+    FieldDefinition(
+        name="is_inputs_checked",
+        field_type="bool",
+        label="Checked inputs?",
+        description="Whether the user checked the correctness of the Voxana output",
+        ignore_in_prompt=True,
+        default_value=False,
+    ),
+    FieldDefinition(
+        name="is_done",
+        field_type="bool",
+        label="Done?",
+        description="Whether the user did finalize the follow up",
+        ignore_in_prompt=True,
+        default_value=False,
     ),
     FieldDefinition(
         name="name",

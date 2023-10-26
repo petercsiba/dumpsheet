@@ -40,9 +40,10 @@ def process_app_upload(
 
 def maybe_send_app_upload_confirmation_email(data_entry_id: uuid.UUID):
     if not wait_for_email_updated_on_data_entry(
-        data_entry_id, max_wait_seconds=1, wait_cycle_seconds=5
+        data_entry_id, max_wait_seconds=20, wait_cycle_seconds=5
     ):
         print("skip maybe_send_app_upload_confirmation_email cause no email yet")
+        return
 
     data_entry: BaseDataEntry = BaseDataEntry.get_by_id(data_entry_id)
     email_params = EmailLog.get_email_reply_params_for_account_id(
