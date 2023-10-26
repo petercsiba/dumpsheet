@@ -103,6 +103,7 @@ def sync_form_datas_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]
         gsheet_id = new_spreadsheet.id
         acc.gsheet_id = gsheet_id
         acc.save()
+        print(f"gsheet attached {gsheet_id} to account {acc.id}")
 
         if SKIP_SHARE_SPREADSHEET == "1":
             print("INFO: Skip sharing new spreadsheet cause SKIP_SHARE_SPREADSHEET")

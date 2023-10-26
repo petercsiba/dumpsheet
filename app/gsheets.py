@@ -149,6 +149,7 @@ class GoogleClient:
         return gsheets_err.reason
 
     def share_with(self, acc: Account):
+        print(f"gsheets share_with acc {acc.id} and spreadsheet {self.spreadsheet.id}")
         email = acc.get_email()
         if email is None:
             # Even if no email - we still continue filling in the sheet as it can be shared later on.
@@ -461,6 +462,7 @@ class GoogleClient:
 
 
 def send_gsheets_shareable_link(account_id: uuid.UUID, shareable_link: str):
+    print(f"gsheets send_gsheets_shareable_link link {shareable_link}")
     email_params = EmailLog.get_email_reply_params_for_account_id(
         account_id=account_id,
         idempotency_id=str(account_id),  # One shareable link for account (for now)
