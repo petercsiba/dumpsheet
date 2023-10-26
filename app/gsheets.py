@@ -210,6 +210,10 @@ class GoogleClient:
                 raise gsheets_err
 
     def add_form_datas_to_spreadsheet(self, form_datas: List[FormData]):
+        if form_datas is None or len(form_datas) == 0:
+            print("WARNING gsheets add_form_datas_to_spreadsheet empty form_datas")
+            return
+
         sheet_cache = {}
 
         for form_data in form_datas:
@@ -224,16 +228,14 @@ class GoogleClient:
             )
             # For "plain" worksheets we skip this
             if header_row_index > 1:
-                # TODO(P1, ux): Even if we update the formulas with the API,
-                # the values itself do NOT refresh. This is weird.
                 self.update_formulas(
                     worksheet_title=sheet_cache[form_name].title,
                     cell_range=f"A1:Z{header_row_index-1}",
                     start_row_index=header_row_index + 1,
                 )
 
-        # TODO(P1, ux): Even when we completely replace all conditional formattings in the sheet,
-        # they do NOT get re-applied, so we do NOT do it for now.
+        # For some conditional formatting we might need to re-apply all the rules. Before doing that, we
+        # should check if our rules are right or not (e.g. empty <> FALSE <> 'FALSE).
         # self.refresh_conditional_formatting_on_all_sheets()
 
     # Documentation: half of https://chat.openai.com/share/fc19b2b0-4bd9-4c8d-9e18-5bf59f77d702

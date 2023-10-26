@@ -120,13 +120,21 @@ CONTACTS_FIELDS = [
             "one key topic or item for my follow up response to the person, "
             "default to 'great to meet you, let me know if I can ever do anything for you'"
         ),
+        ignore_in_display=True,  # This field is only used as a hint for draft generation.
+    ),
+    FieldDefinition(
+        name="next_draft",
+        field_type="text",
+        label="Drafted Follow Up",
+        description="casual yet professional short to the point draft for my action from suggested_response_item",
+        ignore_in_prompt=True,  # We only fill this in with separate GPT prompt when the transcript is long enough
     ),
     FieldDefinition(
         name="summarized_note",
         field_type="text",
         label="Summarized Note",
         description="short concise structured summary of the meeting note",
-        ignore_in_prompt=True,  # We only fill this in when the transcript is long enough
+        ignore_in_prompt=True,  # We only fill this in with separate GPT prompt when the transcript is long enough
     ),
 ]
 
@@ -172,6 +180,7 @@ HUBSPOT_CONTACT_FIELDS = [
         ),
         options=[],
         ignore_in_prompt=True,
+        ignore_in_display=True,
         custom_field=False,
     ),
     FieldDefinition(
@@ -285,6 +294,7 @@ HUBSPOT_CONTACT_FIELDS = [
         label="State/Region",
         description="The contact's state of residence.",
         options=[],
+        ignore_in_display=True,
         custom_field=False,
     ),
     FieldDefinition(
@@ -293,6 +303,7 @@ HUBSPOT_CONTACT_FIELDS = [
         label="Country/Region",
         description="The contact's country/region of residence.",
         options=[],
+        ignore_in_display=True,
         custom_field=False,
     ),
     FieldDefinition(
@@ -339,6 +350,7 @@ HUBSPOT_CALL_FIELDS = [
         ),
         options=[],
         ignore_in_prompt=True,
+        ignore_in_display=True,
         custom_field=False,
     ),
     FieldDefinition(
@@ -475,6 +487,7 @@ HUBSPOT_TASK_FIELDS = [
         ),
         options=[],
         ignore_in_prompt=True,
+        ignore_in_display=True,
         custom_field=False,
     ),
     FieldDefinition(
@@ -548,6 +561,7 @@ HUBSPOT_TASK_FIELDS = [
         label="To Dos",
         description="Action items and follows ups I need to do in concise bullet points ordered by priority top down",
         options=[],
+        ignore_in_display=True,  # It's displayed as a separate textarea
         custom_field=False,
     ),
 ]

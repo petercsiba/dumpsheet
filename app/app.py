@@ -490,6 +490,8 @@ if __name__ == "__main__":
             app_account = Account.get_or_onboard_for_email(
                 "test@voxana.ai", utm_source="test"
             )
+            app_account.gsheet_id = "1CDW7dNs6CKkpyl7AEspAXinwp2NWYyQkyRTQtQwDynE"
+            app_account.save()
             app_data_entry_id = BaseDataEntry.insert(
                 account=app_account,
                 display_name="test_display_name",

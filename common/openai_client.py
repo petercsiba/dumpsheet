@@ -213,6 +213,7 @@ class OpenAiClient:
         should_retry = False
         try:
             # TODO(P2, devx): This can get stuck-ish, we should handle that somewhat nicely.
+            # NOTE: openai.Completion is only for older models.
             response = openai.ChatCompletion.create(
                 model=model,
                 messages=[{"role": "system", "content": prompt}]

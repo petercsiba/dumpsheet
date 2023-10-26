@@ -287,6 +287,9 @@ def run_executive_assistant_to_get_drafts(
 
         if person_data_entry.should_draft():
             person_data_entry.next_draft = generate_draft(gpt_client, person_data_entry)
+            person_data_entry.form_data.set_field_value(
+                "next_draft", person_data_entry.next_draft
+            )
 
         person_data_entries.append(person_data_entry)
 

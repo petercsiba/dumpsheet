@@ -27,6 +27,7 @@ class FieldDefinition:
         description: Optional[str] = None,
         options: Optional[List[Option]] = None,
         ignore_in_prompt: bool = False,
+        ignore_in_display: bool = False,
         custom_field: Optional[bool] = None,
         default_value: Any = None,
     ):
@@ -36,6 +37,7 @@ class FieldDefinition:
         self.description = description
         self.options = options
         self.ignore_in_prompt = ignore_in_prompt
+        self.ignore_in_display = ignore_in_display
         self.custom_field = bool(custom_field)
         self.default_value = default_value
 
@@ -77,8 +79,14 @@ class FieldDefinition:
     # TODO(ux, p1): Feels like the display_value should be outside of form.py, cause it depends on the output dest
     #   being like email, spreadsheet, app or webapp. Database / Python kinda counts too.
     def display_value(self, value):
+        if self.ignore_in_display:
+            print(
+                f"WARNING: display_value called for ignore_in_display field {self.name} value {str(value)[:100]}"
+            )
+            return "Hidden"
+
         if value is None:
-            # TODO(P0, hack): Add a FieldDefinition.required
+            # TODO(P0, hack): Add a FieldDefinition.required or some display_value transformations
             if self.name in ["name", "phone"]:
                 return "None - Please fill in"
             return "None"
@@ -357,6 +365,8 @@ class FormData:
     def to_display_tuples(self) -> List[Tuple[str, str]]:
         result = []
         for field in self.form.fields:
+            if field.ignore_in_display:
+                continue
             result.append((field.label, self.get_display_value(field.name)))
 
         return result

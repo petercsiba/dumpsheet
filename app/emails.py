@@ -390,20 +390,11 @@ def _format_summary_table_row(label: str, value: str) -> str:
 def _hubspot_obj_to_table(
     heading: str,
     obj: Optional[HubspotObject],
-    ignore_field_names: Optional[list] = None,
     extra_content: str = "",
 ) -> str:
-    ignore_field_list = [
-        FieldNames.HUBSPOT_OWNER_ID.value,
-        FieldNames.STATE.value,
-        FieldNames.COUNTRY.value,
-    ]
-    if bool(ignore_field_names):
-        ignore_field_list.extend(ignore_field_names)
-
     rows = []
     for field in obj.form.fields:
-        if field.name in ignore_field_list:
+        if field.ignore_in_display:
             print(f"INFO: ignoring {field.name} for now")
             continue
         key, value = obj.get_field_display_label_with_value(field.name)
@@ -418,7 +409,6 @@ def _hubspot_objs_maybe_to_table(
     heading: str,
     obj: Optional[HubspotObject],
     gpt_obj: Optional[HubspotObject],
-    ignore_field_names: Optional[list] = None,
     extra_content: str = "",
 ) -> str:
     if obj is None:
@@ -431,11 +421,9 @@ def _hubspot_objs_maybe_to_table(
                 content="Could not parse data into structure (GPT error)",
             )
         else:
-            result += _hubspot_obj_to_table(
-                heading, gpt_obj, ignore_field_names, extra_content
-            )
+            result += _hubspot_obj_to_table(heading, gpt_obj, extra_content)
     else:
-        result = _hubspot_obj_to_table(heading, obj, ignore_field_names, extra_content)
+        result = _hubspot_obj_to_table(heading, obj, extra_content)
     return result
 
 
@@ -481,11 +469,9 @@ def send_hubspot_result(
 
     # Bit of a hack to restructure rendering of task To Dos
     todos_extra_content = ""
-    ignore_field_names = [FieldNames.HS_OBJECT_ID.value]
     if bool(data.task):
         todos_field_name = FieldNames.HS_TASK_BODY.value
         if todos_field_name in data.task.data:
-            ignore_field_names.append(todos_field_name)
             todos_extra_content = """
             <tr><td style="padding-left: 20px;"><b>{heading}</b></td></tr>
             <tr><td style="padding-left: 20px;">{content}</td></tr>""".format(
@@ -496,7 +482,6 @@ def send_hubspot_result(
         "Follow up Tasks",
         data.task,
         data.gpt_task,
-        ignore_field_names,
         todos_extra_content,
     )
 

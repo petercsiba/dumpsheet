@@ -132,6 +132,9 @@ class PersonDataEntry:
     # Fields which will be synced to Spreadsheets
     form_data: Optional[FormData] = None
 
+    # TODO(P2, devx): One day we should completely replace this with FormData, and use ignore_in_display and stuff.
+    # Although might be a bit tricky, as e.g. next_draft we want to custom format in emails (omit from table),
+    # while include it in the spreadsheet.
     def get_summary_fields(self) -> Dict[str, str]:
         return {
             "Name": self.name,
