@@ -7,6 +7,7 @@ import datetime
 import os
 import re
 import time
+import traceback
 import uuid
 from typing import List, Optional
 from urllib.parse import unquote_plus
@@ -90,7 +91,9 @@ def wait_for_sms_email_update():
 
 # TODO(P1, features): Also support this for HubSpot dump.
 def sync_form_datas_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
-    print(f"Gonna sync {len(form_datas)} FormDatas into GSheets")
+    print(
+        f"Gonna sync {len(form_datas)} FormDatas into GSheets for account {account_id}"
+    )
     google_client = GoogleClient()
     google_client.login()
 
@@ -212,6 +215,7 @@ def process_networking_transcript(
         )
     except Exception as ex:
         print(f"ERROR: Cannot sync_people_to_gsheets cause {ex}")
+        traceback.print_exc()
 
     # SEND EMAILS
     for person in legit_results:

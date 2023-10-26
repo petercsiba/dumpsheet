@@ -100,7 +100,7 @@ class GoogleClient:
 
         return self.spreadsheet
 
-    def copy_from(self, template_spreadsheet_id: str, new_name):
+    def copy_from(self, template_spreadsheet_id: str, new_name) -> Spreadsheet:
         print("gsheets copy_from template_spreadsheet_id")
         request = self.drive_service.files().copy(fileId=template_spreadsheet_id)
         response = request.execute()
@@ -115,7 +115,7 @@ class GoogleClient:
         )
         rename_request.execute()
 
-        self.open_by_key(response["id"])
+        return self.open_by_key(response["id"])
 
     def open_by_key(self, spreadsheet_key) -> Optional[Spreadsheet]:
         if self.gspread_client is None:
