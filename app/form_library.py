@@ -111,6 +111,7 @@ CONTACTS_FIELDS = [
             Option(label="Text", value="sms"),
         ],
         default_value="sms",
+        ignore_in_display=True,
     ),
     FieldDefinition(
         name="suggested_response_item",

@@ -547,9 +547,10 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
         else:
             should_takeaways = False
             # template = "draft"
-            subject_prefix = f"Drafted {person.response_message_type} for"
+            # We used to have person.response_message_type to denote email/sms, removed so user can decide.
+            subject_prefix = "Drafted message for"
             next_draft_html = main_content_template(
-                heading=f"Draft {person.response_message_type}",
+                heading="Drafted message",
                 content=person.next_draft.replace("\n", "<br />"),
             )
             summarized_note_html = main_content_template(
