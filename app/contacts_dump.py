@@ -22,6 +22,7 @@ MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
 # TODO(P1, devx): Historically, this query give me most of the headaches.
 #   * GPT-4 suggests using Named Entity Recognition (NER) - with nodes and edges.
 #   * If it remains a problem - maybe just do it one-by-one, screw token cost.
+# TODO(P0, ux): This can drop information, e.g. we can mention talking about SHACK15 and it wouldn't be included.
 def extract_everyone_i_have_talked_to(
     gpt_client: OpenAiClient, full_transcript: str
 ) -> List:

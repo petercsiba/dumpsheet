@@ -279,10 +279,25 @@ def _make_human_readable(filename):
         return ""
 
 
+def _confirmation_success_next_steps(heads_up_spreadsheet_email: bool) -> str:
+    if heads_up_spreadsheet_email:
+        return "<li>send you an emai"
+    else:
+        return """
+            It will take me a few minutes until I:
+            <ul>
+                <li>email you the results and</li>
+                <li>update your spreadsheet.</li>
+            </ul>
+        """
+
+
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
 #   * Yeah, we might want to centralize this into Hubspot Transactional email API.
 # We have attachment_paths separate, so the response email doesn't re-attach them.
-def send_confirmation(params: EmailLog, attachment_paths):
+def send_confirmation(
+    params: EmailLog, heads_up_spreadsheet_email: bool, attachment_paths
+):
     first_name = params.get_recipient_first_name()
     if len(attachment_paths) == 0:
         params.idempotency_id = f"{params.idempotency_id}-forgot-attachment"
@@ -323,31 +338,34 @@ def send_confirmation(params: EmailLog, attachment_paths):
             title=params.subject,
             content_text="""
             <p>Hi {}, </p>
-            <p>I am confirming receipt of your voice memo upload(s),
-            it will take me a few minutes to get back to you.</p>
+            <p>I am confirming receipt of your voice memo upload(s)</p>
+            <p>{confirmation_success_html}</p>
             <p>I've received the following files:</p>
-            <p><ul>{}</ul></p>""".format(
-                first_name, file_list_str
+            <p><ul>{file_list_str}</ul></p>""".format(
+                first_name,
+                confirmation_success_html=_confirmation_success_next_steps(
+                    heads_up_spreadsheet_email
+                ),
+                file_list_str=file_list_str,
             ),
         )
         send_email(params=params)
 
 
-def send_app_upload_confirmation(params: EmailLog):
+def send_app_upload_confirmation(params: EmailLog, heads_up_spreadsheet_email: bool):
     params.idempotency_id = f"{params.idempotency_id}-confirmation"
     params.body_html = simple_email_body_html(
         title=params.subject,
         content_text="""
         <p>Hi, </p>
         <p>I am confirming receipt of your voice memo upload through the Voxana WebApp!</p>
-        <p>It will take me a few minutes until I:
-        <ul>
-        <li>Process it,</li>
-        <li>Email you the results and</li>
-        <li>Update your spreadsheet.</li>
-        </ul>
+        <p>{confirmation_success_html}</p>
         <p>See you in a bit, Voxana.</p>
-        """,
+        """.format(
+            confirmation_success_html=_confirmation_success_next_steps(
+                heads_up_spreadsheet_email
+            )
+        ),
     )
     send_email(params=params)
 
@@ -449,8 +467,8 @@ def send_hubspot_result(
         return send_email(params=email_params)
 
     extra_info_map = {
-        "error_gpt": "We had problems transforming your note into a HubSpot structures",
-        "error_hubspot_sync": "We encountered problems while syncing your data into your HubSpot",
+        "error_gpt": "I had problems transforming your note into a HubSpot structures",
+        "error_hubspot_sync": "I encountered problems while syncing your data into your HubSpot",
         "warning_already_created": "Note: The contact already exists in your HubSpot",
     }
     extra_info = ""
@@ -572,6 +590,8 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
         next_draft_html=next_draft_html,
         contact_card_html=contact_card_html,
         summarized_note_html=summarized_note_html,
+        # TODO(P0, research): Add feedback mechanism by data-entry-id (good, ok, bad).
+        #   * There is some learning curve, but it's useful to get sth.
     )
     return subject_prefix, res_content_html
 

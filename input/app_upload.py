@@ -50,7 +50,7 @@ def maybe_send_app_upload_confirmation_email(data_entry_id: uuid.UUID):
         account_id=data_entry.account_id,
         idempotency_id=data_entry.idempotency_id,
         # We used to include the timestamp, but gets harder with timezones. We would need to geo-locate it and stuff.
-        subject="Confirmation - we have received your voice recording upload",
+        subject="Confirmation - I have received your voice recording upload",
     )
     try:
         send_app_upload_confirmation(params=email_params)

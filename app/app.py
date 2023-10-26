@@ -99,9 +99,14 @@ def sync_form_datas_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]
 
     acc: Account = Account.get_by_id(account_id)
     if acc.gsheet_id is None:
+        name = acc.full_name
+        if name is None:
+            name = acc.get_email()
+        name_suffix = f" - {name}" if bool(name) else ""
+
         new_spreadsheet = google_client.copy_from(
             TEMPLATE_CONTACTS_SPREADSHEET_ID,
-            new_name=f"Voxana Data Share - {acc.full_name}",
+            new_name=f"Voxana Records For{name_suffix}",
         )
         gsheet_id = new_spreadsheet.id
         acc.gsheet_id = gsheet_id
