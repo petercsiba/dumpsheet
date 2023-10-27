@@ -64,7 +64,7 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({collec
                         I will be processing your request in the next few minutes.
                     </p>
                     <p className="pt-2">
-                        Please <b>enter your email</b> to receive results directly into your inbox:
+                        Please <b>enter your email</b> to receive results of my work directly into your inbox:
                     </p>
                     <div className="flex justify-center pt-2">
                         <input
@@ -110,8 +110,8 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({collec
                     <p className="pl-4">
                         <span className="font-bold text-base">I will be:</span>
                         <ul className="list-disc list-inside text-">
-                            <li className="mt-1">Sending results to <b>{existingEmail ?? email}</b></li>
-                            <li className="mt-1">Syncing to HubSpot (if connected)</li>
+                            <li className="mt-1">Sending my work to <b>{existingEmail ?? email}</b></li>
+                            <li className="mt-1">Syncing to your CRM (if connected)</li>
                         </ul>
                     </p>
                     <ProgressBar currentStep={3}/>
