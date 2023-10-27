@@ -122,6 +122,7 @@ def sync_form_datas_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]
 
     google_client.open_by_key(acc.gsheet_id)
 
+    # TODO(P0, ux): Remove last row from the template when it's created - we can add a hidden DELETE ME somewhere.
     google_client.add_form_datas_to_spreadsheet(form_datas)
 
 

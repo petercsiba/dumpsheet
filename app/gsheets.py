@@ -20,8 +20,8 @@ from gspread_formatting import (
 
 from app.email_template import button_template, simple_email_body_html
 from app.emails import send_email
-from app.form import FieldDefinition, FormData, FormDefinition, FormName
-from app.form_library import FOOD_LOG_FIELDS
+from app.form import FormData, FormDefinition, FormName
+from app.form_library import FOOD_LOG_FIELDS, get_form
 from app.gsheets_view import get_overlay_cell_format
 from common.config import GOOGLE_FORMS_SERVICE_ACCOUNT_PRIVATE_KEY
 from database.account import Account
@@ -223,23 +223,23 @@ class GoogleClient:
                 sheet_cache[form_name] = get_or_create_worksheet(
                     self.spreadsheet, form_name
                 )
-
-            header_row_index = _add_form_data_to_sheet(
-                sheet_cache[form_name], form_data
-            )
+            # NOTE: A much better way is that you use B6:B200 instead of $B6:$B200,
+            #   the first one stays, the other is shifted.
+            _add_form_data_to_sheet(sheet_cache[form_name], form_data)
             # For "plain" worksheets we skip this
-            if header_row_index > 1:
-                self.update_formulas(
-                    worksheet_title=sheet_cache[form_name].title,
-                    cell_range=f"A1:Z{header_row_index-1}",
-                    start_row_index=header_row_index + 1,
-                )
+            # if header_row_index > 1:
+            #     self.update_formulas(
+            #         worksheet_title=sheet_cache[form_name].title,
+            #         cell_range=f"A1:Z{header_row_index-1}",
+            #         start_row_index=header_row_index + 1,
+            #     )
 
         # For some conditional formatting we might need to re-apply all the rules. Before doing that, we
         # should check if our rules are right or not (e.g. empty <> FALSE <> 'FALSE).
         # self.refresh_conditional_formatting_on_all_sheets()
 
     # Documentation: half of https://chat.openai.com/share/fc19b2b0-4bd9-4c8d-9e18-5bf59f77d702
+    # NOTE: A much better way is that you use B6:B200 instead of $B6:$B200, the first one stays, the other is shifted.
     def update_formulas(self, worksheet_title, cell_range, start_row_index: int):
         range_name = f"{worksheet_title}!{cell_range}"
         print(
@@ -551,6 +551,7 @@ def _find_most_likely_header(
 def _add_form_data_to_sheet(sheet: Worksheet, form_data: FormData) -> int:
     data = form_data.to_display_tuples()
     labels = [d[0] for d in data]
+    # TODO(P0, ux): Use FieldDefinition.field_type information to format individual cells.
     display_values = [d[1] for d in data]
 
     # Find most likely header row
@@ -685,35 +686,6 @@ def convert_dates(worksheet: Worksheet, cell_range="A2:A100"):
     print(f"gsheets convert_dates converted {converted_count} cells")
 
 
-TEST_FIELDS = [
-    FieldDefinition(
-        name="name",
-        field_type="text",
-        label="Name",
-        description="Name of the person I talked with",
-    ),
-    FieldDefinition(
-        name="role",
-        field_type="text",
-        label="Role",
-        description="Current role or latest job experience",
-    ),
-    FieldDefinition(
-        name="industry",
-        field_type="text",
-        label="Industry",
-        description="which business area they specialize in professionally",
-    ),
-    FieldDefinition(
-        name="is_done",
-        field_type="bool",
-        label="Done?",
-        ignore_in_prompt=True,
-        default_value=False,
-    ),
-]
-
-
 def test_gsheets():
     test_acc = Account.get_or_onboard_for_email(
         "peter@voxana.ai", utm_source="test", full_name="Peter Csiba"
@@ -774,12 +746,22 @@ def test_gsheets():
         test_google_client.open_by_key(test_key)
 
     test_form_data1 = FormData(
-        FormDefinition(FormName.CONTACTS, TEST_FIELDS),
-        {"name": "Peter Csiba", "role": "Swears a lot", "industry": "Tech-something"},
+        get_form(FormName.CONTACTS),
+        {
+            "recording_time": datetime.now(),
+            "name": "Peter Csiba",
+            "role": "Swears a lot",
+            "industry": "Tech-something",
+        },
     )
     test_form_data2 = FormData(
-        FormDefinition(FormName.CONTACTS, TEST_FIELDS),
-        {"name": "Katka Sabo", "role": "I like to demo", "industry": "Business"},
+        get_form(FormName.CONTACTS),
+        {
+            "recording_time": datetime.now(),
+            "name": "Katka Sabo",
+            "role": "I like to demo",
+            "industry": "Business",
+        },
     )
     test_form_data3 = FormData(
         FormDefinition(FormName.FOOD_LOG, FOOD_LOG_FIELDS),

@@ -5,6 +5,7 @@ from app.emails import (
     wait_for_email_updated_on_data_entry,
 )
 from common.openai_client import OpenAiClient
+from database.account import Account
 from database.data_entry import STATE_UPLOAD_DONE
 from database.email_log import EmailLog
 from database.models import BaseDataEntry
@@ -52,8 +53,12 @@ def maybe_send_app_upload_confirmation_email(data_entry_id: uuid.UUID):
         # We used to include the timestamp, but gets harder with timezones. We would need to geo-locate it and stuff.
         subject="Confirmation - I have received your voice recording upload",
     )
+    acc: Account = Account.get_by_id(data_entry.account_id)
+    heads_up_spreadsheet_email = acc.gsheet_id is None
     try:
-        send_app_upload_confirmation(params=email_params)
+        send_app_upload_confirmation(
+            params=email_params, heads_up_spreadsheet_email=heads_up_spreadsheet_email
+        )
     except Exception as err:
         print(
             f"ERROR: Could not send app upload confirmation to {email_params.recipient} cause {err}"

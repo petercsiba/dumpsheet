@@ -133,7 +133,7 @@ CONTACTS_FIELDS = [
     FieldDefinition(
         name="summarized_note",
         field_type="text",
-        label="Summarized Note",
+        label="Detailed Notes",
         description="short concise structured summary of the meeting note",
         ignore_in_prompt=True,  # We only fill this in with separate GPT prompt when the transcript is long enough
     ),

@@ -281,13 +281,20 @@ def _make_human_readable(filename):
 
 def _confirmation_success_next_steps(heads_up_spreadsheet_email: bool) -> str:
     if heads_up_spreadsheet_email:
-        return "<li>send you an emai"
+        return """
+            Your voice memo is being processed and will be ready shortly. <br />
+            You'll receive two emails:
+            <ul>
+                <li>The first will contain your results and suggested next steps.</li>
+                <li>The second will provide a link to a Google Spreadsheet that updates with each new voice memo.</li>
+            </ul>
+        """
     else:
         return """
-            It will take me a few minutes until I:
+            Your voice memo is being processed. Shortly, you'll:
             <ul>
-                <li>email you the results and</li>
-                <li>update your spreadsheet.</li>
+                <li>Receive an email containing your results</li>
+                <li>Have your spreadsheet updated.</li>
             </ul>
         """
 
@@ -358,7 +365,6 @@ def send_app_upload_confirmation(params: EmailLog, heads_up_spreadsheet_email: b
         title=params.subject,
         content_text="""
         <p>Hi, </p>
-        <p>I am confirming receipt of your voice memo upload through the Voxana WebApp!</p>
         <p>{confirmation_success_html}</p>
         <p>See you in a bit, Voxana.</p>
         """.format(
