@@ -577,7 +577,7 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
     # Join the list items into a single string
     if person.should_show_full_contact_card():
         contact_card_html = table_template.format(
-            heading="Contact card for your CRM (Excel)",
+            heading="Contact card for your records / CRM",
             rows="\n".join(summary_rows),
             extra_content="",
         )
