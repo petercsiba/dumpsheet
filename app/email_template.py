@@ -123,10 +123,16 @@ def main_content_template(content, heading: Optional[str] = None):
     )
 
 
-# heading, rows
-table_template = (
-    _content_begin
-    + """
+# extra_content_html should include <tr> ... </tr>
+def table_template(heading, rows_html: str, extra_content_html: str):
+    if len(str(extra_content_html)) > 5:
+        extra_content_html = f"""
+        <div style="height:1px; background-color:lightgray; margin-top:20px; margin-bottom:25px;"></div>
+            {extra_content_html}
+        """
+    return (
+        _content_begin
+        + """
         <tr>
           <td style="padding: 20px;">
             <div style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">{heading}</div>
@@ -137,14 +143,19 @@ table_template = (
                 <th align="left" style="border-bottom: 1px solid #ccc;"><strong>Field</strong></th>
                 <th align="left" style="border-bottom: 1px solid #ccc;"><strong>Value</strong></th>
               </tr> -->
-              {rows}
+              {rows_html}
             </table>
+            {extra_content_html}
           </td>
-          {extra_content}
         </tr>
       </table>
-"""
-)
+""".format(
+            heading=heading,
+            rows_html=rows_html,
+            extra_content_html=extra_content_html,
+        )
+    )
+
 
 # label, value
 table_row_template = """

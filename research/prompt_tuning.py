@@ -27,10 +27,8 @@ def process_file(gpt_client: OpenAiClient, file_contents):
         print("=== draft ===")
         print(person.next_draft)
         print("=== summary ===")
-        summary_fields = person.get_summary_fields()
-        print(
-            "\n * ".join([f"{key}: {value}" for key, value in summary_fields.items()])
-        )
+        summary_fields = person.form_data.to_display_tuples()
+        print("\n * ".join([f"{key}: {value}" for key, value in summary_fields]))
 
 
 dir_path = "testdata/katka-email-data-dump/"

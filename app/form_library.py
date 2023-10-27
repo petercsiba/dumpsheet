@@ -22,22 +22,25 @@ CONTACTS_FIELDS = [
         label="Recorded Time",
         description="Which date the recording took place",
         ignore_in_prompt=True,  # Will be filled in manually
+        ignore_in_email=True,
     ),
     FieldDefinition(
         name="is_inputs_checked",
         field_type="bool",
-        label="Checked inputs?",
+        label="Checked Outputs",
         description="Whether the user checked the correctness of the Voxana output",
         ignore_in_prompt=True,
         default_value=False,
+        ignore_in_email=True,
     ),
     FieldDefinition(
         name="is_done",
         field_type="bool",
-        label="Done?",
+        label="Done",
         description="Whether the user did finalize the follow up",
         ignore_in_prompt=True,
         default_value=False,
+        ignore_in_email=True,
     ),
     FieldDefinition(
         name="name",
@@ -77,24 +80,22 @@ CONTACTS_FIELDS = [
         ),
     ),
     FieldDefinition(
+        name="suggested_revisit",
+        field_type="select",
+        label="Suggested Priority",
+        description=("priority of when should i respond to the person"),
+        options=[
+            Option(label="HIGH: Take Action Today!", value="P0"),
+            Option(label="MEDIUM: Make Sure To Stay In Touch", value="P1"),
+            Option(label="LOW: potentially revisit in the future", value="P2"),
+        ],
+        default_value="P2",
+    ),
+    FieldDefinition(
         name="key_facts",
         field_type="text",
         label="Key Facts",
         description="list of key facts each fact in a super-short up to 5 word brief, null for empty",
-    ),
-    FieldDefinition(
-        name="suggested_revisit",
-        field_type="select",
-        label="Suggested Revisit",
-        description=(
-            "priority of when should i respond to them, PO (today), P1 (end of week), P2 (later)"
-        ),
-        options=[
-            Option(label="P0 (today)", value="P0"),
-            Option(label="P1 (end of week)", value="P1"),
-            Option(label="P2 (later)", value="P2"),
-        ],
-        default_value="P2",
     ),
     FieldDefinition(
         name="response_message_type",
@@ -129,6 +130,7 @@ CONTACTS_FIELDS = [
         label="Drafted Follow Up",
         description="casual yet professional short to the point draft for my action from suggested_response_item",
         ignore_in_prompt=True,  # We only fill this in with separate GPT prompt when the transcript is long enough
+        ignore_in_email=True,  # Manually hacked up into a separate display component
     ),
     FieldDefinition(
         name="summarized_note",
@@ -136,6 +138,7 @@ CONTACTS_FIELDS = [
         label="Detailed Notes",
         description="short concise structured summary of the meeting note",
         ignore_in_prompt=True,  # We only fill this in with separate GPT prompt when the transcript is long enough
+        ignore_in_email=True,  # Manually hacked up into a separate display component
     ),
 ]
 

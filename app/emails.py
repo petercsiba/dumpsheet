@@ -24,6 +24,7 @@ from app.email_template import (
     table_row_template,
     table_template,
 )
+from app.form import FormData
 from app.hubspot_dump import HubspotDataEntry
 from app.hubspot_models import FieldNames, HubspotObject
 from common.aws_utils import is_running_in_aws
@@ -411,6 +412,23 @@ def _format_summary_table_row(label: str, value: str) -> str:
     )
 
 
+def _form_data_to_email_table_html(form_data: FormData) -> str:
+    rows = []
+    for field in form_data.form.fields:
+        if field.ignore_in_display or field.ignore_in_email:
+            print(
+                f"INFO: ignoring {field.name} for emails (ignore_id_display: {field.ignore_in_display}"
+                f"ignore_in_email: {field.ignore_in_email}"
+            )
+            continue
+        rows.append(
+            _format_summary_table_row(
+                field.label, value=form_data.get_display_value(field.name)
+            )
+        )
+    return "\n".join(rows)
+
+
 def _hubspot_obj_to_table(
     heading: str,
     obj: Optional[HubspotObject],
@@ -418,14 +436,17 @@ def _hubspot_obj_to_table(
 ) -> str:
     rows = []
     for field in obj.form.fields:
-        if field.ignore_in_display:
-            print(f"INFO: ignoring {field.name} for now")
+        if field.ignore_in_display or field.ignore_in_email:
+            print(
+                f"INFO: ignoring {field.name} for emails (ignore_id_display: {field.ignore_in_display}"
+                f"ignore_in_email: {field.ignore_in_email}"
+            )
             continue
         key, value = obj.get_field_display_label_with_value(field.name)
         rows.append(_format_summary_table_row(key, value))
     rows_html = "\n".join(rows)
-    return table_template.format(
-        heading=heading, rows=rows_html, extra_content=extra_content
+    return table_template(
+        heading=heading, rows_html=rows_html, extra_content_html=extra_content
     )
 
 
@@ -497,8 +518,8 @@ def send_hubspot_result(
         todos_field_name = FieldNames.HS_TASK_BODY.value
         if todos_field_name in data.task.data:
             todos_extra_content = """
-            <tr><td style="padding-left: 20px;"><b>{heading}</b></td></tr>
-            <tr><td style="padding-left: 20px;">{content}</td></tr>""".format(
+            <p><b>{heading}</b></p>
+            <p>{content}</p>""".format(
                 heading="To Dos", content=data.task.get_display_value(todos_field_name)
             )
 
@@ -559,27 +580,24 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
                 heading="Drafted message",
                 content=person.next_draft.replace("\n", "<br />"),
             )
-            summarized_note_html = main_content_template(
-                heading="Your notes",
-                content="""<p style="line-height: 1.5;">{sub_content}</p>""".format(
-                    sub_content=person.summarized_note.replace("\n", "<br />")
-                ),
+            summarized_note_html = """
+                <div style="font-weight: bold; margin-bottom: 5px;">
+                    Detailed Notes
+                </div>
+                <p style="line-height: 1.5;">{summarized_note}</p>
+                """.format(
+                summarized_note=person.summarized_note.replace("\n", "<br />")
             )
     if should_takeaways:
         # template = "takeaways"
         subject_prefix = "Takeaways from"  # nothing to draft, just to research / act on
 
-    summary_fields = person.get_summary_fields()
-    summary_rows = []
-    for key, value in summary_fields.items():
-        summary_rows.append(_format_summary_table_row(key, value))
-
     # Join the list items into a single string
     if person.should_show_full_contact_card():
-        contact_card_html = table_template.format(
+        contact_card_html = table_template(
             heading="Contact card for your records / CRM",
-            rows="\n".join(summary_rows),
-            extra_content="",
+            rows_html=_form_data_to_email_table_html(person.form_data),
+            extra_content_html=summarized_note_html,
         )
     else:
         contact_card_html = main_content_template(
@@ -592,11 +610,9 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
     res_content_html = """
 {next_draft_html}
 {contact_card_html}
-{summarized_note_html}
 """.format(
         next_draft_html=next_draft_html,
         contact_card_html=contact_card_html,
-        summarized_note_html=summarized_note_html,
         # TODO(P0, research): Add feedback mechanism by data-entry-id (good, ok, bad).
         #   * There is some learning curve, but it's useful to get sth.
     )
@@ -641,10 +657,10 @@ def send_result_rest_of_the_crowd(
     <p>Remember, you can always fill me in with a new recording.</p>
     {table_html}
     """.format(
-        table_html=table_template.format(
+        table_html=table_template(
             heading="The people you mentioned too",
-            rows="\n".join(rows),
-            extra_content="",
+            rows_html="\n".join(rows),
+            extra_content_html="",
         )
     )
     email_params.body_html = simple_email_body_html(

@@ -128,6 +128,8 @@ class ObjectType(Enum):
 
 
 # This class will act as the value storage
+# TODO(P1, devx): This starts to feel like FormData, once HubSpot becomes important again we can think of refactor
+#  - would need some custom display transformers for e.g. get_link.
 class HubspotObject:
     def __init__(
         self,

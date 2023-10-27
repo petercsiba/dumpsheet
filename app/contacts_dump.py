@@ -166,7 +166,6 @@ def summarize_raw_note_to_person_data_entry(
     # NOTE: Yeah, we should get rid of PersonDataEntry in favor of the FormData, but this refactor is already too big.
     person.role = form_data.get_value("role", person.role)
     person.industry = form_data.get_value("industry", person.industry)
-    person.impressions = form_data.get_value("impressions", person.impressions)
     person.key_facts = form_data.get_value("key_facts", person.key_facts)
     person.my_action_items = form_data.get_value(
         "my_action_items", person.my_action_items

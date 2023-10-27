@@ -2,7 +2,7 @@ import datetime
 import json
 from dataclasses import dataclass, field, fields, is_dataclass
 from json import JSONEncoder
-from typing import Any, Dict, List, Optional, Type, get_args, get_origin
+from typing import Any, List, Optional, Type, get_args, get_origin
 
 from app.form import FormData
 
@@ -109,11 +109,8 @@ class PersonDataEntry:
     # All text mentioning them joined into one string
     transcript: str = None  # TODO: Deprecate in favor of `note`
 
-    # OUTPUTS (TODO: Make it a separate model (or json column) so it can be persisted.
-    # Additional structured  items
-    # mnemonic: str = None
-    # mnemonic_explanation: str = None
-    impressions: str = None
+    # TODO(P1, devx): These fields might be NOT necessary just afraid to delete RN,
+    # - as migrating this object to form_data slowly.
     role: str = None
     industry: str = None
     suggested_revisit: str = "P2(later)"
@@ -131,22 +128,6 @@ class PersonDataEntry:
     parsing_error: str = None
     # Fields which will be synced to Spreadsheets
     form_data: Optional[FormData] = None
-
-    # TODO(P2, devx): One day we should completely replace this with FormData, and use ignore_in_display and stuff.
-    # Although might be a bit tricky, as e.g. next_draft we want to custom format in emails (omit from table),
-    # while include it in the spreadsheet.
-    def get_summary_fields(self) -> Dict[str, str]:
-        return {
-            "Name": self.name,
-            "Role": self.role,
-            "Industry": self.industry,
-            "Their Needs": self.their_needs,
-            # NOTE: We do not want to display suggested response, as it is redundant to the generated draft.
-            # "Suggested Response": f"{self.response_message_type} to {self.suggested_response_item}",
-            "My Action Items": self.my_action_items,
-            "Key Facts": self.key_facts,
-            "Suggested Revisit": self.suggested_revisit,
-        }
 
     def get_transcript_text(self, separator="\n") -> str:  # TODO: Deprecated with GPT-4
         return dump_to_lines(self.transcript, separator)

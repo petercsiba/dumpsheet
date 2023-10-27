@@ -28,6 +28,7 @@ class FieldDefinition:
         options: Optional[List[Option]] = None,
         ignore_in_prompt: bool = False,
         ignore_in_display: bool = False,
+        ignore_in_email: bool = False,
         custom_field: Optional[bool] = None,
         default_value: Any = None,
     ):
@@ -38,6 +39,7 @@ class FieldDefinition:
         self.options = options
         self.ignore_in_prompt = ignore_in_prompt
         self.ignore_in_display = ignore_in_display
+        self.ignore_in_email = ignore_in_email
         self.custom_field = bool(custom_field)
         self.default_value = default_value
 
@@ -366,6 +368,7 @@ class FormData:
         result = []
         for field in self.form.fields:
             if field.ignore_in_display:
+                print(f"INFO: ignoring {field.name} for to_display_tuples")
                 continue
             result.append((field.label, self.get_display_value(field.name)))
 
