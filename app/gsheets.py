@@ -210,6 +210,21 @@ class GoogleClient:
             else:
                 raise gsheets_err
 
+    @staticmethod
+    def _delete_me_rows(worksheet: Worksheet):
+        print(f"gsheets _delete_me_rows for {worksheet.title}")
+
+        # Find all occurrences of 'delete me' (case-insensitive)
+        cells = worksheet.findall("__delete_me__")
+
+        # Get the unique list just to be sure
+        rows_to_delete = list(set([cell.row for cell in cells]))
+
+        # Delete rows in reverse to avoid shifting indices
+        for row_index in sorted(rows_to_delete, reverse=True):
+            print(f"gsheets _delete_me_rows deleting row {row_index}")
+            worksheet.delete_rows(start_index=row_index)
+
     def add_form_datas_to_spreadsheet(self, form_datas: List[FormData]):
         if form_datas is None or len(form_datas) == 0:
             print("WARNING gsheets add_form_datas_to_spreadsheet empty form_datas")
@@ -233,6 +248,11 @@ class GoogleClient:
             #         cell_range=f"A1:Z{header_row_index-1}",
             #         start_row_index=header_row_index + 1,
             #     )
+
+        # TODO(hack): This is to delete extra rows copied from the Template spreadsheet used as a style guidance
+        #   for the first data row inserted.
+        for _, sheet in sheet_cache.items():
+            GoogleClient._delete_me_rows(sheet)
 
         # For some conditional formatting we might need to re-apply all the rules. Before doing that, we
         # should check if our rules are right or not (e.g. empty <> FALSE <> 'FALSE).
@@ -528,6 +548,10 @@ def _find_most_likely_header(
     most_matching_cols = 0
     most_matching_row = 0
 
+    # TODO(P0, reliability): Bump the limit in GCP, handle retries gracefully.
+    # {'code': 429, 'message': "Quota exceeded for quota metric 'Read requests' and limit
+    #   'Read requests per minute per user' of service}
+    #  'reason': 'RATE_LIMIT_EXCEEDED'
     for row_num in range(1, row_limit + 1):
         row_values = sheet.row_values(row_num)
         matching_cols = len(set(row_values).intersection(set(labels)))
