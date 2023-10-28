@@ -46,7 +46,7 @@ def process_voice_recording_input(
     if account.get_email() is None:
         msg = (
             # (size {pretty_filesize_int(len(voice_file_data))})
-            f"Hi, Voxana here. I have received your voicemail.\n"
+            f"Hi boss, Voxana here. I have received your voicemail.\n"
             "To get your results into your inbox, please reply with a sms containing your email address.\n"
             f"In case of troubles, you can always reach my supervisors at {SUPPORT_EMAIL}.\n"
             "Bye!"

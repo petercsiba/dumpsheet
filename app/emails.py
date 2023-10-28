@@ -283,19 +283,30 @@ def _make_human_readable(filename):
 def _confirmation_success_next_steps(heads_up_spreadsheet_email: bool) -> str:
     if heads_up_spreadsheet_email:
         return """
-            Your voice memo is being processed and will be ready shortly. <br />
-            You'll receive two emails:
-            <ul>
-                <li>The first will contain your results and suggested next steps.</li>
-                <li>The second will provide a link to a Google Spreadsheet that updates with each new voice memo.</li>
+            I received the voice recording and now it’s my turn to get to work. <br />
+            Within a few minutes you should receive 2 emails from me: <br/>
+            <ul style="list-style-type: none;">
+                <li style="margin-bottom: 8px"><span style="font-weight: bold;">#1</span>
+                    with a <b>draft of the follow-up message</b> based on what you shared with me
+                    + a <b>structured recap</b> of what you were talking about
+                </li>
+                <li style="margin-bottom: 8px"><span style="font-weight: bold;">#2</span>
+                    with a <b>link to a Google Sheet</b> which I will start for you to help
+                    you keep all your networking information organized
+                </li>
             </ul>
         """
     else:
         return """
-            Your voice memo is being processed. Shortly, you'll:
+            I received your voice recording and I am crunching through it! <br />
+            <br />
+            As per usual, within a few minutes I’ll be sending you an email with:
             <ul>
-                <li>Receive an email containing your results</li>
-                <li>Have your spreadsheet updated.</li>
+                <li style="margin-bottom: 8px">a <b>draft of the follow-up message</b> based on what you shared</li>
+                <li style="margin-bottom: 8px">a <b>structured recap</b> of what you were talking about</li>
+                <li style="margin-bottom: 8px">a <b>link to your updated Google Sheet</b>
+                    where all your networking notes are neatly organized
+                </li>
             </ul>
         """
 
@@ -346,10 +357,10 @@ def send_confirmation(
             title=params.subject,
             content_text="""
             <p>Hi {}, </p>
-            <p>I am confirming receipt of your voice memo upload(s)</p>
-            <p>{confirmation_success_html}</p>
+            <p style="line-height: 1.5;">{confirmation_success_html}</p>
             <p>I've received the following files:</p>
-            <p><ul>{file_list_str}</ul></p>""".format(
+            <p><ul>{file_list_str}</ul></p>
+            <p>Talk soon! <br /><br /> Voxana.</p>""".format(
                 first_name,
                 confirmation_success_html=_confirmation_success_next_steps(
                     heads_up_spreadsheet_email
@@ -365,12 +376,12 @@ def send_app_upload_confirmation(params: EmailLog, heads_up_spreadsheet_email: b
     params.body_html = simple_email_body_html(
         title=params.subject,
         content_text="""
-        <p>Hi, </p>
-        <p>{confirmation_success_html}</p>
-        <p>See you in a bit, Voxana.</p>
+        <p>Hi boss, </p>
+        <p style="line-height: 1.5;">{confirmation_success_html}</p>
+        <p>Talk soon! <br /><br /> Voxana.</p>
         """.format(
             confirmation_success_html=_confirmation_success_next_steps(
-                heads_up_spreadsheet_email
+                True  # heads_up_spreadsheet_email
             )
         ),
     )

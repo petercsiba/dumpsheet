@@ -492,7 +492,7 @@ def send_gsheets_shareable_link(account_id: uuid.UUID, shareable_link: str):
     email_params.body_html = simple_email_body_html(
         title=email_params.subject,
         content_text="""
-        <p>Hi, </p>
+        <p>Hi boss, </p>
         <p>
             Click below to access your Voxana Spreadsheet
             - which will get automatically updated with each voice memo.

@@ -55,7 +55,8 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
       {content}
 
       <!-- Footer -->
-      <table align="center" width="100%" cellspacing="0" cellpadding="10" style="margin-top: 30px; ">
+      <table align="center" width="96%" cellspacing="0" cellpadding="0"
+                    style="max-width: 36rem; margin-top: 30px;">
         <tr>
           <td>
             <table align="center" cellspacing="0" cellpadding="14"
