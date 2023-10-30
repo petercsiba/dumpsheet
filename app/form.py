@@ -235,6 +235,15 @@ class FieldDefinition:
             option_labels = {option.label: option.value for option in options}
             if value in option_labels:
                 return option_labels[value]
+
+            # Do one more try with "fuzzy match"
+            print(
+                f"WARNING: GPT response with {value} which ain't a value nor label for field {self.name}"
+            )
+            for option in options:
+                if value in f"{option.value}: {option.label}":
+                    return option.value
+
             self._validation_error("str value not an option label or value ", value)
 
         # Sometimes we get `'hs_task_type': {'label': 'Call', 'value': 'CALL'}`

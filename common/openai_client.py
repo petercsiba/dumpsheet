@@ -13,7 +13,7 @@ import json
 import re
 import time
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import openai
 import pytz
@@ -312,10 +312,14 @@ class OpenAiClient:
             if len(field.options) > GPT_MAX_NUM_OPTION_FIELDS:
                 print(f"too many options, shortening to {GPT_MAX_NUM_OPTION_FIELDS}")
             options_slice: List[Option] = field.options[:GPT_MAX_NUM_OPTION_FIELDS]
-            option_values = [(opt.label, opt.value) for opt in options_slice]
+            option_values = "\n".join(
+                [f"{opt.value}: {opt.label}" for opt in options_slice]
+            )
             result += (
-                f" restricted to these options defined as a list of (label, value) {option_values}"
-                " pick the most suitable value."
+                f" restricted to these options defined as a list of 'result: description' pairs. "
+                f"Pick the most suitable option and only output the result part.\n"
+                f"{option_values}"
+                ""
             )
         result += '"'
 
@@ -556,7 +560,7 @@ def _try_decode_non_json(raw_response: str):
     return None
 
 
-def gpt_response_to_json(raw_response: Optional[str], debug=True):
+def gpt_response_to_json(raw_response: Optional[str], debug=True) -> Optional[Any]:
     if raw_response is None:
         if debug:
             print("raw_response is None")
@@ -717,5 +721,5 @@ if __name__ == "__main__":
             "None mentioned."
         ]
     }"""
-    res = gpt_response_to_json(test_json_with_extra_output)
-    assert res["name"] == "Marco"
+    test_res = gpt_response_to_json(test_json_with_extra_output)
+    assert test_res["name"] == "Marco"
