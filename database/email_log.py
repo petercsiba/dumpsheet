@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 from common.config import SENDER_EMAIL, SUPPORT_EMAIL
 from database.account import Account
@@ -43,9 +44,11 @@ class EmailLog(BaseEmailLog):
             .exists()
         )
 
+    # NOTE: We allow Optional subject in cases we fill it in later on - this can cause EmailLog insertion to fail;
+    # so make really sure we really fill it in later on.
     @staticmethod
     def get_email_reply_params_for_account_id(
-        account_id: uuid, idempotency_id: str, subject: str
+        account_id: uuid, idempotency_id: str, subject: Optional[str]
     ):
         account = Account.get_by_id(account_id)
         return EmailLog(

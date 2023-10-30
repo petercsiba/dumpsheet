@@ -280,25 +280,23 @@ def _make_human_readable(filename):
         return ""
 
 
-def _confirmation_success_next_steps(heads_up_spreadsheet_email: bool) -> str:
-    if heads_up_spreadsheet_email:
+def _confirmation_success_next_steps(first_time_use: bool) -> str:
+    if first_time_use:
         return """
-            I received the voice recording and now it’s my turn to get to work. <br />
-            Within a few minutes you should receive 2 emails from me: <br/>
-            <ul style="list-style-type: none;">
-                <li style="margin-bottom: 8px"><span style="font-weight: bold;">#1</span>
+            <p style="line-height: 1.5;">I received the voice recording and now it’s my turn to get to work.</p>
+            <p style="line-height: 1.5;">Within a few minutes you should receive 2 emails from me: </p>
+            <p style="line-height: 1.5; margin-left: 20px"><span style="font-weight: bold;">#1</span>
+                with a <b>link to a Google Sheet</b> which I will start for you to help
+                you keep all your networking information organized
+            </p>
+            <p style="line-height: 1.5; margin-left: 20px"><span style="font-weight: bold;">#2</span>
                     with a <b>draft of the follow-up message</b> based on what you shared with me
                     + a <b>structured recap</b> of what you were talking about
-                </li>
-                <li style="margin-bottom: 8px"><span style="font-weight: bold;">#2</span>
-                    with a <b>link to a Google Sheet</b> which I will start for you to help
-                    you keep all your networking information organized
-                </li>
-            </ul>
+            </p>
         """
     else:
         return """
-            I received your voice recording and I am crunching through it! <br />
+            <p style="line-height: 1.5;">I received your voice recording and I am crunching through it! <br />
             <br />
             As per usual, within a few minutes I’ll be sending you an email with:
             <ul>
@@ -308,15 +306,14 @@ def _confirmation_success_next_steps(heads_up_spreadsheet_email: bool) -> str:
                     where all your networking notes are neatly organized
                 </li>
             </ul>
+            </p>
         """
 
 
 # TODO(P1): Move email templates to separate files - ideally using a standardized template language like handlebars.
 #   * Yeah, we might want to centralize this into Hubspot Transactional email API.
 # We have attachment_paths separate, so the response email doesn't re-attach them.
-def send_confirmation(
-    params: EmailLog, heads_up_spreadsheet_email: bool, attachment_paths
-):
+def send_confirmation(params: EmailLog, first_time_use: bool, attachment_paths):
     first_name = params.get_recipient_first_name()
     if len(attachment_paths) == 0:
         params.idempotency_id = f"{params.idempotency_id}-forgot-attachment"
@@ -350,20 +347,24 @@ def send_confirmation(
         file_list_str = "\n".join(file_list)
 
         params.idempotency_id = f"{params.idempotency_id}-confirmation"
-        params.subject = (
-            f"Confirmation - we have received your recording {recording_name}"
-        )
+        if first_time_use:
+            params.subject = "Congrats - I just received your first voice recording!"
+        else:
+            params.subject = (
+                f"Confirmation - we have received your recording {recording_name}"
+            )
+
         params.body_html = simple_email_body_html(
             title=params.subject,
             content_text="""
             <p>Hi {}, </p>
-            <p style="line-height: 1.5;">{confirmation_success_html}</p>
+            {confirmation_success_html}
             <p>I've received the following files:</p>
             <p><ul>{file_list_str}</ul></p>
-            <p>Talk soon! <br /><br /> Voxana.</p>""".format(
+            <p>Talk soon! <br /><br /> Voxana</p>""".format(
                 first_name,
                 confirmation_success_html=_confirmation_success_next_steps(
-                    heads_up_spreadsheet_email
+                    first_time_use=first_time_use
                 ),
                 file_list_str=file_list_str,
             ),
@@ -371,18 +372,20 @@ def send_confirmation(
         send_email(params=params)
 
 
-def send_app_upload_confirmation(params: EmailLog, heads_up_spreadsheet_email: bool):
+def send_app_upload_confirmation(params: EmailLog, first_time_use: bool):
     params.idempotency_id = f"{params.idempotency_id}-confirmation"
+    if first_time_use:
+        params.subject = "Congrats - I just received your first voice recording!"
+    else:
+        params.subject = "Confirmation - I have received your voice recording upload"
     params.body_html = simple_email_body_html(
         title=params.subject,
         content_text="""
         <p>Hi boss, </p>
-        <p style="line-height: 1.5;">{confirmation_success_html}</p>
-        <p>Talk soon! <br /><br /> Voxana.</p>
+        {confirmation_success_html}
+        <p>Talk soon! <br /><br /> Voxana</p>
         """.format(
-            confirmation_success_html=_confirmation_success_next_steps(
-                True  # heads_up_spreadsheet_email
-            )
+            confirmation_success_html=_confirmation_success_next_steps(first_time_use)
         ),
     )
     send_email(params=params)

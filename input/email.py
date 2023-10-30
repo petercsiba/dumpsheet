@@ -79,10 +79,9 @@ def process_email_input(
             subject=f"Re: {base_email_params.subject}",
             # NOTE: We do NOT include the original attachments cause in the reply
         )
-        heads_up_spreadsheet_email = account.gsheet_id is None
         send_confirmation(
             params=confirmation_email_params,
-            heads_up_spreadsheet_email=heads_up_spreadsheet_email,
+            first_time_use=account.gsheet_id is None,
             attachment_paths=attachment_file_paths,
         )
     except Exception as err:

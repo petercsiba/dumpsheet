@@ -47,18 +47,16 @@ def maybe_send_app_upload_confirmation_email(data_entry_id: uuid.UUID):
         return
 
     data_entry: BaseDataEntry = BaseDataEntry.get_by_id(data_entry_id)
+    acc: Account = Account.get_by_id(data_entry.account_id)
+    first_time_use = acc.gsheet_id is None
+
     email_params = EmailLog.get_email_reply_params_for_account_id(
         account_id=data_entry.account_id,
         idempotency_id=data_entry.idempotency_id,
-        # We used to include the timestamp, but gets harder with timezones. We would need to geo-locate it and stuff.
-        subject="Confirmation - I have received your voice recording upload",
+        subject=None,
     )
-    acc: Account = Account.get_by_id(data_entry.account_id)
-    heads_up_spreadsheet_email = acc.gsheet_id is None
     try:
-        send_app_upload_confirmation(
-            params=email_params, heads_up_spreadsheet_email=heads_up_spreadsheet_email
-        )
+        send_app_upload_confirmation(params=email_params, first_time_use=first_time_use)
     except Exception as err:
         print(
             f"ERROR: Could not send app upload confirmation to {email_params.recipient} cause {err}"

@@ -167,6 +167,7 @@ class Account(BaseAccount):
             BaseOnboarding.ip_address == ip_address
         )
         if bool(onboarding):
+            print(f"found account {onboarding.account_id} for ip_address {ip_address}")
             return Account.get_by_id(onboarding.account_id)
 
         print(f"onboarding new account for ip_address {ip_address}")
