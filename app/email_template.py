@@ -180,7 +180,7 @@ def simple_email_body_html(
     )
 
 
-def button_template(text: str, href: str):
+def button_template(text: str, href: str) -> str:
     return f"""
       <table align="center" cellspacing="0" cellpadding="14" style="border-radius: 50px; width: auto;
                 background-color: black;">
@@ -194,3 +194,7 @@ def button_template(text: str, href: str):
         </tr>
       </table>
     """
+
+
+def button_snippet_for_spreadsheet(shareable_link: str) -> str:
+    return button_template("Open in Google Sheets", shareable_link)

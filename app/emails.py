@@ -18,6 +18,7 @@ import boto3
 
 from app.datashare import PersonDataEntry
 from app.email_template import (
+    button_snippet_for_spreadsheet,
     full_template,
     main_content_template,
     simple_email_body_html,
@@ -574,10 +575,16 @@ def send_hubspot_result(
     return send_email(params=email_params)
 
 
-def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
+def _craft_result_email_body(
+    person: PersonDataEntry, shareable_link: Optional[str]
+) -> (str, str):
     # TODO(P1, ux): Migrate to new email template
     next_draft_html = ""
     summarized_note_html = ""
+    gsheets_button_html = (
+        button_snippet_for_spreadsheet(shareable_link) if bool(shareable_link) else ""
+    )
+
     should_takeaways = True
     subject_prefix = "Notes on "
     if person.should_draft():
@@ -611,7 +618,7 @@ def _craft_result_email_body(person: PersonDataEntry) -> (str, str):
         contact_card_html = table_template(
             heading="Contact card for your records / CRM",
             rows_html=_form_data_to_email_table_html(person.form_data),
-            extra_content_html=summarized_note_html,
+            extra_content_html=summarized_note_html + gsheets_button_html,
         )
     else:
         contact_card_html = main_content_template(
@@ -637,7 +644,10 @@ def send_result(
     account_id: UUID, idempotency_id_prefix: str, person: PersonDataEntry
 ) -> bool:
     person_name_safe = re.sub(r"\W", "-", person.name).lower()
-    subject_prefix, content_html = _craft_result_email_body(person)
+    acc: Account = Account.get_by_id(account_id)
+    subject_prefix, content_html = _craft_result_email_body(
+        person, shareable_link=acc.get_shareable_spreadsheet_link()
+    )
 
     email_params = EmailLog.get_email_reply_params_for_account_id(
         account_id=account_id,

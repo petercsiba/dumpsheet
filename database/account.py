@@ -53,6 +53,21 @@ class Account(BaseAccount):
             print(f"WARNING: Account.get_mail: no email found for account {self.id}")
         return None
 
+    def get_shareable_spreadsheet_link(self) -> Optional[str]:
+        if self.gsheet_id is None:
+            # Refresh to double-check
+            acc = Account.get_by_id(self.id)
+            if acc.gsheet_id is None:
+                print(
+                    f"ERROR: tried to share gsheets link for account not having a gsheet_id: {acc.id}"
+                )
+                return None
+        else:
+            acc = self
+
+        # Construct the shareable link
+        return f"https://docs.google.com/spreadsheets/d/{acc.gsheet_id}/edit"
+
     def get_phone(self) -> Optional[str]:
         if bool(self.user):
             return User.get_by_id(self.user).phone

@@ -1,7 +1,6 @@
 import json
 import re
 import time
-import uuid
 from datetime import datetime
 from typing import List, Optional, Tuple
 
@@ -18,7 +17,7 @@ from gspread_formatting import (
     get_conditional_format_rules,
 )
 
-from app.email_template import button_template, simple_email_body_html
+from app.email_template import button_snippet_for_spreadsheet, simple_email_body_html
 from app.emails import send_email
 from app.form import FormData, FormDefinition, FormName
 from app.form_library import FOOD_LOG_FIELDS, get_form
@@ -180,11 +179,7 @@ class GoogleClient:
                 sendNotificationEmail=False,
             ).execute()
 
-            # Construct the shareable link
-            shareable_link = f"https://docs.google.com/spreadsheets/d/{file_id}/edit"
-            send_gsheets_shareable_link(
-                account_id=acc.id, shareable_link=shareable_link
-            )
+            send_gsheets_shareable_link(acc=acc)
 
         except HttpError as gsheets_err:
             print(
@@ -481,11 +476,14 @@ class GoogleClient:
         return [json.loads(s) for s in unique_conditional_formats]
 
 
-def send_gsheets_shareable_link(account_id: uuid.UUID, shareable_link: str):
-    print(f"gsheets send_gsheets_shareable_link link {shareable_link}")
+def send_gsheets_shareable_link(acc: Account):
+    shareable_link = acc.get_shareable_spreadsheet_link()
+    if shareable_link:
+        return None
+
     email_params = EmailLog.get_email_reply_params_for_account_id(
-        account_id=account_id,
-        idempotency_id=str(account_id),  # One shareable link for account (for now)
+        account_id=acc.id,
+        idempotency_id=str(acc.id),  # One shareable link for account (for now)
         subject="Your Voxana Spreadsheet - with all the data you enter at one place",
     )
 
@@ -499,7 +497,7 @@ def send_gsheets_shareable_link(account_id: uuid.UUID, shareable_link: str):
         </p>
         <p>{button_html}</p>
         """.format(
-            button_html=button_template("Open in Google Sheets", shareable_link)
+            button_html=button_snippet_for_spreadsheet(shareable_link)
         ),
     )
     send_email(params=email_params)
