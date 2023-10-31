@@ -25,7 +25,6 @@ from app.email_template import (
     table_row_template,
     table_template,
 )
-from app.form import FormData
 from app.hubspot_dump import HubspotDataEntry
 from app.hubspot_models import FieldNames, HubspotObject
 from common.aws_utils import is_running_in_aws
@@ -37,6 +36,7 @@ from common.config import (
     SKIP_SENDING_EMAILS,
     SUPPORT_EMAIL,
 )
+from common.form import FormData
 from common.storage_utils import pretty_filesize_path
 from common.twillio_client import TwilioClient
 from database.account import Account

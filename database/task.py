@@ -2,7 +2,7 @@ import datetime
 import uuid
 
 from app import utils
-from app.form import FormData
+from common.form import FormData
 from database.models import BaseTask
 
 TASK_INITIATED = "initiated"

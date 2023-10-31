@@ -19,10 +19,10 @@ from gspread_formatting import (
 
 from app.email_template import button_snippet_for_spreadsheet, simple_email_body_html
 from app.emails import send_email
-from app.form import FormData, FormDefinition, FormName
 from app.form_library import FOOD_LOG_FIELDS, get_form
 from app.gsheets_view import get_overlay_cell_format
 from common.config import GOOGLE_FORMS_SERVICE_ACCOUNT_PRIVATE_KEY
+from common.form import FormData, FormDefinition, FormName
 from database.account import Account
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.email_log import EmailLog

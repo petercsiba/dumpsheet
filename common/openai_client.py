@@ -20,9 +20,9 @@ import pytz
 import tiktoken
 from peewee import InterfaceError
 
-from app.form import FieldDefinition, FormData, FormDefinition, Option
 from common.aws_utils import is_running_in_aws
 from common.config import OPEN_AI_API_KEY
+from common.form import FieldDefinition, FormData, FormDefinition, Option
 from common.storage_utils import get_fileinfo
 from common.utils import Timer
 from database.models import BasePromptLog

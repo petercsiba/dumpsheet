@@ -1,4 +1,4 @@
-from app.form import FieldDefinition, FormDefinition, FormName, Option
+from common.form import FieldDefinition, FormDefinition, FormName, Option
 
 
 def get_form(form_name: FormName) -> FormDefinition:

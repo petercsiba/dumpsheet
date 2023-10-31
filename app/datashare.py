@@ -4,7 +4,7 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from json import JSONEncoder
 from typing import Any, List, Optional, Type, get_args, get_origin
 
-from app.form import FormData
+from common.form import FormData
 
 
 def check_required_str(name, s):

@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional
 
 from hubspot.crm.properties import ModelProperty
 
-from app.form import FormData, FormDefinition, FormName
 from app.form_library import get_form
 from app.hubspot_client import HubspotClient
 from app.hubspot_models import (
@@ -16,6 +15,7 @@ from app.hubspot_models import (
     HubspotObject,
     ObjectType,
 )
+from common.form import FormData, FormDefinition, FormName
 from common.openai_client import OpenAiClient
 from database.account import Account
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres

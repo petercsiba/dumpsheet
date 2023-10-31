@@ -1,6 +1,6 @@
 from typing import List
 
-from app.form import FormDefinition
+from common.form import FormDefinition
 from common.openai_client import OpenAiClient
 
 

@@ -2,8 +2,8 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from app.form import FieldDefinition, FormDefinition
 from app.form_library import HUBSPOT_CALL_FIELDS
+from common.form import FieldDefinition, FormDefinition
 
 
 # We allow-list fields which we will use with Hubspot

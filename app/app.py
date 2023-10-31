@@ -24,7 +24,6 @@ from app.emails import (
     wait_for_email_updated_on_data_entry,
 )
 from app.food_dump import run_food_ingredient_extraction
-from app.form import FormData, FormName
 from app.gsheets import TEMPLATE_CONTACTS_SPREADSHEET_ID, GoogleClient
 from app.hubspot_client import HubspotClient
 from app.hubspot_dump import HubspotDataEntry, extract_and_sync_contact_with_follow_up
@@ -36,6 +35,7 @@ from common.config import (
     SKIP_PROCESSED_DATA_ENTRIES,
     SKIP_SHARE_SPREADSHEET,
 )
+from common.form import FormData, FormName
 from common.openai_client import CHEAPER_MODEL, OpenAiClient
 from common.twillio_client import TwilioClient
 from database.account import Account
