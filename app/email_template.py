@@ -40,7 +40,7 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
 
       <!-- Heading -->
       <table align="center" cellspacing="0" cellpadding="10"
-        style="background-color: white; border: 1px solid black; border-radius: 50px; width: auto;">
+        style="background-color: white; border: 1px solid black; border-radius: 12px; width: auto;">
         <tr>
           <td style="font-size: 20px; text-align: center; font-weight: bold; color: black;">
             {title}
@@ -60,7 +60,7 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
         <tr>
           <td>
             <table align="center" cellspacing="0" cellpadding="14"
-                style="background-color: white; border: 1px solid black; border-radius: 50px; width: auto;">
+                style="background-color: white; border: 1px solid black; border-radius: 12px; width: auto;">
               <tr>
                 <td align="center">
                   Thank you for using <b><a href="https://www.voxana.ai/">Voxana.ai</a></b>
@@ -182,7 +182,7 @@ def simple_email_body_html(
 
 def button_template(text: str, href: str) -> str:
     return f"""
-      <table align="center" cellspacing="0" cellpadding="14" style="border-radius: 50px; width: auto;
+      <table align="center" cellspacing="0" cellpadding="14" style="border-radius: 12px; width: auto;
                 background-color: black;">
         <tr>
           <td align="center">
