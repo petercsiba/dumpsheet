@@ -113,7 +113,7 @@ def test_lambda_handler_get_upload_voice(db_connection):
 
 
 def test_lambda_handler_post_upload_voice(db_connection):
-    orig_account = Account.get_or_onboard_for_ip("127.0.0.1")
+    orig_account = Account.get_or_onboard_for_ip("127.0.0.1", "Mozilla")
 
     req = get_event_fixture(
         "POST",
@@ -150,11 +150,11 @@ def test_lambda_handler_post_upload_voice(db_connection):
 
 
 def test_lambda_handler_post_upload_voice_new_account_same_email(db_connection):
-    orig_account = Account.get_or_onboard_for_ip("127.0.0.1")
+    orig_account = Account.get_or_onboard_for_ip("127.0.0.1", "Mozilla")
     orig_onboarding = BaseOnboarding.get(BaseOnboarding.account == orig_account)
     orig_onboarding.email = "existing@gmail.com"
     orig_onboarding.save()
-    new_account = Account.get_or_onboard_for_ip("127.0.0.2")
+    new_account = Account.get_or_onboard_for_ip("127.0.0.2", "Mozilla")
     new_onboarding = BaseOnboarding.get(BaseOnboarding.account == new_account)
     new_data_entry_id = create_data_entry_fixture(new_account.id)
 

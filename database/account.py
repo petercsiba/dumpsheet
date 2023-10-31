@@ -1,10 +1,12 @@
 import random
 import string
+import time
 from typing import List, Optional
 
 from hubspot.crm.owners import PublicOwner
 from peewee import DoesNotExist
 
+from common.config import ALLOW_ONBOARDING_IP_MATCHING
 from database.constants import ACCOUNT_STATE_PENDING
 from database.models import BaseAccount, BaseOnboarding
 from database.user import User
@@ -175,20 +177,37 @@ class Account(BaseAccount):
         return account
 
     @staticmethod
-    def get_or_onboard_for_ip(
-        ip_address: str,
-    ) -> "Account":
-        onboarding: Optional[BaseOnboarding] = BaseOnboarding.get_or_none(
-            BaseOnboarding.ip_address == ip_address
-        )
-        if bool(onboarding):
-            print(f"found account {onboarding.account_id} for ip_address {ip_address}")
-            return Account.get_by_id(onboarding.account_id)
+    def get_or_onboard_for_ip(ip_address: str, user_agent: str) -> "Account":
+        # TODO(hack): We always generate a new "anonymous identifier" for our local network.
+        if ip_address == "76.133.98.247":
+            anonymous_identifier = f"{ip_address}-{str(time.time())}"
+            print(
+                f"HACK: anonymous_identifier rewritten for our local ip to {anonymous_identifier}"
+            )
+        else:
+            anonymous_identifier = f"{ip_address}-{user_agent}"
 
-        print(f"onboarding new account for ip_address {ip_address}")
+        if str(ALLOW_ONBOARDING_IP_MATCHING) == "1":
+            onboarding: Optional[BaseOnboarding] = BaseOnboarding.get_or_none(
+                BaseOnboarding.ip_address == anonymous_identifier
+            )
+            if bool(onboarding):
+                print(
+                    f"found account {onboarding.account_id} for anonymous_identifier {anonymous_identifier}"
+                )
+                return Account.get_by_id(onboarding.account_id)
+        else:
+            anonymous_identifier = f"{ip_address}-{str(time.time())}"
+            print(
+                f"ALLOW_ONBOARDING_IP_MATCHING is {ALLOW_ONBOARDING_IP_MATCHING} - will do new onboarding"
+            )
+
+        print(f"onboarding new account for anonymous_identifier {anonymous_identifier}")
         account_id = BaseAccount.insert(state=ACCOUNT_STATE_PENDING).execute()
         BaseOnboarding.insert(
-            ip_address=ip_address, account_id=account_id, utm_source="ip_address"
+            ip_address=anonymous_identifier,
+            account_id=account_id,
+            utm_source="ip_address",
         ).execute()
         account = Account.get_by_id(account_id)
         return account

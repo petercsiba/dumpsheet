@@ -4,7 +4,6 @@ import datetime
 import json
 import os
 import re
-import time
 import uuid
 from typing import Dict, Optional
 
@@ -156,15 +155,12 @@ def handle_get_request_for_presigned_url(event) -> Dict:
         user_agent = format_user_agent(
             event["requestContext"]["identity"].get("userAgent", "")
         )
-        # TODO(hack): We always generate a new "anonymous identifier" for our local network.
-        if source_ip == "76.133.98.247":
-            anonymous_identifier = str(time.time())
-        else:
-            anonymous_identifier = f"{source_ip}-{user_agent}"
-
+        print(f"Received source_ip: {source_ip} and user_agent {user_agent}")
         # TODO: fill in referer, utm_source, user_agent here
         # https://chat.openai.com/share/b866f3da-145c-4c48-8a34-53cf85a7eb19
-        acc = account.Account.get_or_onboard_for_ip(ip_address=anonymous_identifier)
+        acc = account.Account.get_or_onboard_for_ip(
+            ip_address=source_ip, user_agent=user_agent
+        )
 
     if bool(acc.user):
         # TODO(P0, auth): Support authed sessions somehow.
