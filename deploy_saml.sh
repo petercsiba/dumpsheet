@@ -32,6 +32,8 @@ fi
 echo "=== BUILDING ==="
 echo "copy new models (including the post-generate modified ones)"
 cp -r database/ sam_app/upload_voice/database/
+echo "copy common/ directory"
+cp -r common/ sam_app/upload_voice/common/
 
 # Cause the (many) limitations of SAM, we have to run it in the root ( --template doesn't help)
 echo "cd sam_app"
@@ -42,6 +44,7 @@ sam build
 
 # NOTE: Sometimes it fails to detect changes, you might need to clear the cache in:
 # Locally: rm -rf .aws-sam/
+# Or: rm -rf sam_app/lambda_layers/database_client/python/*
 # Remotely: https://s3.console.aws.amazon.com/s3/buckets/aws-sam-cli-managed-default-samclisourcebucket-ul50z4hzdzd9?region=us-east-1&tab=objects
 echo "=== DEPLOYING ==="
 yes | sam deploy --profile $PROFILE_NAME --parameter-overrides "DummyParam=$(date +%s)"

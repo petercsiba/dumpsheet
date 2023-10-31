@@ -6,7 +6,7 @@ import phonenumbers
 import pytz
 from dateutil import parser
 
-from app.utils import get_local_timezone
+from common.utils import get_local_timezone
 
 
 class Option:
