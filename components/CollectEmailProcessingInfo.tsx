@@ -84,7 +84,7 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({collec
                             onChange={(e) => setTermsAccepted(e.target.checked)}
                         />
                         <label className="ml-2">
-                            Our&nbsp;
+                            Agree to our&nbsp;
                             <a className="underline hover:no-underline"
                                href="https://www.voxana.ai/legal/terms-of-service" target="_blank"
                                rel="noopener noreferrer">
