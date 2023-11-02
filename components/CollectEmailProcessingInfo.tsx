@@ -1,15 +1,15 @@
 import React, {useState, FC} from 'react';
-import ProgressBar from "@/components/ProgressBar";
 
 interface CollectEmailProcessingInfoProps {
     collectEmail: boolean | null;
     existingEmail: string | null;
     accountId: string | null;
+    onSuccess: () => void;
 }
 
 const UPDATE_EMAIL_URL = 'https://api.voxana.ai/upload/voice';
 
-const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({collectEmail, existingEmail, accountId}) => {
+const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({collectEmail, existingEmail, accountId, onSuccess}) => {
     const [email, setEmail] = useState('');
     const [message, setMessage] = useState('');
     const [submitted, setSubmitted] = useState(false);
@@ -45,6 +45,7 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({collec
 
             if (response.status >= 200 && response.status < 300) {
                 setSuccess(true)
+                onSuccess()  // callback
             }
         } catch (err) {
             setMessage(`Ugh - an error occurred when setting your email. 
@@ -101,20 +102,18 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({collec
                             Submit
                         </button>
                     </div>
-                    <ProgressBar currentStep={2}/>
                 </>
             )}
             <p>{message}</p>
             {success && (
                 <>
-                    <p className="pl-4">
+                    <div className="pl-4">
                         <span className="font-bold text-base">I will be:</span>
                         <ul className="list-disc list-inside text-">
                             <li className="mt-1">Sending my work to <b>{existingEmail ?? email}</b></li>
                             <li className="mt-1">Syncing to your CRM (if connected)</li>
                         </ul>
-                    </p>
-                    <ProgressBar currentStep={3}/>
+                    </div>
                 </>
             )}
         </div>
