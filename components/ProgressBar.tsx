@@ -31,7 +31,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({ currentStep }) => {
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${currentStep === 4 ? 'bg-orange-500' : currentStep > 4 ? 'bg-green-500' : 'bg-gray-300'}`}>
                         4
                     </div>
-                    <span className="text-xs mt-1 mx-1 text-center">Review & Follow Up</span>
+                    <span className="text-xs mt-1 mx-1 text-center">Your Review & Follow Up</span>
                 </div>
             </div>
         </div>

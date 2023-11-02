@@ -111,14 +111,34 @@ const UploadingState = () => (
         <ProgressBar currentStep={2}/>
     </>
 );
+const SuccessState = ({ collectEmail, existingEmail, accountId, onTryAgain }) => {
+    const [showButton, setShowButton] = useState(false);
+    const [step, setStep] = useState(2);
+    const [headingText, setHeadingText] = useState("Upload was successful!");
 
-const SuccessState = ({collectEmail, existingEmail, accountId}) => (
-    <>
-        <HeadingText text={"Upload was successful!"}></HeadingText>
-        <CollectEmailProcessingInfo collectEmail={collectEmail} existingEmail={existingEmail}
-                                    accountId={accountId}/>
-    </>
-)
+    const handleSuccess = () => {
+        setHeadingText(isDemo() ? "Demo finished!" : "Next Steps")
+        setShowButton(isDemo());
+        setStep(3);
+        clearDemo()  // So in next success, this won't happen.
+        console.log(`CollectEmailProcessingInfo success setShowButton: ${showButton}`)
+    };
+
+    return (
+        <>
+            <HeadingText text={headingText} />
+            <CollectEmailProcessingInfo
+                collectEmail={collectEmail}
+                existingEmail={existingEmail}
+                accountId={accountId}
+                onSuccess={handleSuccess}
+            />
+            {showButton && <div className="pt-8"><SelectButton label={"Now Try Yourself!"} onClick={onTryAgain}/></div>}
+            {!showButton && <ProgressBar currentStep={step} />}
+        </>
+    );
+}
+
 
 const FailureState = ({audioURL, failureMessage}) => {
     const fileName = `voxana-audio-recording-${Date.now()}.webm`;
@@ -204,10 +224,11 @@ const SelectPersonaState = ({onSelectPersona}) => {
             <HeadingText text={"Select a Persona"}/>
             <div className="flex flex-col items-center text-center">
                 <p>
-                    To showcase Voxana for you, <br />
+                    To showcase Voxana for you, <br/>
                     pick one person to do a voice recording for you!
                 </p>
-                <div className="pt-4"><SelectButton onClick={() => onSelectPersona('A')} label={"Arnold Schwarzenegger"}/></div>
+                <div className="pt-4"><SelectButton onClick={() => onSelectPersona('A')}
+                                                    label={"Arnold Schwarzenegger"}/></div>
                 <div className="pt-4"><SelectButton onClick={() => onSelectPersona('B')} label={"Taylor Swift"}/></div>
                 <div className="pt-4"><SelectButton onClick={() => onSelectPersona('C')} label={"Khary Payton"}/></div>
             </div>
@@ -222,8 +243,20 @@ const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
     useEffect(() => {
         // Initialize the audio element and play
         const audioElement = audioRef.current;
-        audioElement.src = `${currentPersona.webmUrl}`;
-        audioElement.play();
+        audioElement.addEventListener('error', (e) => {
+            console.error("Audio Error:", e);
+        });
+
+        const audioURL = `${currentPersona.webmUrl}`
+        console.log(`set audioElement.src to ${audioURL}`)
+        audioElement.src = audioURL;
+        // TODO(P1): This leads to Playback error: DOMException:
+        //  The fetching process for the media resource was aborted by the user agent at the user's request.
+        // BUT the audio still plays so :shrug:
+        // https://chat.openai.com/share/62db5975-b570-4e55-8613-7370b403bc75
+        audioElement.play().catch(error => {
+            console.error("Playback error:", error);
+        });
 
         const handleTimeUpdate = () => {
             setProgress((audioElement.currentTime / audioElement.duration) * 100);
@@ -251,6 +284,7 @@ const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
                 <div>
                     <div style={{width: `${progress}%`}} className="progress-bar"></div>
                 </div>
+                <h2>Transcript of recording</h2>
                 <p>{currentPersona.transcript}</p>
                 <ProgressBar currentStep={1}/>
             </div>
@@ -259,9 +293,19 @@ const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
 };
 
 
+const isDemo = () => {
+    return window.location.pathname === '/demo' || new URLSearchParams(window.location.search).get('demo') === 'true';
+}
+
+const clearDemo = () => {
+    const newUrl = new URL(window.location.href);
+    newUrl.searchParams.delete('demo');
+    window.history.replaceState({}, '', newUrl.toString());
+}
+
 export default function VoiceRecorder() {
     // Main state
-    const isFirstTimeUser = window.location.pathname === '/demo' || new URLSearchParams(window.location.search).get('demo') === 'true';
+    const isFirstTimeUser = isDemo()
     const [recorderState, setRecorderState] = useState(isFirstTimeUser ? RecorderState.DEMO_SELECT_PERSONA : RecorderState.WELCOME);
 
     // Media related
@@ -466,12 +510,14 @@ export default function VoiceRecorder() {
                     <RecordingState onStopRecording={stopRecording} elapsedTime={recordingElapsedTime}/>}
                 {recorderState === RecorderState.UPLOADING && <UploadingState/>}
                 {recorderState === RecorderState.SUCCESS &&
-                    <SuccessState collectEmail={collectEmail} existingEmail={existingEmail} accountId={accountId}/>}
+                    <SuccessState collectEmail={collectEmail} existingEmail={existingEmail} accountId={accountId}
+                                  onTryAgain={() => setRecorderState(RecorderState.WELCOME)}/>}
                 {recorderState === RecorderState.TOO_SHORT && <TooShortState/>}
                 {recorderState === RecorderState.FAILURE &&
                     <FailureState audioURL={audioURL} failureMessage={failureMessage}/>}
                 {recorderState === RecorderState.DEBUG &&
-                    <SuccessState collectEmail={true} existingEmail={existingEmail} accountId={accountId}/>}
+                    <SuccessState collectEmail={true} existingEmail={existingEmail} accountId={accountId}
+                                  onTryAgain={() => setRecorderState(RecorderState.WELCOME)}/>}
             </div>
         </div>
     );
