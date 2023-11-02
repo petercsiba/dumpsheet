@@ -448,8 +448,9 @@ export default function VoiceRecorder() {
             throw new Error(`Failed to download example persona recording from ${currentPersona.webmUrl}`);
         }
         const audioBlob = await response.blob()
-        return uploadRecordingWrapper(audioBlob);
+        return uploadRecordingWrapper(audioBlob)
     }
+
 
 // In the main component...
     return (
