@@ -172,8 +172,11 @@ const TooShortState = () => (
 
 
 class Persona {
-    constructor(displayName, webmUrl, transcript) {
+    constructor(displayName, webmUrl, mp3Url, transcript) {
         this.displayName = displayName;
+        // The code seems to try to play a .webm audio format, which Firefox supports but Safari doesn't.
+        // Safari lacks support for the WebM container and its associated VP8 and VP9 video codecs.
+        this.mp3Url = mp3Url;
         this.webmUrl = webmUrl;
         this.transcript = transcript;
     }
@@ -183,11 +186,13 @@ const personaMap = {
     'A': new Persona(
         'Arnold Schwarzenegger',
         '/sample-voice-memos/arnold-test.webm',
+        '/sample-voice-memos/arnold-test.mp3',
         'If you\'ve seen my movies, you might think this is about terminating threats. Today, it\'s about protecting John Connor, the future leader of human resistance. His needs are survival and skill development. My job? Keep him safe and train him in combat. Because the fate of humanity rests on his shoulders. It\'s not just "Hasta la vista, baby"—it\'s shaping the future, one mission at a time.'
     ),
     'B': new Persona(
         'Taylor Swift',
         '/sample-voice-memos/arnold-test.webm',
+        '/sample-voice-memos/arnold-test.mp3',
         'Taylor also penned a lengthy prologue for 1989 (Taylor\'s Version), recalling how she "swore off hanging out with guys" to avoid the negativity surrounding her dating life while making the album in 2014.\n' +
         '\n' +
         '"There was so much that I didn\'t know then, and looking back I see what a good thing that was," she wrote in part. "It turns out that the cocktail of naïveté, hunger for adventure and freedom can lead to some nasty hangovers, metaphorically speaking. Of course everyone had something to say, but they always will."\n' +
@@ -197,6 +202,7 @@ const personaMap = {
     'C': new Persona(
         'Khary Payton',
         '/sample-voice-memos/arnold-test.webm',
+        '/sample-voice-memos/arnold-test.mp3',
         'Dont get me wrong, I love Khary Payton and his work. However, it kind of annoys me that he plays every black male character. Its like they think all black men sound the same. Im sure thats not what actually think, but thats the impression that it exuding.\n' +
         '\n' +
         'Aquaman (Aqualad) Black Lightning Dr. Stone Black Manta Maybe Static too\n' +
@@ -236,6 +242,10 @@ const SelectPersonaState = ({onSelectPersona}) => {
     );
 };
 
+function isSafari() {
+    return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+}
+
 const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
     const audioRef = useRef(null);
     const [progress, setProgress] = useState(0);
@@ -247,15 +257,33 @@ const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
             console.error("Audio Error:", e);
         });
 
-        const audioURL = `${currentPersona.webmUrl}`
-        console.log(`set audioElement.src to ${audioURL}`)
-        audioElement.src = audioURL;
-        // TODO(P1): This leads to Playback error: DOMException:
-        //  The fetching process for the media resource was aborted by the user agent at the user's request.
-        // BUT the audio still plays so :shrug:
-        // https://chat.openai.com/share/62db5975-b570-4e55-8613-7370b403bc75
+        if (isSafari()) {
+            console.log("isSafari true")
+            audioElement.src = currentPersona.mp3Url;
+        } else {
+            audioElement.src = currentPersona.webmUrl;
+        }
+        console.log(`set audioElement.src to ${audioElement.src}`);
+
+        audioElement.play()
+            .catch(error => {
+                // if (error.name === 'NotSupportedError') {
+                    audioElement.src = currentPersona.mp3Url;
+                    console.log(`WebM format not supported ${error}, trying MP3: ${audioElement.src}`);
+                    // TODO(P1): This sometimes leads to Playback error: DOMException:
+                    //  The fetching process for the media resource was aborted by the user agent at the user's request.
+                    // BUT the audio still plays so :shrug:
+                    // https://chat.openai.com/share/62db5975-b570-4e55-8613-7370b403bc75
+                    return audioElement.play();  // Play the MP3 version
+                // } else {
+                //    throw error;  // If it's another error, re-throw it
+                // }
+            })
+            .catch(error => {
+                console.error("MP3 Playback error:", error);
+            });
         audioElement.play().catch(error => {
-            console.error("Playback error:", error);
+            console.error("WebM Playback error:", error);
         });
 
         const handleTimeUpdate = () => {
