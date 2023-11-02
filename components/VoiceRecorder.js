@@ -162,12 +162,12 @@ class Persona {
 const personaMap = {
     'A': new Persona(
         'Arnold Schwarzenegger',
-        'https://voxana-ai-static.s3.amazonaws.com/arnold-test.webm',
+        '/sample-voice-memos/arnold-test.webm',
         'If you\'ve seen my movies, you might think this is about terminating threats. Today, it\'s about protecting John Connor, the future leader of human resistance. His needs are survival and skill development. My job? Keep him safe and train him in combat. Because the fate of humanity rests on his shoulders. It\'s not just "Hasta la vista, baby"—it\'s shaping the future, one mission at a time.'
     ),
     'B': new Persona(
         'Taylor Swift',
-        'https://voxana-ai-static.s3.amazonaws.com/arnold-test.webm',
+        '/sample-voice-memos/arnold-test.webm',
         'Taylor also penned a lengthy prologue for 1989 (Taylor\'s Version), recalling how she "swore off hanging out with guys" to avoid the negativity surrounding her dating life while making the album in 2014.\n' +
         '\n' +
         '"There was so much that I didn\'t know then, and looking back I see what a good thing that was," she wrote in part. "It turns out that the cocktail of naïveté, hunger for adventure and freedom can lead to some nasty hangovers, metaphorically speaking. Of course everyone had something to say, but they always will."\n' +
@@ -176,7 +176,7 @@ const personaMap = {
     ),
     'C': new Persona(
         'Khary Payton',
-        'https://voxana-ai-static.s3.amazonaws.com/arnold-test.webm',
+        '/sample-voice-memos/arnold-test.webm',
         'Dont get me wrong, I love Khary Payton and his work. However, it kind of annoys me that he plays every black male character. Its like they think all black men sound the same. Im sure thats not what actually think, but thats the impression that it exuding.\n' +
         '\n' +
         'Aquaman (Aqualad) Black Lightning Dr. Stone Black Manta Maybe Static too\n' +
