@@ -117,6 +117,14 @@ def format_user_agent(user_agent_str: str):
     return re.sub(r"[^a-zA-Z0-9-.]", "", s)
 
 
+def get_header_value(headers, key):
+    # Match header key case in-sensitive https://chat.openai.com/share/ed8115d2-53f5-4c16-b4b3-a48c4b80e0c3
+    return next(
+        (value for header, value in headers.items() if header.lower() == key.lower()),
+        None,
+    )
+
+
 def handle_get_request_for_presigned_url(event) -> Dict:
     # Specify the S3 bucket and file name
     bucket_name = "requests-from-api-voxana"
@@ -145,7 +153,7 @@ def handle_get_request_for_presigned_url(event) -> Dict:
 
     # NOTE: To allow extra headers you need to allow-list them in the CORS policy
     # https://chat.openai.com/share/4e0034b2-4012-4ef9-97dc-e41b66bec335
-    account_id = event["headers"].get("X-Account-Id", None)
+    account_id = get_header_value(event["headers"], "X-Account-Id")
     if account_id:
         print(f"Received account_id: {account_id}")
         acc = account.Account.get_by_id(account_id)
