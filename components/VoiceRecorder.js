@@ -20,7 +20,8 @@ const RecorderState = {
     DEMO_SELECT_PERSONA: 'demo_select_persona',
     DEMO_PLAY_PERSONA: 'demo_play_persona',
     // For real-use
-    WELCOME: 'welcome',
+    WELCOME_PRIVATE_BETA: 'welcome_private_beta',
+    LETS_RECORD: 'lets_record',
     RECORDING: 'recording',
     UPLOADING: 'uploading',
     SUCCESS: 'success',
@@ -41,12 +42,82 @@ const HeadingText = ({text}) => (
     </div>
 )
 
-const WelcomeState = ({onStartRecording}) => {
+
+const WelcomePrivateBetaState = ({ onSuccess }) => {
+    const [codes, setCodes] = useState(['', '', '', '']);
+    const [errorMessage, setErrorMessage] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
+    const inputRefs = [useRef(null), useRef(null), useRef(null), useRef(null)];
+
+    useEffect(() => {
+        if (inputRefs[0].current) {
+            inputRefs[0].current.focus();
+        }
+    }, []);
+
+    const handleInputChange = (e, index) => {
+        const value = e.target.value;
+
+        if (!isNaN(value) && value.length <= 1) {
+            const newCodes = [...codes];
+            newCodes[index] = value;
+            setCodes(newCodes);
+
+            if (index < 3 && value !== '') {
+                inputRefs[index + 1].current.focus();
+            }
+
+            const fullCode = newCodes.join('');
+            if (fullCode.length === 4) {
+                if (fullCode === '1876') {
+                    setSuccessMessage("Correct - thanks! (Redirecting ...)");
+                    setTimeout(onSuccess, 1000);  // 1 second delay
+                } else {
+                    setErrorMessage("Wrong code, please contact support@voxana.ai");
+                }
+            }
+        }
+    };
+
+    return (
+        <>
+            <HeadingText text={"Welcome to Voxana!"} />
+            { /* <p className="font-bold">Your voice-first personal networking CRM</p> */ }
+            <p className="font-bold">We are in private beta, please provide a 4 digit code:</p>
+            <div className="pt-4" style={{ display: 'flex', justifyContent: 'space-between', maxWidth: '200px' }}>
+                {codes.map((code, index) => (
+                    <input
+                        key={index}
+                        type="text"
+                        value={code}
+                        ref={inputRefs[index]}
+                        onChange={(e) => handleInputChange(e, index)}
+                        maxLength={1}
+                        style={{
+                            width: '40px',
+                            textAlign: 'center',
+                            border: '1px solid #000',  // border style
+                            borderRadius: '4px',  // border-radius for slight rounding of corners
+                            margin: '0 2px',  // small margin for spacing between input boxes
+                            padding: '5px'
+                        }}
+                    />
+                ))}
+            </div>
+            {errorMessage && <p className="pt-8 text-red-500">{errorMessage}</p>}
+            {successMessage && <p className="pt-8 text-green-700 font-bold">{successMessage}</p>}
+        </>
+    );
+};
+
+
+const LetsRecordState = ({onStartRecording}) => {
     const [imageSrc, setImageSrc] = useState(MicrophoneIcon);
 
     return (
         <>
             <HeadingText text={"Tell Me About Your Meeting"}/>
+            <p className="pb-4">Talk about people, facts and action items you want to get organized</p>
             <div className="flex items-center justify-center">
                 <button
                     className="btn-white p-0 hover:bg-gray-100"
@@ -216,7 +287,7 @@ const SelectButton = ({label, onClick}) => {
     return (
         <button
             onClick={onClick}
-            className="flex items-center justify-center w-60 h-12 text-black border border-black rounded-full font-semibold text-lg tracking-tighter bg-white hover:bg-gray-100"
+            className="flex items-center justify-center w-60 h-12 text-black border border-black rounded-full font-semibold text-lg tracking-tighter bg-white hover:bg-gray-300"
         >
             {label}
         </button>
@@ -227,11 +298,10 @@ const SelectButton = ({label, onClick}) => {
 const SelectPersonaState = ({onSelectPersona}) => {
     return (
         <>
-            <HeadingText text={"Select a Persona"}/>
+            <HeadingText text={"Voxana Demo"}/>
             <div className="flex flex-col items-center text-center">
-                <p>
-                    To showcase Voxana for you, <br/>
-                    pick one person to do a voice recording for you!
+                <p className="text-lg pb-4">
+                    <b>Pick a person</b> who will teach you how it works: <br/>
                 </p>
                 <div className="pt-4"><SelectButton onClick={() => onSelectPersona('A')}
                                                     label={"Arnold Schwarzenegger"}/></div>
@@ -267,6 +337,7 @@ const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
 
         audioElement.play()
             .catch(error => {
+                // TODO: We might be able to remove this
                 // if (error.name === 'NotSupportedError') {
                     audioElement.src = currentPersona.mp3Url;
                     console.log(`WebM format not supported ${error}, trying MP3: ${audioElement.src}`);
@@ -334,7 +405,7 @@ const clearDemo = () => {
 export default function VoiceRecorder() {
     // Main state
     const isFirstTimeUser = isDemo()
-    const [recorderState, setRecorderState] = useState(isFirstTimeUser ? RecorderState.DEMO_SELECT_PERSONA : RecorderState.WELCOME);
+    const [recorderState, setRecorderState] = useState(isFirstTimeUser ? RecorderState.DEMO_SELECT_PERSONA : RecorderState.LETS_RECORD);
 
     // Media related
     const [stream, setStream] = useState(null);
@@ -495,7 +566,7 @@ export default function VoiceRecorder() {
 
                 setTimeout(() => {
                     console.log('recording short auto-refresh');
-                    setRecorderState(RecorderState.WELCOME);
+                    setRecorderState(RecorderState.LETS_RECORD);
                 }, SHORT_RECORDING_TIMEOUT);
 
                 return;
@@ -533,19 +604,20 @@ export default function VoiceRecorder() {
                 {recorderState === RecorderState.DEMO_PLAY_PERSONA &&
                     <PlayPersonaState onPlaybackComplete={moveToUploading} currentPersona={currentPersona}/>}
 
-                {recorderState === RecorderState.WELCOME && <WelcomeState onStartRecording={startRecording}/>}
+                {recorderState === RecorderState.WELCOME_PRIVATE_BETA && <WelcomePrivateBetaState onSuccess={() => setRecorderState(RecorderState.LETS_RECORD)}/>}
+                {recorderState === RecorderState.LETS_RECORD && <LetsRecordState onStartRecording={startRecording}/>}
                 {recorderState === RecorderState.RECORDING &&
                     <RecordingState onStopRecording={stopRecording} elapsedTime={recordingElapsedTime}/>}
                 {recorderState === RecorderState.UPLOADING && <UploadingState/>}
                 {recorderState === RecorderState.SUCCESS &&
                     <SuccessState collectEmail={collectEmail} existingEmail={existingEmail} accountId={accountId}
-                                  onTryAgain={() => setRecorderState(RecorderState.WELCOME)}/>}
+                                  onTryAgain={() => setRecorderState(RecorderState.LETS_RECORD)}/>}
                 {recorderState === RecorderState.TOO_SHORT && <TooShortState/>}
                 {recorderState === RecorderState.FAILURE &&
                     <FailureState audioURL={audioURL} failureMessage={failureMessage}/>}
                 {recorderState === RecorderState.DEBUG &&
                     <SuccessState collectEmail={true} existingEmail={existingEmail} accountId={accountId}
-                                  onTryAgain={() => setRecorderState(RecorderState.WELCOME)}/>}
+                                  onTryAgain={() => setRecorderState(RecorderState.LETS_RECORD)}/>}
             </div>
         </div>
     );

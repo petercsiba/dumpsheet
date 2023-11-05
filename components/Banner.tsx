@@ -50,7 +50,7 @@ const Banner = () => {
                 </div>
             )}
             {!hubspot_status && (
-                <div className="w-[16rem] absolute top-20 left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center text-center border border-black rounded-lg bg-white px-6 py-1">
+                <div className="w-[16rem] absolute top-10 left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center text-center border border-black rounded-lg bg-white px-6 py-1">
                     <div className="block text-black font-semibold text-center">
                         We are in Private Beta
                     </div>
