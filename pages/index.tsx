@@ -16,6 +16,7 @@ export default function Home() {
       <AccountProvider>
           <Head>
               {isProduction && (
+                  // TODO(P1, compliance): We need to disclose this tracking */
                   <>
                       <script async src="https://www.googletagmanager.com/gtag/js?id=G-5M87782QY3"></script>
                       <script dangerouslySetInnerHTML={{

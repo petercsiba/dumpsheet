@@ -1,5 +1,6 @@
+// TODO(P1, devx): Extract common components to be re-used
 // TODO(P1, browser-compatibility): Mobile Safari displays a weirdly small <audio> tag
-import {useEffect, useRef, useState} from 'react'
+import React, {useEffect, useRef, useState} from 'react'
 import RecordRTC from 'recordrtc'
 import Image from 'next/image'
 // https://uxwing.com/stop-button-red-icon/
@@ -24,6 +25,7 @@ const RecorderState = {
     LETS_RECORD: 'lets_record',
     RECORDING: 'recording',
     UPLOADING: 'uploading',
+    REGISTER_EMAIL: 'register_email',
     SUCCESS: 'success',
     FAILURE: 'failure',
     TOO_SHORT: 'too_short',
@@ -43,7 +45,7 @@ const HeadingText = ({text}) => (
 )
 
 
-const WelcomePrivateBetaState = ({ onSuccess }) => {
+const WelcomePrivateBetaState = ({onSuccess}) => {
     const [codes, setCodes] = useState(['', '', '', '']);
     const [errorMessage, setErrorMessage] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
@@ -81,10 +83,10 @@ const WelcomePrivateBetaState = ({ onSuccess }) => {
 
     return (
         <>
-            <HeadingText text={"Welcome to Voxana!"} />
-            { /* <p className="font-bold">Your voice-first personal networking CRM</p> */ }
+            <HeadingText text={"Welcome to Voxana!"}/>
+            { /* <p className="font-bold">Your voice-first personal networking CRM</p> */}
             <p className="font-bold">We are in private beta, please provide a 4 digit code:</p>
-            <div className="pt-4" style={{ display: 'flex', justifyContent: 'space-between', maxWidth: '200px' }}>
+            <div className="pt-4" style={{display: 'flex', justifyContent: 'space-between', maxWidth: '200px'}}>
                 {codes.map((code, index) => (
                     <input
                         key={index}
@@ -117,7 +119,7 @@ const LetsRecordState = ({onStartRecording}) => {
     return (
         <>
             <HeadingText text={"Tell Me About Your Meeting"}/>
-            <p className="pb-4">Talk about people, facts and action items you want to get organized</p>
+            <p className="pb-8">Mention people, facts or any action items</p>
             <div className="flex items-center justify-center">
                 <button
                     className="btn-white p-0 hover:bg-gray-100"
@@ -178,36 +180,46 @@ const RecordingState = ({onStopRecording, elapsedTime}) => (
 
 const UploadingState = () => (
     <>
-        <HeadingText text={"Uploading ..."}/>
+        <HeadingText text={"Uploading Your Voice Memo ..."}/>
+        <div className="flex flex-col items-center justify-center">
+            Your recording is being processed. Please wait for a moment.
+        </div>
         <ProgressBar currentStep={2}/>
     </>
 );
-const SuccessState = ({ collectEmail, existingEmail, accountId, onTryAgain }) => {
-    const [showButton, setShowButton] = useState(false);
-    const [step, setStep] = useState(2);
-    const [headingText, setHeadingText] = useState("Upload was successful!");
 
-    const handleSuccess = () => {
-        setHeadingText(isDemo() ? "Demo finished!" : "Next Steps")
-        setShowButton(isDemo());
-        setStep(3);
-        clearDemo()  // So in next success, this won't happen.
-        console.log(`CollectEmailProcessingInfo success setShowButton: ${showButton}`)
-    };
-
+const RegisterEmailState = ({accountId, onRegistrationSuccess}) => {
     return (
         <>
-            <HeadingText text={headingText} />
-            <CollectEmailProcessingInfo
-                collectEmail={collectEmail}
-                existingEmail={existingEmail}
-                accountId={accountId}
-                onSuccess={handleSuccess}
-            />
-            {showButton && <div className="pt-8"><SelectButton label={"Now Try Yourself!"} onClick={onTryAgain}/></div>}
-            {!showButton && <ProgressBar currentStep={step} />}
+            <HeadingText text={"Almost There!"}/>
+            <CollectEmailProcessingInfo accountId={accountId} onRegistrationSuccess={onRegistrationSuccess}/>
+            <ProgressBar currentStep={2}/>
         </>
     );
+}
+
+const SuccessState = ({comesFromDemo, userEmailAddress, onRecordAgain}) => {
+    return (
+        <>
+            <HeadingText text={comesFromDemo ? "Demo Complete!" : "What to Expect"}/>
+            <div className="pl-4">
+                <span className="font-bold text-base">I will be:</span>
+                <ul className="list-disc list-inside text-">
+                    <li className="mt-1">Sending my work to <b>{userEmailAddress}</b></li>
+                    <li className="mt-1">Syncing results to your CRM (if connected)</li>
+                </ul>
+            </div>
+            {comesFromDemo &&
+                <div className="pt-8"><SelectButton label={"Now Try For Yourself!"} onClick={onRecordAgain}/></div>}
+            {!comesFromDemo && (
+                <>
+                    <div className="pt-8 pb-2"><b>More encounters on your mind?</b></div>
+                    <div><SelectButton label={"Record Again"} onClick={onRecordAgain}/></div>
+                </>
+            )}
+            {!comesFromDemo && <ProgressBar currentStep={3}/>}
+        </>
+    )
 }
 
 
@@ -243,12 +255,13 @@ const TooShortState = () => (
 
 
 class Persona {
-    constructor(displayName, webmUrl, mp3Url, transcript) {
+    constructor(displayName, webmUrl, mp3Url, recordingTitle, transcript) {
         this.displayName = displayName;
         // The code seems to try to play a .webm audio format, which Firefox supports but Safari doesn't.
         // Safari lacks support for the WebM container and its associated VP8 and VP9 video codecs.
         this.mp3Url = mp3Url;
         this.webmUrl = webmUrl;
+        this.recordingTitle = recordingTitle;
         this.transcript = transcript;
     }
 }
@@ -258,28 +271,23 @@ const personaMap = {
         'Arnold Schwarzenegger',
         '/sample-voice-memos/arnold-test.webm',
         '/sample-voice-memos/arnold-test.mp3',
-        'If you\'ve seen my movies, you might think this is about terminating threats. Today, it\'s about protecting John Connor, the future leader of human resistance. His needs are survival and skill development. My job? Keep him safe and train him in combat. Because the fate of humanity rests on his shoulders. It\'s not just "Hasta la vista, baby"—it\'s shaping the future, one mission at a time.'
+        'Terminators mission John Connor',
+        'If you\'ve seen my movies, you might think this is about terminating you. Today, it\'s about protecting John Connor, the future leader of human resistance. His needs are survival and skill development. My job? Keep him safe and train him in combat. Because the fate of humanity rests on his shoulders. It\'s not just "Hasta la vista, baby"—it\'s shaping the future, one mission at a time.'
     ),
     'B': new Persona(
         'Taylor Swift',
-        '/sample-voice-memos/arnold-test.webm',
-        '/sample-voice-memos/arnold-test.mp3',
-        'Taylor also penned a lengthy prologue for 1989 (Taylor\'s Version), recalling how she "swore off hanging out with guys" to avoid the negativity surrounding her dating life while making the album in 2014.\n' +
-        '\n' +
-        '"There was so much that I didn\'t know then, and looking back I see what a good thing that was," she wrote in part. "It turns out that the cocktail of naïveté, hunger for adventure and freedom can lead to some nasty hangovers, metaphorically speaking. Of course everyone had something to say, but they always will."\n' +
-        '\n' +
-        'And when it comes to her five never-before-heard vault tracks, read on for the full breakdown of the references and Easter Eggs:'
+        '/sample-voice-memos/taylor-swift-and-travis.webm',
+        '/sample-voice-memos/taylor-swift-and-travis.mp3',
+        'Taylor meets Travis Kelce',
+        'So I finish this gig at Arrowhead Stadium, home of the Chiefs, and what do I find but a friendship bracelet from tight end Travis Kelce himself. He couldn\'t chat at the show — vocal rest and all. Later on, there\'s Travis in New York, knee injury and all, trying to downplay the whole \'I almost missed the season\' thing. We ended up joking about turning his on-field audibles into song lyrics. Who knew NFL plays could sound so poetic?'
     ),
-    'C': new Persona(
-        'Khary Payton',
-        '/sample-voice-memos/arnold-test.webm',
-        '/sample-voice-memos/arnold-test.mp3',
-        'Dont get me wrong, I love Khary Payton and his work. However, it kind of annoys me that he plays every black male character. Its like they think all black men sound the same. Im sure thats not what actually think, but thats the impression that it exuding.\n' +
-        '\n' +
-        'Aquaman (Aqualad) Black Lightning Dr. Stone Black Manta Maybe Static too\n' +
-        '\n' +
-        'Also, I think its ironic that the only other black character that he doesnt play on yj is Victor Stone/Cyborg. And he plays Cyborg on Teen Titans..'
-    )
+    // 'C': new Persona(
+    //     'Khary Payton',
+    //     '/sample-voice-memos/arnold-test.webm',
+    //     '/sample-voice-memos/arnold-test.mp3',
+    //     'Khary jams with Tara Strong',
+    //     'I was at this voice-over gig, and out of nowhere, Tara Strong starts doing her Raven impression, saying \'Azarath Metrion Zinthos\' in the booth. And I just couldn’t resist, so I jump in with my Cyborg \'Booyah!\' It\'s all fun until I knock over a stack of scripts, and we\'re scrambling like in a cartoon, scripts flying everywhere. Tara\'s laughing so hard, she can barely speak. Just another day saving the world, right?'
+    // )
 };
 
 
@@ -287,7 +295,7 @@ const SelectButton = ({label, onClick}) => {
     return (
         <button
             onClick={onClick}
-            className="flex items-center justify-center w-60 h-12 text-black border border-black rounded-full font-semibold text-lg tracking-tighter bg-white hover:bg-gray-300"
+            className="flex items-center justify-center w-60 h-12 text-white border border-black rounded-full font-semibold text-lg tracking-tighter bg-black hover:bg-gray-700"
         >
             {label}
         </button>
@@ -298,15 +306,15 @@ const SelectButton = ({label, onClick}) => {
 const SelectPersonaState = ({onSelectPersona}) => {
     return (
         <>
-            <HeadingText text={"Voxana Demo"}/>
+            <HeadingText text={"Demo: How We Simplify Your Data Entry"}/>
             <div className="flex flex-col items-center text-center">
                 <p className="text-lg pb-4">
-                    <b>Pick a person</b> who will teach you how it works: <br/>
+                    <b>Pick a narrator</b> to walk you through Voxana's seamless process: <br/>
                 </p>
                 <div className="pt-4"><SelectButton onClick={() => onSelectPersona('A')}
                                                     label={"Arnold Schwarzenegger"}/></div>
                 <div className="pt-4"><SelectButton onClick={() => onSelectPersona('B')} label={"Taylor Swift"}/></div>
-                <div className="pt-4"><SelectButton onClick={() => onSelectPersona('C')} label={"Khary Payton"}/></div>
+                { /* <div className="pt-4"><SelectButton onClick={() => onSelectPersona('C')} label={"Khary Payton"}/></div> */ }
             </div>
         </>
     );
@@ -316,9 +324,30 @@ function isSafari() {
     return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 }
 
+const ProgressBarTo100 = ({ progressPercent }) => {
+    return (
+        <div className="relative w-full h-6 bg-white border-2 border-black">
+            <div
+                className="absolute w-full flex justify-center items-center h-full top-0 left-0"
+                aria-hidden="true"
+            >
+                <span className="text-sm font-bold text-black">{progress}%</span>
+            </div>
+            <div
+                className="h-6 bg-green-300"
+                style={{ width: `${progress}%` }}
+                role="progressbar"
+                aria-valuenow={progress}
+                aria-valuemin="0"
+                aria-valuemax="100"
+            />
+        </div>
+    );
+};
+
 const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
     const audioRef = useRef(null);
-    const [progress, setProgress] = useState(0);
+    const [progressPercent, setProgressPercent] = useState(0);
 
     useEffect(() => {
         // Initialize the audio element and play
@@ -339,13 +368,13 @@ const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
             .catch(error => {
                 // TODO: We might be able to remove this
                 // if (error.name === 'NotSupportedError') {
-                    audioElement.src = currentPersona.mp3Url;
-                    console.log(`WebM format not supported ${error}, trying MP3: ${audioElement.src}`);
-                    // TODO(P1): This sometimes leads to Playback error: DOMException:
-                    //  The fetching process for the media resource was aborted by the user agent at the user's request.
-                    // BUT the audio still plays so :shrug:
-                    // https://chat.openai.com/share/62db5975-b570-4e55-8613-7370b403bc75
-                    return audioElement.play();  // Play the MP3 version
+                audioElement.src = currentPersona.mp3Url;
+                console.log(`WebM format not supported ${error}, trying MP3: ${audioElement.src}`);
+                // TODO(P1): This sometimes leads to Playback error: DOMException:
+                //  The fetching process for the media resource was aborted by the user agent at the user's request.
+                // BUT the audio still plays so :shrug:
+                // https://chat.openai.com/share/62db5975-b570-4e55-8613-7370b403bc75
+                return audioElement.play();  // Play the MP3 version
                 // } else {
                 //    throw error;  // If it's another error, re-throw it
                 // }
@@ -358,7 +387,8 @@ const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
         });
 
         const handleTimeUpdate = () => {
-            setProgress((audioElement.currentTime / audioElement.duration) * 100);
+            const progress = Math.round((audioElement.currentTime / audioElement.duration) * 100);
+            setProgressPercent(progress);
         };
 
         // When the audio ends
@@ -377,16 +407,15 @@ const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
 
     return (
         <>
-            <HeadingText text={`Playing Persona ${currentPersona.displayName}...`}/>
+            <HeadingText text={`Demo Recording of a Voice Note`}/>
             <div className="flex flex-col items-center">
+                <p className="text-lg pb-4"><b>Now playing:</b> {currentPersona.recordingTitle}</p>
+                <p className="text-lg pb-4">Recording Transcript:</p>
+                <p className="font-mono pb-4">{currentPersona.transcript}</p>
                 <audio ref={audioRef}/>
-                <div>
-                    <div style={{width: `${progress}%`}} className="progress-bar"></div>
-                </div>
-                <h2>Transcript of recording</h2>
-                <p>{currentPersona.transcript}</p>
-                <ProgressBar currentStep={1}/>
+                <ProgressBarTo100 progressPercent={progressPercent} />
             </div>
+            <ProgressBar currentStep={1}/>
         </>
     );
 };
@@ -414,9 +443,8 @@ export default function VoiceRecorder() {
     const [recordingStartTime, setRecordingStartTime] = useState(null);
     const [recordingElapsedTime, setRecordingElapsedTime] = useState(0);
 
-    // User info related
-    const [collectEmail, setCollectEmail] = useState(null);
-    const [existingEmail, setExistingEmail] = useState(null);
+    // Login info related
+    const [registeredEmail, setRegisteredEmail] = useState(null);
     const {accountId, setAccountId} = useAccount();
 
     // Demo related
@@ -425,6 +453,10 @@ export default function VoiceRecorder() {
     // When things go wrong
     const [failureMessage, setFailureMessage] = useState(null);
 
+
+    const doCollectEmail = () => {
+        return registeredEmail === null || `${registeredEmail}`.length < 6  // a@a.ai
+    }
 
     useEffect(() => {
         let interval = null;
@@ -485,12 +517,14 @@ export default function VoiceRecorder() {
         }
     }
 
-    const uploadRecordingWrapper = async (audioBlob) => {
+    const doUploadAndProceedNext = async (audioBlob) => {
         setRecorderState(RecorderState.UPLOADING)
 
         try {
             await uploadRecording(audioBlob);
-            setRecorderState(RecorderState.SUCCESS)
+            const nextState = doCollectEmail() ? RecorderState.REGISTER_EMAIL : RecorderState.SUCCESS
+            console.log(`uploading finished, next state is ${nextState}`)
+            setRecorderState(nextState)
         } catch (error) {
             console.error("Failed to upload recording: ", error);
             setRecorderState(RecorderState.FAILURE)
@@ -508,21 +542,19 @@ export default function VoiceRecorder() {
         // Made me HATE CORS
         // Browser restrictions: Modern web browsers enforce CORS policy by default
         // and don't provide an option to disable it. GREAT, especially when AWS API Gateway does not allow to ALLOW it.
+        // TLDR: Make SURE that OPTIONS also respond with CORS HEADERS (and know these are cached heavily).
 
         // First, get the presigned URL from your Lambda function
         const headers = {};
-        if (accountId) {
-            headers['X-Account-Id'] = accountId;
-        }
+        // if (accountId) {
+        //     headers['X-Account-Id'] = accountId;
+        // }
         const presigned_response = await fetch(PRESIGNED_URL, {
             method: 'GET',
             headers: headers,
         });
         const data = await presigned_response.json(); // parse response to JSON
-
-        // set states
-        setExistingEmail(data.email);
-        setCollectEmail(!Boolean(data.email))
+        setRegisteredEmail(data.email);
         setAccountId(data.account_id);
 
         // for presignedUrl use the same way you have used
@@ -572,7 +604,7 @@ export default function VoiceRecorder() {
                 return;
             }
 
-            return uploadRecordingWrapper(audioBlob)
+            return doUploadAndProceedNext(audioBlob)
         });
     };
 
@@ -591,9 +623,20 @@ export default function VoiceRecorder() {
             throw new Error(`Failed to download example persona recording from ${currentPersona.webmUrl}`);
         }
         const audioBlob = await response.blob()
-        return uploadRecordingWrapper(audioBlob)
+        return doUploadAndProceedNext(audioBlob)
     }
 
+    const onRegistrationSuccess = (emailAddress) => {
+        console.log(`onRegistrationSuccess ${emailAddress}`)
+        setRegisteredEmail(emailAddress)
+        setRecorderState(RecorderState.SUCCESS)
+    }
+
+    const onRecordAgain = ()  => {
+        console.log("onRecordAgain")
+        clearDemo()
+        setRecorderState(RecorderState.LETS_RECORD)
+    }
 
 // In the main component...
     return (
@@ -604,20 +647,21 @@ export default function VoiceRecorder() {
                 {recorderState === RecorderState.DEMO_PLAY_PERSONA &&
                     <PlayPersonaState onPlaybackComplete={moveToUploading} currentPersona={currentPersona}/>}
 
-                {recorderState === RecorderState.WELCOME_PRIVATE_BETA && <WelcomePrivateBetaState onSuccess={() => setRecorderState(RecorderState.LETS_RECORD)}/>}
+                {recorderState === RecorderState.WELCOME_PRIVATE_BETA &&
+                    <WelcomePrivateBetaState onSuccess={() => setRecorderState(RecorderState.LETS_RECORD)}/>}
                 {recorderState === RecorderState.LETS_RECORD && <LetsRecordState onStartRecording={startRecording}/>}
                 {recorderState === RecorderState.RECORDING &&
                     <RecordingState onStopRecording={stopRecording} elapsedTime={recordingElapsedTime}/>}
                 {recorderState === RecorderState.UPLOADING && <UploadingState/>}
+                {recorderState === RecorderState.REGISTER_EMAIL &&
+                    <RegisterEmailState accountId={accountId} onRegistrationSuccess={onRegistrationSuccess}/>
+                }
                 {recorderState === RecorderState.SUCCESS &&
-                    <SuccessState collectEmail={collectEmail} existingEmail={existingEmail} accountId={accountId}
-                                  onTryAgain={() => setRecorderState(RecorderState.LETS_RECORD)}/>}
+                    <SuccessState comesFromDemo={isDemo()} userEmailAddress={registeredEmail}
+                                  onRecordAgain={onRecordAgain}/>}
                 {recorderState === RecorderState.TOO_SHORT && <TooShortState/>}
                 {recorderState === RecorderState.FAILURE &&
                     <FailureState audioURL={audioURL} failureMessage={failureMessage}/>}
-                {recorderState === RecorderState.DEBUG &&
-                    <SuccessState collectEmail={true} existingEmail={existingEmail} accountId={accountId}
-                                  onTryAgain={() => setRecorderState(RecorderState.LETS_RECORD)}/>}
             </div>
         </div>
     );
