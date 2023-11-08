@@ -585,14 +585,15 @@ export default function VoiceRecorder() {
 
         // First, get the presigned URL from your Lambda function
         const headers = {};
-        // if (accountId) {
-        //     headers['X-Account-Id'] = accountId;
-        // }
+        if (accountId) {
+             headers['X-Account-Id'] = accountId;
+        }
         const presigned_response = await fetch(PRESIGNED_URL, {
             method: 'GET',
             headers: headers,
         });
         const data = await presigned_response.json(); // parse response to JSON
+        // TODO(P1, risk): Do some checks if these are different than saved.
         setRegisteredEmail(data.email);
         setAccountId(data.account_id);
 
