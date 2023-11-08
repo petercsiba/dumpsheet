@@ -314,7 +314,7 @@ const SelectPersonaState = ({onSelectPersona}) => {
                 <div className="pt-4"><SelectButton onClick={() => onSelectPersona('A')}
                                                     label={"Arnold Schwarzenegger"}/></div>
                 <div className="pt-4"><SelectButton onClick={() => onSelectPersona('B')} label={"Taylor Swift"}/></div>
-                { /* <div className="pt-4"><SelectButton onClick={() => onSelectPersona('C')} label={"Khary Payton"}/></div> */ }
+                { /* <div className="pt-4"><SelectButton onClick={() => onSelectPersona('C')} label={"Khary Payton"}/></div> */}
             </div>
         </>
     );
@@ -324,7 +324,7 @@ function isSafari() {
     return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 }
 
-const ProgressBarTo100 = ({ progressPercent }) => {
+const ProgressBarTo100 = ({progressPercent}) => {
     return (
         <div className="relative w-full h-6 bg-white border-2 border-black">
             <div
@@ -335,7 +335,7 @@ const ProgressBarTo100 = ({ progressPercent }) => {
             </div>
             <div
                 className="h-6 bg-green-300"
-                style={{ width: `${progress}%` }}
+                style={{width: `${progress}%`}}
                 role="progressbar"
                 aria-valuenow={progress}
                 aria-valuemin="0"
@@ -413,7 +413,7 @@ const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
                 <p className="text-lg pb-4">Recording Transcript:</p>
                 <p className="font-mono pb-4">{currentPersona.transcript}</p>
                 <audio ref={audioRef}/>
-                <ProgressBarTo100 progressPercent={progressPercent} />
+                <ProgressBarTo100 progressPercent={progressPercent}/>
             </div>
             <ProgressBar currentStep={1}/>
         </>
@@ -421,9 +421,14 @@ const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
 };
 
 
+const isDebug = () => {
+    return new URLSearchParams(window.location.search).get('debug') === 'true';
+}
+
 const isDemo = () => {
     return window.location.pathname === '/demo' || new URLSearchParams(window.location.search).get('demo') === 'true';
 }
+
 
 const clearDemo = () => {
     const newUrl = new URL(window.location.href);
@@ -434,7 +439,7 @@ const clearDemo = () => {
 export default function VoiceRecorder() {
     // Main state
     const isFirstTimeUser = isDemo()
-    const [recorderState, setRecorderState] = useState(isFirstTimeUser ? RecorderState.DEMO_SELECT_PERSONA : RecorderState.LETS_RECORD);
+    const [recorderState, setRecorderState] = useState(isDebug() ? RecorderState.DEBUG : isFirstTimeUser ? RecorderState.DEMO_SELECT_PERSONA : RecorderState.LETS_RECORD);
 
     // Media related
     const [stream, setStream] = useState(null);
@@ -632,7 +637,7 @@ export default function VoiceRecorder() {
         setRecorderState(RecorderState.SUCCESS)
     }
 
-    const onRecordAgain = ()  => {
+    const onRecordAgain = () => {
         console.log("onRecordAgain")
         clearDemo()
         setRecorderState(RecorderState.LETS_RECORD)
@@ -662,6 +667,10 @@ export default function VoiceRecorder() {
                 {recorderState === RecorderState.TOO_SHORT && <TooShortState/>}
                 {recorderState === RecorderState.FAILURE &&
                     <FailureState audioURL={audioURL} failureMessage={failureMessage}/>}
+
+                {recorderState === RecorderState.DEBUG &&
+                    <SuccessState comesFromDemo={isDemo()} userEmailAddress={registeredEmail}
+                                  onRecordAgain={onRecordAgain}/>}
             </div>
         </div>
     );
