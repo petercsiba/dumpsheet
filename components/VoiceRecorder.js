@@ -9,7 +9,6 @@ import MicrophoneIconHover from '../public/images/icons/microphone-button-green-
 import StopIcon from '../public/images/icons/stop-button-red-icon.svg'
 import CollectEmailProcessingInfo from "@/components/CollectEmailProcessingInfo";
 import ProgressBar from "@/components/ProgressBar";
-import {useAccount} from "@/contexts/AccountContext";
 
 const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
 const UPLOAD_TIMEOUT = 30000;
@@ -451,27 +450,49 @@ const clearDemo = () => {
 }
 
 export default function VoiceRecorder() {
-    // Main state
+    // == Main state
     const isFirstTimeUser = isDemo()
     const [recorderState, setRecorderState] = useState(isDebug() ? RecorderState.DEBUG : isFirstTimeUser ? RecorderState.DEMO_SELECT_PERSONA : RecorderState.LETS_RECORD);
 
-    // Media related
+    // == Media related
     const [stream, setStream] = useState(null);
     const [recording, setRecording] = useState(null);
     const [audioURL, setAudioURL] = useState(null);
     const [recordingStartTime, setRecordingStartTime] = useState(null);
     const [recordingElapsedTime, setRecordingElapsedTime] = useState(0);
 
-    // Login info related
-    const [registeredEmail, setRegisteredEmail] = useState(null);
-    const {accountId, setAccountId} = useAccount();
+    // == Login info related
+    const [accountId, setAccountId] = useState(() => {
+        const savedAccountId = localStorage.getItem('accountId');
+        console.log(`savedAccountId is ${savedAccountId}`)
+        return savedAccountId !== null ? savedAccountId : null;
+    });
+    useEffect(() => {
+        if (accountId !== null) {
+            console.log(`set accountId to ${accountId}`)
+            localStorage.setItem('accountId', accountId);
+        }
+    }, [accountId]);
 
-    // Demo related
+    // Initialize the state with the value from localStorage if it exists
+    const [registeredEmail, setRegisteredEmail] = useState(() => {
+        const savedEmail = localStorage.getItem('registeredEmail');
+        console.log(`savedEmail is ${savedEmail}`)
+        return savedEmail !== null ? savedEmail : null;
+    });
+    // Use useEffect to update localStorage when registeredEmail changes
+    useEffect(() => {
+        if (registeredEmail !== null) {
+            console.log(`set registeredEmail to ${registeredEmail}`)
+            localStorage.setItem('registeredEmail', registeredEmail);
+        }
+    }, [registeredEmail]);
+
+    // == Demo related
     const [currentPersona, setCurrentPersona] = useState(null);
 
-    // When things go wrong
+    // == When things go wrong
     const [failureMessage, setFailureMessage] = useState(null);
-
 
     const doCollectEmail = () => {
         return registeredEmail === null || `${registeredEmail}`.length < 6  // a@a.ai

@@ -1,6 +1,5 @@
 import Image from 'next/image';
 import HubspotLogo from '../public/images/hubspot-logo.svg'
-import {useAccount} from "@/contexts/AccountContext";
 
 const HUBSPOT_CLIENT_ID: string = "501ffe58-5d49-47ff-b41f-627fccc28715";
 // When changed - the Hubspot owners need to re-auth with Voxana
@@ -19,13 +18,12 @@ function constructAuthUrl(accountId: any) {
 }
 
 export default function ConnectHubspotButton() {
-    const {accountId} = useAccount();
-
     return (
         <button
             id="connectWithHubspot"
             onClick={() => {
-                window.location.href = constructAuthUrl(accountId);
+                // This can be null
+                window.location.href = constructAuthUrl(localStorage.getItem("accountId"));
             }}
             className="flex items-center justify-center w-60 h-12 text-black border border-black rounded-full font-semibold text-lg tracking-tighter bg-white hover:bg-gray-100"
         >
