@@ -1,3 +1,4 @@
+// TOOD(P0, devx): Extract the Javascript-only part (the voice recorder); and make the rest proper TypeScript.
 // TODO(P1, devx): Extract common components to be re-used
 // TODO(P1, browser-compatibility): Mobile Safari displays a weirdly small <audio> tag
 import React, {useEffect, useRef, useState} from 'react'
@@ -9,6 +10,7 @@ import MicrophoneIconHover from '../public/images/icons/microphone-button-green-
 import StopIcon from '../public/images/icons/stop-button-red-icon.svg'
 import CollectEmailProcessingInfo from "@/components/CollectEmailProcessingInfo";
 import ProgressBar from "@/components/ProgressBar";
+import ConnectHubspotButton from "@/components/ConnectHubspotButton";
 
 const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
 const UPLOAD_TIMEOUT = 30000;
@@ -81,19 +83,35 @@ const WelcomePrivateBetaState = ({onSuccess}) => {
         }
     };
 
+    function handleBackspace(e, index) {
+        if (e.key === 'Backspace' && index > 0 && codes[index] === '') {
+            // Create a shallow copy of codes array
+            const updatedCodes = [...codes];
+            // Set the previous code to an empty string
+            updatedCodes[index - 1] = '';
+            // Update the state with the new codes array
+            setCodes(updatedCodes); // Assuming you have a state setter named `setCodes`
+            // Focus the previous input
+            inputRefs[index - 1].current.focus();
+        }
+    }
+
     return (
         <>
             <HeadingText text={"Welcome to Voxana!"}/>
             { /* <p className="font-bold">Your voice-first personal networking CRM</p> */}
-            <p className="font-bold">We are in private beta, please provide a 4 digit access code:</p>
+            <p className="font-bold">We are in Private Beta</p>
+            <p>Your Feedback Counts</p>
+            <p className="font-bold pt-8">Please provide a 4 digit access code:</p>
             <div className="pt-4" style={{display: 'flex', justifyContent: 'space-between', maxWidth: '200px'}}>
                 {codes.map((code, index) => (
                     <input
                         key={index}
-                        type="text"
+                        type="tel"
                         value={code}
                         ref={inputRefs[index]}
                         onChange={(e) => handleInputChange(e, index)}
+                        onKeyDown={(e) => handleBackspace(e, index)}
                         maxLength={1}
                         style={{
                             width: '40px',
@@ -118,11 +136,20 @@ const WelcomeState = ({moveToNextState}) => {
         <>
             <HeadingText text={"Welcome!"}/>
             <div className="flex flex-col items-center text-center">
-                <p className="text-lg pb-4"><b>What you want to do?</b></p>
-                <div className="pt-4"><SelectButton onClick={() => moveToNextState(RecorderState.DEMO_SELECT_PERSONA)}
+                <p className="text-lg"><b>What you want to do?</b></p>
+                <p className="pt-4 mt-2">For Individuals:</p>
+                <div className="pt-2"><SelectButton onClick={() => moveToNextState(RecorderState.DEMO_SELECT_PERSONA)}
                                                     label={"Show me how it works!"}/></div>
                 <div className="pt-4"><SelectButton onClick={() => moveToNextState(RecorderState.LETS_RECORD)} label={"Lets Record a Voice Memo"}/></div>
+
+                <div className="pt-8">
+                    <p className="mb-2">For Organizations:</p>
+                    <ConnectHubspotButton></ConnectHubspotButton>
+                </div>
                 { /* <div className="pt-4"><SelectButton onClick={() => onSelectPersona('C')} label={"Khary Payton"}/></div> */}
+
+                {/*<p className="text-lg pt-8">We are in private beta</p>*/}
+                {/*<p className="text-lg pt-4">Your feedback counts</p>*/}
             </div>
         </>
     );
@@ -454,13 +481,6 @@ const isDebug = () => {
     return new URLSearchParams(window.location.search).get('debug') === 'true';
 }
 
-const clearDemo = () => {
-    const newUrl = new URL(window.location.href);
-    newUrl.searchParams.delete('demo');
-    window.history.replaceState({}, '', newUrl.toString());
-}
-
-
 export default function VoiceRecorder() {
     // == Media related
     const [stream, setStream] = useState(null);
@@ -695,8 +715,8 @@ export default function VoiceRecorder() {
 
     const onRecordAgain = () => {
         console.log("onRecordAgain")
-        setRecorderState(RecorderState.LETS_RECORD)
         setInDemo(false)
+        setRecorderState(RecorderState.LETS_RECORD)
     }
 
     const moveToNextState = (nextState) => {
@@ -708,6 +728,7 @@ export default function VoiceRecorder() {
     return (
         <div>
             <div className="flex flex-col items-center">
+                {/* TODO(P1, devx): Would be nice to somewhat abstract out the state transitions here */}
                 {/* First screen is either WELCOME or WELCOME_PRIVATE_BETA */}
                 {recorderState === RecorderState.WELCOME_PRIVATE_BETA &&
                     <WelcomePrivateBetaState onSuccess={() => setRecorderState(RecorderState.WELCOME)}/>}
