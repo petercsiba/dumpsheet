@@ -201,23 +201,37 @@ const RegisterEmailState = ({accountId, onRegistrationSuccess}) => {
 const SuccessState = ({comesFromDemo, userEmailAddress, onRecordAgain}) => {
     return (
         <>
-            <HeadingText text={comesFromDemo ? "Demo Complete!" : "What to Expect"}/>
+            <HeadingText text={comesFromDemo ? "Demo Complete!" : "Congrats, All Done Here!"}/>
             <div className="pl-4">
-                <span className="font-bold text-base">I will be:</span>
+                <span className="font-bold text-base">Now, you</span>
                 <ul className="list-disc list-inside text-">
-                    <li className="mt-1">Sending my work to <b>{userEmailAddress}</b></li>
-                    <li className="mt-1">Syncing results to your CRM (if connected)</li>
+                    <li className="mt-1">Go check email(s) from assistant@voxana.ai
+                        <br /> &nbsp; &nbsp; (should arrive within a few minutes)
+                    </li>
+                    <li className="mt-1">Send responses / follow ups to your contacts</li>
+                    <li className="mt-1">Fill in your Voxana spreadsheet</li>
                 </ul>
             </div>
+
             {comesFromDemo &&
                 <div className="pt-8"><SelectButton label={"Now Try For Yourself!"} onClick={onRecordAgain}/></div>}
+
             {!comesFromDemo && (
                 <>
-                    <div className="pt-8 pb-2"><b>More encounters on your mind?</b></div>
-                    <div><SelectButton label={"Record Again"} onClick={onRecordAgain}/></div>
+                    <ProgressBar currentStep={3}/>
+                    <div className="h-0.5 bg-gray-300 my-4 justify-items-end" style={{ width: '92%' }}></div> {/* Horizontal line */}
+                    {/*<div className="pt-8 pb-2"><b>More encounters on your mind?</b></div>*/}
+                    {/*<div><SelectButton label={"Record Another One"} onClick={onRecordAgain}/></div>*/}
+                    <div className="flex justify-end">
+                        <button
+                            onClick={onRecordAgain}
+                            className="px-4 py-1 mr-0 text-black border border-black rounded-full font-semibold text-base tracking-tighter bg-white hover:bg-gray-300"
+                        >
+                            Record Another One
+                        </button>
+                    </div>
                 </>
             )}
-            {!comesFromDemo && <ProgressBar currentStep={3}/>}
         </>
     )
 }
@@ -295,7 +309,7 @@ const SelectButton = ({label, onClick}) => {
     return (
         <button
             onClick={onClick}
-            className="flex items-center justify-center w-60 h-12 text-white border border-black rounded-full font-semibold text-lg tracking-tighter bg-black hover:bg-gray-700"
+            className="flex items-center justify-center w-60 h-12 text-black border border-black rounded-full font-semibold text-lg tracking-tighter bg-white hover:bg-gray-300"
         >
             {label}
         </button>
