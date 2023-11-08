@@ -1,7 +1,11 @@
 import {useRouter} from "next/router";
 import Image from "next/image";
 
-const Banner = () => {
+type BannerProps = {
+    showExtras: boolean;
+};
+
+const Banner: React.FC<BannerProps> = ({ showExtras }) => {
     const router = useRouter();
     const {hubspot_status, account_id} = router.query;
 
@@ -49,7 +53,7 @@ const Banner = () => {
                     </div>
                 </div>
             )}
-            {!hubspot_status && (
+            {!hubspot_status && showExtras && (
                 <div className="w-[16rem] absolute top-20 left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center text-center border border-black rounded-lg bg-white px-6 py-1">
                     <div className="block text-black font-semibold text-center">
                         We are in Private Beta
