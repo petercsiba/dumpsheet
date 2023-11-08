@@ -16,11 +16,12 @@ const MIN_DURATION = Number(process.env.NEXT_PUBLIC_VOICE_RECORDER_MIN_DURATION_
 const SHORT_RECORDING_TIMEOUT = 7000;
 
 const RecorderState = {
+    WELCOME_PRIVATE_BETA: 'welcome_private_beta',
+    WELCOME: 'welcome',
     // For handholding demo
     DEMO_SELECT_PERSONA: 'demo_select_persona',
     DEMO_PLAY_PERSONA: 'demo_play_persona',
     // For real-use
-    WELCOME_PRIVATE_BETA: 'welcome_private_beta',
     LETS_RECORD: 'lets_record',
     RECORDING: 'recording',
     UPLOADING: 'uploading',
@@ -71,7 +72,7 @@ const WelcomePrivateBetaState = ({onSuccess}) => {
             const fullCode = newCodes.join('');
             if (fullCode.length === 4) {
                 if (fullCode === '1876') {
-                    setSuccessMessage("Correct - thanks! (Redirecting ...)");
+                    setSuccessMessage("Correct! (Redirecting ...)");
                     setTimeout(onSuccess, 1000);  // 1 second delay
                 } else {
                     setErrorMessage("Wrong code, please contact support@voxana.ai");
@@ -84,7 +85,7 @@ const WelcomePrivateBetaState = ({onSuccess}) => {
         <>
             <HeadingText text={"Welcome to Voxana!"}/>
             { /* <p className="font-bold">Your voice-first personal networking CRM</p> */}
-            <p className="font-bold">We are in private beta, please provide a 4 digit code:</p>
+            <p className="font-bold">We are in private beta, please provide a 4 digit access code:</p>
             <div className="pt-4" style={{display: 'flex', justifyContent: 'space-between', maxWidth: '200px'}}>
                 {codes.map((code, index) => (
                     <input
@@ -107,6 +108,22 @@ const WelcomePrivateBetaState = ({onSuccess}) => {
             </div>
             {errorMessage && <p className="pt-8 text-red-500">{errorMessage}</p>}
             {successMessage && <p className="pt-8 text-green-700 font-bold">{successMessage}</p>}
+        </>
+    );
+};
+
+
+const WelcomeState = ({moveToNextState}) => {
+    return (
+        <>
+            <HeadingText text={"Welcome!"}/>
+            <div className="flex flex-col items-center text-center">
+                <p className="text-lg pb-4"><b>What you want to do?</b></p>
+                <div className="pt-4"><SelectButton onClick={() => moveToNextState(RecorderState.DEMO_SELECT_PERSONA)}
+                                                    label={"Show me how it works!"}/></div>
+                <div className="pt-4"><SelectButton onClick={() => moveToNextState(RecorderState.LETS_RECORD)} label={"Lets Record a Voice Memo"}/></div>
+                { /* <div className="pt-4"><SelectButton onClick={() => onSelectPersona('C')} label={"Khary Payton"}/></div> */}
+            </div>
         </>
     );
 };
@@ -343,13 +360,13 @@ const ProgressBarTo100 = ({progressPercent}) => {
                 className="absolute w-full flex justify-center items-center h-full top-0 left-0"
                 aria-hidden="true"
             >
-                <span className="text-sm font-bold text-black">{progress}%</span>
+                <span className="text-sm font-bold text-black">{progressPercent}%</span>
             </div>
             <div
-                className="h-6 bg-green-300"
-                style={{width: `${progress}%`}}
+                className="h-5 bg-green-300"
+                style={{width: `${progressPercent}%`}}
                 role="progressbar"
-                aria-valuenow={progress}
+                aria-valuenow={progressPercent}
                 aria-valuemin="0"
                 aria-valuemax="100"
             />
@@ -437,22 +454,14 @@ const isDebug = () => {
     return new URLSearchParams(window.location.search).get('debug') === 'true';
 }
 
-const isDemo = () => {
-    return window.location.pathname === '/demo' || new URLSearchParams(window.location.search).get('demo') === 'true';
-}
-
-
 const clearDemo = () => {
     const newUrl = new URL(window.location.href);
     newUrl.searchParams.delete('demo');
     window.history.replaceState({}, '', newUrl.toString());
 }
 
-export default function VoiceRecorder() {
-    // == Main state
-    const isFirstTimeUser = isDemo()
-    const [recorderState, setRecorderState] = useState(isDebug() ? RecorderState.DEBUG : isFirstTimeUser ? RecorderState.DEMO_SELECT_PERSONA : RecorderState.LETS_RECORD);
 
+export default function VoiceRecorder() {
     // == Media related
     const [stream, setStream] = useState(null);
     const [recording, setRecording] = useState(null);
@@ -481,22 +490,33 @@ export default function VoiceRecorder() {
     });
     // Use useEffect to update localStorage when registeredEmail changes
     useEffect(() => {
-        if (registeredEmail !== null) {
-            console.log(`set registeredEmail to ${registeredEmail}`)
-            localStorage.setItem('registeredEmail', registeredEmail);
-        }
+        // We allow setting it null - in case we didn't collect it last time.
+        console.log(`set registeredEmail to ${registeredEmail}`)
+        localStorage.setItem('registeredEmail', registeredEmail);
     }, [registeredEmail]);
 
     // == Demo related
     const [currentPersona, setCurrentPersona] = useState(null);
+    const [inDemo, setInDemo] = useState(false)
 
     // == When things go wrong
     const [failureMessage, setFailureMessage] = useState(null);
+
+    // == Main state
+    // These assumes that localStorage related states are already executed.
+    // TODO(P0, ux): Use user login sessions to do this (with backend)
+    const isFirstTimeUser = () => { return accountId === null }
+    const getStartState = () => {
+        if (isDebug()) return RecorderState.DEBUG
+        return isFirstTimeUser() ? RecorderState.WELCOME_PRIVATE_BETA : RecorderState.WELCOME
+    }
+    const [recorderState, setRecorderState] = useState(getStartState());
 
     const doCollectEmail = () => {
         return registeredEmail === null || `${registeredEmail}`.length < 6  // a@a.ai
     }
 
+    // Update recording clock
     useEffect(() => {
         let interval = null;
 
@@ -521,10 +541,6 @@ export default function VoiceRecorder() {
         }
         setRecording(null)
     };
-    // TODO: This might need more work through `useRef`
-    // useEffect(() => {
-    // 	return () => fullyReleaseMike()
-    // }, []);
 
     const startRecording = async () => {
         if (typeof window === 'undefined') {
@@ -593,9 +609,13 @@ export default function VoiceRecorder() {
             headers: headers,
         });
         const data = await presigned_response.json(); // parse response to JSON
-        // TODO(P1, risk): Do some checks if these are different than saved.
-        setRegisteredEmail(data.email);
+
+        if (data.email === null && !doCollectEmail()) {
+            // This means that POST update email previously failed - so let's try again.
+            console.warn("Inconsistent state, backend email is null while registeredEmail is set; will ask for it")
+        }
         setAccountId(data.account_id);
+        setRegisteredEmail(data.email);
 
         // for presignedUrl use the same way you have used
         const presignedUrl = data.presigned_url;
@@ -653,6 +673,7 @@ export default function VoiceRecorder() {
         console.log(`selectPersona ${personaId}`)
         const currentPersona = personaMap[personaId]; // Look up details based on id
         setCurrentPersona(currentPersona);
+        setInDemo(true)
         setRecorderState(RecorderState.DEMO_PLAY_PERSONA);
     }
 
@@ -674,37 +695,51 @@ export default function VoiceRecorder() {
 
     const onRecordAgain = () => {
         console.log("onRecordAgain")
-        clearDemo()
         setRecorderState(RecorderState.LETS_RECORD)
+        setInDemo(false)
+    }
+
+    const moveToNextState = (nextState) => {
+        console.log(`moveToNextState ${nextState}`)
+        setRecorderState(nextState)
     }
 
 // In the main component...
     return (
         <div>
             <div className="flex flex-col items-center">
+                {/* First screen is either WELCOME or WELCOME_PRIVATE_BETA */}
+                {recorderState === RecorderState.WELCOME_PRIVATE_BETA &&
+                    <WelcomePrivateBetaState onSuccess={() => setRecorderState(RecorderState.WELCOME)}/>}
+                {recorderState === RecorderState.WELCOME &&
+                    <WelcomeState moveToNextState={moveToNextState} />}
+
+                {/* DEMO Branch */}
                 {recorderState === RecorderState.DEMO_SELECT_PERSONA &&
                     <SelectPersonaState onSelectPersona={selectPersona}/>}
                 {recorderState === RecorderState.DEMO_PLAY_PERSONA &&
                     <PlayPersonaState onPlaybackComplete={moveToUploading} currentPersona={currentPersona}/>}
 
-                {recorderState === RecorderState.WELCOME_PRIVATE_BETA &&
-                    <WelcomePrivateBetaState onSuccess={() => setRecorderState(RecorderState.LETS_RECORD)}/>}
+                {/* MAIN Flow Branch */}
                 {recorderState === RecorderState.LETS_RECORD && <LetsRecordState onStartRecording={startRecording}/>}
                 {recorderState === RecorderState.RECORDING &&
                     <RecordingState onStopRecording={stopRecording} elapsedTime={recordingElapsedTime}/>}
+
+                {/* DEMO and MAIN Branch merges */}
                 {recorderState === RecorderState.UPLOADING && <UploadingState/>}
                 {recorderState === RecorderState.REGISTER_EMAIL &&
                     <RegisterEmailState accountId={accountId} onRegistrationSuccess={onRegistrationSuccess}/>
                 }
                 {recorderState === RecorderState.SUCCESS &&
-                    <SuccessState comesFromDemo={isDemo()} userEmailAddress={registeredEmail}
+                    <SuccessState comesFromDemo={inDemo} userEmailAddress={registeredEmail}
                                   onRecordAgain={onRecordAgain}/>}
+
+                {/* Unhappy states */}
                 {recorderState === RecorderState.TOO_SHORT && <TooShortState/>}
                 {recorderState === RecorderState.FAILURE &&
                     <FailureState audioURL={audioURL} failureMessage={failureMessage}/>}
-
                 {recorderState === RecorderState.DEBUG &&
-                    <SuccessState comesFromDemo={isDemo()} userEmailAddress={registeredEmail}
+                    <SuccessState comesFromDemo={inDemo} userEmailAddress={registeredEmail}
                                   onRecordAgain={onRecordAgain}/>}
             </div>
         </div>
