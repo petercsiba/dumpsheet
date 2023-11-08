@@ -1,6 +1,5 @@
 import { Analytics } from '@vercel/analytics/react';
 import dynamic from "next/dynamic";
-import {AccountProvider} from "@/contexts/AccountContext";
 import ConnectHubspotButton from "@/components/ConnectHubspotButton";
 import Head from "next/head";
 import Banner from "@/components/Banner";
@@ -13,7 +12,7 @@ export default function Home() {
     const isProduction = process.env.NODE_ENV === 'production';
 
   return (
-      <AccountProvider>
+      <>
           <Head>
               {isProduction && (
                   // TODO(P1, compliance): We need to disclose this tracking */
@@ -79,6 +78,6 @@ export default function Home() {
           </div>
 
           <Analytics />
-      </AccountProvider>
+      </>
   );
 };
