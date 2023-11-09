@@ -52,14 +52,14 @@ export default function Home() {
                   font-size: 18px;
                 }
 
-                .middle-box {
+                .voxana-middle-box {
                   width: 80%;
-                  min-width: 20rem;
-                  max-width: 24rem;
+                  min-width: 14rem;
+                  max-width: 18rem;
                 }
 
                 @media (max-width: 768px) {
-                  .middle-box {
+                  .voxana-middle-box {
                     width: 92%;
                   }
                 }
@@ -74,7 +74,7 @@ export default function Home() {
                  }}>
                 <Banner showExtras={showExtras}></Banner>
                 <div
-                    className="flex flex-col items-center justify-center gap-6 px-4 py-6 absolute top-[22rem] left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-lg border border-black bg-white middle-box"
+                    className="flex flex-col items-center justify-center gap-6 px-4 py-6 absolute top-[22rem] left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-lg border border-black bg-white voxana-middle-box"
                 >
                     <VoiceRecorderWithNoSSR/>
                 </div>
