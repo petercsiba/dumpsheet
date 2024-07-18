@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Write your own custom component styles here */
+@keyframes pulse-animation {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+}
+
+.btn-black {
+  @apply border border-black bg-black text-white font-bold py-2 px-4 rounded text-center;
+}
+.btn-black:hover {
+  @apply transition duration-150 bg-white text-black;
+}
+.btn-black-outline {
+  @apply border border-black text-black py-2 px-4 rounded font-bold text-center;
+}
+.btn-black-outline:hover {
+  @apply transition duration-150 bg-black text-white;
+}
+
+.btn-white {
+  @apply bg-white text-black font-bold py-2 px-4 rounded text-center;
+}
+.btn-white:hover {
+  @apply transition duration-150 bg-white text-black;
+}
+
+/* TODO(p2, design): Figure out if there is a better way to override this */
+.supabase-ui-auth_ui-button {
+  @apply border border-black bg-black text-white font-bold py-2 px-4 rounded text-center;
+}
+.supabase-ui-auth_ui-button:hover {
+  @apply transition duration-150 bg-white text-black;
+}
+.supabase-ui-auth_ui-button-outline {
+  @apply border border-black text-black py-2 px-4 rounded font-bold text-center;
+}
+.supabase-ui-auth_ui-button-outline:hover {
+  @apply transition duration-150 bg-black text-white;
+}
+
+html,
+body,
+#__next {
+  height: 100vh;
+  min-height: 100vh;
+}
+
+h1 {
+  font-size: 3rem;
+  font-weight: bold;
+  display: block;
+}
+
