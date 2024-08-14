@@ -11,9 +11,9 @@ For now, most of the Python files have a `if __name__ == "__main__":` which esse
 So you can test the lambda logic by:
 ```bash
 # inside the backend/ directory
-pyenv virtualenv 3.9.16 backend
+pyenv virtualenv 3.9.16 dumpsheet
 # you might need to run `source ~/.bash_profile` for the new PYENV settings
-pyenv activate backend  # just making sure the install is fine
+pyenv activate dumpsheet  # just making sure the install is fine
 # for research/requirements.txt or chromedriver/requirements.txt
 pip install -r requirements/local.txt -r requirements/common.txt
 # setup pre-commit checks
