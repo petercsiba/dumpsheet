@@ -19,11 +19,11 @@ SKIP_SENDING_EMAILS = os.environ.get("SKIP_SENDING_EMAILS", "0")
 DEFAULT_REGION = "us-west-2"
 
 # EMAIL Stuff
-NO_REPLY_EMAIL = "No Reply <no-reply@mail.voxana.ai>"
-SENDER_EMAIL = "Voxana Assistant <assistant@mail.voxana.ai>"  # From:
-SENDER_EMAIL_ALERTS = "Poor Mans Opsgenie <alerts@mail.voxana.ai>"  # From:
-SUPPORT_EMAIL = "Voxana.AI <support@voxana.ai>"
-DEBUG_RECIPIENTS = ["email-archive@voxana.ai"]
+NO_REPLY_EMAIL = "No Reply <no-reply@mail.dumpsheet.com>"
+SENDER_EMAIL = "Dumpsheet Workers Union<worker@mail.dumpsheet.com>"  # From:
+SENDER_EMAIL_ALERTS = "Poor Mans Opsgenie <alerts@mail.dumpsheet.com>"  # From:
+SUPPORT_EMAIL = "Dumpsheet Support <support@dumpsheet.com>"
+DEBUG_RECIPIENTS = ["email-archive@dumpsheet.com"]
 RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS = int(
     os.environ.get("RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS", 30)
 )
