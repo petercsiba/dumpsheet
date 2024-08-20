@@ -33,9 +33,9 @@ export default function Home() {
                     </>
                 )}
 
-                <title>Voxana AI - Voice Data Entry into your CRM</title>
+                <title>Dumpsheet - Voice Data Entry into your Excel Spreadsheet</title>
                 <meta name="description"
-                      content="Voxana AI - Talkers gonna talk. Voxana creates contacts, follow ups and notes just from your voice. Throw away the keyboard and go for a walk-and-talk with your CRM!"/>
+                      content="Dumpsheet - Talkers gonna talk. Dumpsheet creates rows, sheets and notes just from your voice. Throw away the keyboard and go for a walk-and-talk with your Excel!"/>
                 <meta name="viewport" content="width=device-width, initial-scale=1"/>
                 <link rel="icon" href="/favicon.ico"/>
             </Head>

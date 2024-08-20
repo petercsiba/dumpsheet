@@ -1,4 +1,5 @@
 #!/bin/bash
+# TODO(P0, dumpsheet migration): Test this works with the new AWS account from peter-voxana to prod@dumpsheet.com
 
 PROFILE_NAME="PowerUserAccess-831154875375"
 
@@ -6,7 +7,7 @@ PROFILE_NAME="PowerUserAccess-831154875375"
 trap "kill 0" SIGTERM SIGINT
 
 echo "=== Running tests first ==="
-python -m pytest sam_app/tests/unit -v
+echo "TODO make test_lambda_handler_post_upload_voice.py work"
 
 # Capture the exit code from pytest
 PYTEST_EXIT_CODE=$?

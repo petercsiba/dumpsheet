@@ -23,6 +23,8 @@ def generate_temp_password(length=8):
     return password
 
 
+# TODO(P0, dumpsheet migration): The Account abstraction got too complicated, definitely REMOVE the IP based onboarding,
+# and ideally just use the Supabase functionality for simplicity and it is something I want to learn anyway.
 class Account(BaseAccount):
     class Meta:
         db_table = "account"

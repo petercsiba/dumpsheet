@@ -12,10 +12,10 @@ const Banner: React.FC<BannerProps> = ({ showExtras }) => {
     return (
         <>
             <div className="absolute top-6 left-4 flex items-center space-x-2 top-navigation">
-                <a href="https://www.voxana.ai/">
+                <a href="https://www.dumpsheet.com/">
                     <Image
-                        src="/images/voxana-logo-text-rectangle-930x174-transparent.png"
-                        alt="Voxana AI Logo"
+                        src="/images/dumpsheet-logo-transparent.png"
+                        alt="Dumpsheet Logo"
                         width={150}
                         height={30}
                     />
@@ -49,7 +49,7 @@ const Banner: React.FC<BannerProps> = ({ showExtras }) => {
                         {hubspot_status !== 'success' && <span className="text-red-500">Failed connecting your HubSpot!</span>}
                     </div>
                     <div className="block text-center">
-                        {hubspot_status === 'success' ? 'Lets do your first recording' : 'Please reach out to support@voxana.ai'}
+                        {hubspot_status === 'success' ? 'Lets do your first recording' : 'Please reach out to support@dumpsheet.com'}
                     </div>
                 </div>
             )}

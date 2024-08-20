@@ -12,7 +12,7 @@ import CollectEmailProcessingInfo from "@/components/CollectEmailProcessingInfo"
 import ProgressBar from "@/components/ProgressBar";
 import ConnectHubspotButton from "@/components/ConnectHubspotButton";
 
-const PRESIGNED_URL = 'https://api.voxana.ai/upload/voice';
+const PRESIGNED_URL = 'https://api.dumpsheet.com/upload/voice';
 const UPLOAD_TIMEOUT = 30000;
 const MIN_DURATION = Number(process.env.NEXT_PUBLIC_VOICE_RECORDER_MIN_DURATION_SECONDS) || 10;
 const SHORT_RECORDING_TIMEOUT = 7000;
@@ -77,7 +77,7 @@ const WelcomePrivateBetaState = ({onSuccess}) => {
                     setSuccessMessage("Correct! (Redirecting ...)");
                     setTimeout(onSuccess, 1000);  // 1 second delay
                 } else {
-                    setErrorMessage("Wrong code, please contact support@voxana.ai");
+                    setErrorMessage("Wrong code, please contact support@dumpsheet.com");
                 }
             }
         }
@@ -98,8 +98,8 @@ const WelcomePrivateBetaState = ({onSuccess}) => {
 
     return (
         <>
-            <HeadingText text={"Welcome to Voxana!"}/>
-            { /* <p className="font-bold">Your voice-first personal networking CRM</p> */}
+            <HeadingText text={"Welcome to Dumpsheet!"}/>
+            { /* <p className="font-bold">Your voice-first excel brain dump</p> */}
             <p className="font-bold">We are in Private Beta</p>
             <p>Your Feedback Counts</p>
             <p className="font-bold pt-8">Please provide a 4 digit access code:</p>
@@ -248,7 +248,7 @@ const SuccessState = ({comesFromDemo, userEmailAddress, onRecordAgain}) => {
             <div className="pl-4">
                 <span className="font-bold text-base">Now, you can</span>
                 <ul className="list-disc list-inside text-">
-                    <li className="mt-1">Review email(s) from assistant@voxana.ai
+                    <li className="mt-1">Review email(s) from assistant@dumpsheet.com
                         <br /> &nbsp; &nbsp; &nbsp; (arriving within a few minutes)
                     </li>
                     <li className="mt-1">Send follow-ups to your contacts</li>
@@ -280,13 +280,13 @@ const SuccessState = ({comesFromDemo, userEmailAddress, onRecordAgain}) => {
 
 
 const FailureState = ({audioURL, failureMessage}) => {
-    const fileName = `voxana-audio-recording-${Date.now()}.webm`;
+    const fileName = `dumpsheet-audio-recording-${Date.now()}.webm`;
 
     return (
         <>
             <HeadingText text={"Failed to Upload Recording"}></HeadingText>
             <div className="bg-white-500 p-2 inline-block">
-                <p className="py-2">Please, download the file and send it to ai@voxana.ai</p>
+                <p className="py-2">Please, download the file and send it to ai@dumpsheet.com</p>
                 <div className="flex justify-center">
                     <a href={audioURL} download={fileName}
                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 focus:outline-none">
@@ -295,7 +295,7 @@ const FailureState = ({audioURL, failureMessage}) => {
                 </div>
             </div>
             <div>
-                Please send this error to support@voxana.ai: ${failureMessage}
+                Please send this error to support@dumpsheet.com: ${failureMessage}
             </div>
         </>
     );
@@ -365,7 +365,10 @@ const SelectPersonaState = ({onSelectPersona}) => {
             <HeadingText text={"Demo: How We Simplify Your Data Entry"}/>
             <div className="flex flex-col items-center text-center">
                 <p className="text-lg pb-4">
-                    <b>Pick a narrator</b> to walk you through Voxana's seamless process: <br/>
+                    <b>Zero</b> - you must love Excel to appreciate this. <br />
+                    <b>First</b> we will record our voice note brain dump.<br/>
+                    <b>Second</b>, this will be auto-magically updated into a structured spreadsheet.<br/>
+                    <b>Lastly, pick a narrator</b> to record their brain dump.<br/>
                 </p>
                 <div className="pt-4"><SelectButton onClick={() => onSelectPersona('A')}
                                                     label={"Arnold Schwarzenegger"}/></div>
@@ -624,6 +627,7 @@ export default function VoiceRecorder() {
         if (accountId) {
              headers['X-Account-Id'] = accountId;
         }
+        // # TODO(P1, ux): we can send a client-side recording idempotency id per recording
         const presigned_response = await fetch(PRESIGNED_URL, {
             method: 'GET',
             headers: headers,

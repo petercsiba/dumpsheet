@@ -114,7 +114,7 @@ A few manual clicks in AWS console:
 * Click through to find the newest
 * You can re-run it by re-uploading to S3 some of the previous files.
 
-### Deploy SAM
+### Deploy SAM (SUCH A MISTAKE TO USE THIS, TODO: migrate to FastAPI and Fly.io)
 First make sure you have the CLI:
 ```shell
 pip install aws-sam-cli --no-build-isolation

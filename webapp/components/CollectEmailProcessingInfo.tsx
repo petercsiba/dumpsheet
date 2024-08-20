@@ -5,7 +5,7 @@ interface CollectEmailProcessingInfoProps {
     onRegistrationSuccess: (emailAddress: string) => void;
 }
 
-const UPDATE_EMAIL_URL = 'https://api.voxana.ai/upload/voice';
+const UPDATE_EMAIL_URL = 'https://api.dumpsheet.com/upload/voice';
 
 const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({accountId, onRegistrationSuccess}) => {
     const [email, setEmail] = useState('');
@@ -48,7 +48,7 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({accoun
             setErrorMessage(`Oh no! An error occurred when setting your email. 
             Rest assured - we got your recording and our team was notified.`);
             console.error(`
-                Please send the error message "${err}" alongside the reference to support@voxana.ai. Apologies for inconvenience`
+                Please send the error message "${err}" alongside the reference to support@dumpsheet.com - Apologies for inconvenience`
             );
         }
     };
@@ -87,7 +87,8 @@ const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({accoun
                 <label className="ml-2">
                     Agree to our&nbsp;
                     <a className="underline hover:no-underline"
-                       href="https://www.voxana.ai/legal/terms-of-service" target="_blank"
+                       // TODO(P1, dumpsheet migration): Does this even exist?
+                       href="https://www.dumpsheet.com/legal/terms-of-service" target="_blank"
                        rel="noopener noreferrer">
                         terms of service
                     </a>

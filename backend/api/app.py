@@ -1,23 +1,29 @@
 # TODO(P0, devx): Migrate this to Flask, the AWS SAM for lambdas is just crazy shit show.
 #  -- This script evolved into essentially an onboarding server endpoint.
+# AAAAAW YEAH THIS IS HAPPENING
+# TODO(P1, dumpsheet migration): Separate out this file into smaller FastAPI modules
 import datetime
 import json
 import os
 import re
 import uuid
-from typing import Dict, Optional
+from typing import Dict, Optional, Annotated, Union
 
 import boto3
 import peewee  # noqa
 from botocore.exceptions import NoCredentialsError
+from fastapi import FastAPI, Header
 from hubspot import HubSpot
 from hubspot.auth import oauth
+from pydantic import BaseModel, EmailStr, Field
+from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import Request
 
-# NOTE: There are a few copies of the "database" module around this repo.
-# for IDE, doing ".database" would point to "backend/sam_app/upload_voice/database".
-# Ideally, we would set up an AWS Lambda Layer, but I failed to achieve this.
+from common.aws_utils import get_bucket_url
+from common.config import ENV, ENV_LOCAL, ENV_PROD
+# TODO(P2, dumpsheet migration): Instead of import the entire module, just import the classes.
 from database import account, data_entry, models
-from database.client import connect_to_postgres_i_will_call_disconnect_i_promise
+from database.client import connect_to_postgres_i_will_call_disconnect_i_promise, disconnect_from_postgres_as_i_promised
 from database.constants import (
     ACCOUNT_STATE_ACTIVE,
     ACCOUNT_STATE_MERGED,
@@ -40,57 +46,66 @@ HUBSPOT_CLIENT_ID = "501ffe58-5d49-47ff-b41f-627fccc28715"
 HUBSPOT_REDIRECT_URL = "https://api.voxana.ai/hubspot/oauth/redirect"
 TWILIO_FUNCTIONS_API_KEY = "twilio-functions-super-secret-key-123"
 
-# AWS Lambda Execution Context feature - this should save about 1 second on subsequent invocations.
-secrets_cache = {}
+
+# ======= FAST API BOILERPLATE =======
+
+app = FastAPI()
+# app.include_router(hubspot_router)
 
 
-# TODO(P1, devx): Replace with Doppler - AWS secret manager is also kinda crap to manage.
+origins = []
+if ENV == ENV_LOCAL:
+    print(
+        "INFO: Adding CORS Middleware for LOCAL Environment (DO NOT DO IN PRODUCTION)"
+    )
+    # Allow all origins for development purposes
+    origins = [
+        "http://localhost:3000",  # Adjust this if needed
+        "http://localhost:8080",  # Your server's port
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080",
+    ]
+if ENV == ENV_PROD:
+    # List of trusted domains in production
+    origins = [
+        "https://dumpsheet.com",
+        "https://www.dumpsheet.com",
+    ]
+# Apply CORS middleware
+# TODO(P1, devx): It would be nice to add a correlation id https://github.com/snok/asgi-correlation-id
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # or use ["*"] to allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.on_event("startup")
+def startup():
+    postgres_login_url = get_secret(
+        secret_id="arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/supabase/postgres_login_url-AvIn1c",
+        env_var_name="POSTGRES_LOGIN_URL_FROM_ENV",
+    )
+    # with client.connect_to_postgres(postgres_login_url):
+    # Indeed, in AWS Lambda, it is generally recommended not to explicitly close database connections
+    # at the end of each function invocation. Lambda execution context will freeze and thaw it.
+    connect_to_postgres_i_will_call_disconnect_i_promise(postgres_login_url)  # lies
+
+
+@app.on_event("shutdown")
+def shutdown():
+    disconnect_from_postgres_as_i_promised()
+
+
+# ======= OLD UTILS =======
 def get_secret(secret_id, env_var_name):
-    if secret_id in secrets_cache:
-        print(f"Using cached secret for {secret_id}")
-        return secrets_cache[secret_id]
-
-    try:
-        # Try to get secret from environment variable
-        secret = os.environ.get(env_var_name)
-        if secret is not None:
-            print(f"Using environment secret {env_var_name} for {secret_id}")
-            return secret
-    except KeyError:
-        pass
-
-    # If not found in environment or cache, fetch from Secrets Manager
-    session = boto3.session.Session()
-    secretsmanager_client = session.client(
-        service_name="secretsmanager", region_name="us-east-1"
-    )
-
-    get_secret_value_response = secretsmanager_client.get_secret_value(
-        SecretId=secret_id
-    )
-
-    print(f"Using secrets manager for secret {secret_id}")
-
-    if "SecretString" in get_secret_value_response:
-        secret = get_secret_value_response["SecretString"]
-        # Cache the retrieved secret for future use
-        secrets_cache[secret_id] = secret
-    else:
-        raise ValueError(f"Secret not found (or no perms) for {secret_id}")
-
-    return secret
+    # Try to get secret from environment variable
+    return os.environ.get(env_var_name)
 
 
-def get_bucket_url(bucket_name, key):
-    # TODO(p3): We should try un-comment this
-    # This might need urllib3 - kinda annoying dealing with Lambda deps.
-    # location = s3.get_bucket_location(Bucket=bucket_name)['LocationConstraint']
-    # if location is None:
-    location = "us-east-1"  # default location (TODO: use some AWS_REGION env variable)
-    bucket_url = f"https://{bucket_name}.s3.{location}.amazonaws.com/{key}"
-    return bucket_url
-
-
+# TODO(P0, dumpsheet migration): Just use the FastAPI's response model
 def craft_response(
     status_code: int, body: Dict, headers: Optional[Dict] = None
 ) -> Dict:
@@ -125,12 +140,19 @@ def get_header_value(headers, key):
     )
 
 
-def handle_get_request_for_presigned_url(event) -> Dict:
+# ======= API ENDPOINTS =======
+@app.get("/")
+def read_root():
+    return {"status": "ok", "version": "1.0.0"}
+
+
+@app.get("/upload/voice")
+def get_presigned_url(request: Request, x_account_id: Annotated[Union[str, None], Header()] = None) -> Dict:
     # Specify the S3 bucket and file name
     bucket_name = "requests-from-api-voxana"
     data_entry_id = uuid.uuid4()
     file_name = f"{data_entry_id}.webm"
-    print(f"received upload request for data entry {data_entry_id}: event {event}")
+    print(f"received upload request for data entry {data_entry_id}: account_id {x_account_id}")
     # We should get this from the request
     content_type = "audio/webm"
 
@@ -153,19 +175,15 @@ def handle_get_request_for_presigned_url(event) -> Dict:
 
     # NOTE: To allow extra headers you need to allow-list them in the CORS policy
     # https://chat.openai.com/share/4e0034b2-4012-4ef9-97dc-e41b66bec335
-    account_id = get_header_value(event["headers"], "X-Account-Id")
-    if account_id:
-        print(f"Received account_id: {account_id}")
-        acc = account.Account.get_by_id(account_id)
+    if x_account_id:
+        print(f"Received account_id: {x_account_id}")
+        acc = account.Account.get_by_id(x_account_id)
     else:
+        # TODO(P0, dumpsheet migration): This IP onboarding is just too custom, remove and just require X-Account-Id.
         # Extract some identifiers - these should NOT be use for auth - but good enough for a demo.
-        source_ip = event["requestContext"]["identity"].get("sourceIp", "unknown")
-        user_agent = format_user_agent(
-            event["requestContext"]["identity"].get("userAgent", "")
-        )
+        source_ip = request.client.host
+        user_agent = "this is deprecated in the future"
         print(f"Received source_ip: {source_ip} and user_agent {user_agent}")
-        # TODO: fill in referer, utm_source, user_agent here
-        # https://chat.openai.com/share/b866f3da-145c-4c48-8a34-53cf85a7eb19
         acc = account.Account.get_or_onboard_for_ip(
             ip_address=source_ip, user_agent=user_agent
         )
@@ -173,8 +191,6 @@ def handle_get_request_for_presigned_url(event) -> Dict:
     if bool(acc.user):
         # TODO(P0, auth): Support authed sessions somehow.
         return craft_error(401, "please sign in")
-    # Works for API Gateway
-    request_id = event["requestContext"]["requestId"]
     # We only want to collect the email address if not already associated with this IP address.
     response["email"] = acc.get_email()
     response["account_id"] = str(acc.id)  # maybe we should have a UUIDEncoder
@@ -183,9 +199,9 @@ def handle_get_request_for_presigned_url(event) -> Dict:
         id=data_entry_id,
         account=acc,
         display_name=f"Voice recording upload from {(datetime.datetime.now().strftime('%B %d, %H:%M'))}",
-        idempotency_id=request_id,
+        idempotency_id=data_entry_id,  # TODO(P1, ux): we can send a client-side recording idempotency id
         input_type=content_type,
-        input_uri=get_bucket_url(bucket_name=bucket_name, key=file_name),
+        input_uri=get_bucket_url(bucket=bucket_name, key=file_name),
         state=data_entry.STATE_UPLOAD_INTENT
         # output_transcript, processed_at are None
     ).execute()
@@ -193,12 +209,18 @@ def handle_get_request_for_presigned_url(event) -> Dict:
     return craft_response(201, response)
 
 
+class PostUpdateEmailRequest(BaseModel):
+    email: str
+    account_id: str  # uuid really
+
+
 # curl -X POST -d '{email: "petherz+curl@gmail.com", account_id: "f11a156d-2dd1-44a4-83de-3dca117765b8"}' https://api.voxana.ai/upload/voice  # noqa
-def handle_post_request_for_update_email(event: Dict) -> Dict:
-    body = json.loads(event["body"])
-    email_raw = body.get("email")
-    account_id = body.get("account_id")
+# TODO(P0, dumpsheet migration): This IP onboarding is just too custom use Supabase Auth or other off-shelf solution.
+@app.post("/upload/voice")
+def post_update_email(request: PostUpdateEmailRequest) -> Dict:
     # TODO(P0, ux): Actually process terms of service from tos_accepted
+    account_id = request.account_id
+    email_raw = request.email
 
     if not email_raw or not account_id:
         return craft_error(400, "both email and account_id parameters are required")
@@ -279,10 +301,19 @@ def handle_post_request_for_update_email(event: Dict) -> Dict:
     return craft_info(200, "account email updated")
 
 
-def handle_post_request_for_call_set_email(event):
-    body = json.loads(event["body"])
-    phone_number = body.get("phone_number")
-    message = body.get("message")
+class CallSetEmailRequest(BaseModel):
+    phone_number: str
+    message: str
+
+
+@app.post("/call/set-email", status_code=201)
+def call_set_email(request: CallSetEmailRequest):
+    # TODO(P2, dumpsheet migration): This should be a separate endpoint for Twilio Functions
+    # if api_key != TWILIO_FUNCTIONS_API_KEY:
+    #    return craft_error(403, "x-api-key is required")
+
+    phone_number = request.phone_number
+    message = request.message
     print(f"received message from {phone_number}: {message}")
     if phone_number is None or message is None:
         return craft_error(400, "both phone_number and message are required params")
@@ -338,14 +369,11 @@ def _parse_account_id_from_state_param(param: Optional[str]) -> Optional[uuid.UU
     return account_id
 
 
-def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
-    print(f"HUBSPOT OAUTH REDIRECT EVENT: {event}")
+@app.get("/hubspot/oauth/redirect")
+def handle_get_request_for_hubspot_oauth_redirect(code: str, state: Optional[str]) -> Dict:
+    print(f"HUBSPOT OAUTH REDIRECT EVENT: {code}")
 
-    # == FIRST, we deal with the OAUTH stuff.
-    authorization_code = event["queryStringParameters"].get("code", "")
-    if not authorization_code:
-        craft_error(400, "Missing authorization code")
-
+    authorization_code = code
     client_secret = get_secret(
         "arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/hubspot/client_secret-ApsPp3",
         "HUBSPOT_CLIENT_SECRET",
@@ -422,9 +450,7 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
 
     # == FOURTH, we check for the admin account if that has an organization or not
     # NOTE: admin_account_id can be None
-    admin_account_id = _parse_account_id_from_state_param(
-        event["queryStringParameters"].get("state", None)
-    )
+    admin_account_id = _parse_account_id_from_state_param(state)
     if admin_account_id is None:
         print(
             f"Trying to get admin account for hubspot oauth linker {external_org_admin_email}"
@@ -505,78 +531,3 @@ def handle_get_request_for_hubspot_oauth_redirect(event: Dict) -> Dict:
             "Location": f"https://app.voxana.ai?hubspot_status=success&account_id={admin_account_id}"
         },
     )
-
-
-# TODO(P1, Peter): Migrate this to a Flask / Django server - this lambda deployment is slowly starting to be ridiculous
-# wtf sam
-ENDPOINT_VOICE_UPLOAD = "/upload/voice"
-ENDPOINT_CALL_SET_EMAIL = "/call/set-email"
-ENDPOINT_HUBSPOT_OAUTH_REDIRECT = "/hubspot/oauth/redirect"
-
-
-def lambda_handler(event, context):
-    # https://docs.aws.amazon.com/lambda/latest/dg/services-apigateway.html#apigateway-example-event
-    http_method = event["httpMethod"]
-    api_endpoint = event["requestContext"][
-        "resourcePath"
-    ]  # event['path'] might work as well
-    api_key = event["headers"].get("x-api-key")
-
-    print(f"handling {http_method} {api_endpoint} request")
-
-    # TODO(P1, security): This should be better, but PITA to use SAM for this.
-    if api_endpoint == ENDPOINT_CALL_SET_EMAIL:
-        if api_key != TWILIO_FUNCTIONS_API_KEY:
-            return craft_error(403, "x-api-key is required")
-
-    postgres_login_url = get_secret(
-        secret_id="arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/supabase/postgres_login_url-AvIn1c",
-        env_var_name="POSTGRES_LOGIN_URL_FROM_ENV",
-    )
-    # with client.connect_to_postgres(postgres_login_url):
-    # Indeed, in AWS Lambda, it is generally recommended not to explicitly close database connections
-    # at the end of each function invocation. Lambda execution context will freeze and thaw it.
-    connect_to_postgres_i_will_call_disconnect_i_promise(postgres_login_url)  # lies
-
-    if api_endpoint == ENDPOINT_VOICE_UPLOAD:
-        if http_method == "OPTIONS":
-            # AWS API Gateway requires a non-empty response body for OPTIONS requests
-            response = craft_response(200, {})
-        elif http_method == "GET":
-            response = handle_get_request_for_presigned_url(event)
-        elif http_method == "POST":
-            response = handle_post_request_for_update_email(event)
-        else:
-            raise ValueError(f"Invalid HTTP method: {http_method}")
-    elif api_endpoint == ENDPOINT_CALL_SET_EMAIL:
-        if http_method == "POST":
-            response = handle_post_request_for_call_set_email(event)
-        else:
-            raise ValueError(f"Invalid HTTP method: {http_method}")
-    elif api_endpoint == ENDPOINT_HUBSPOT_OAUTH_REDIRECT:
-        if http_method == "GET":
-            response = handle_get_request_for_hubspot_oauth_redirect(event)
-        else:
-            raise ValueError(f"Invalid HTTP method: {http_method}")
-    else:
-        raise NotImplementedError(api_endpoint)
-
-    if "headers" not in response or response["headers"] is None:
-        response["headers"] = {}
-
-    # Add the CORS stuff here, as I couldn't figure out it in template.yaml nor API Gateway conf.
-    # Extract the origin from the request headers
-    origin = event["headers"].get("origin", "unknown")
-
-    # Set the allowed origin in the response to the origin of the request if it's in the list of allowed origins
-    # Some callers like twilio-functions don't need CORS.
-    allowed_origin = origin if origin in ALLOWED_ORIGINS else "unknown"
-
-    response["headers"]["Access-Control-Allow-Credentials"] = True
-    response["headers"]["Access-Control-Allow-Origin"] = allowed_origin
-    # Rest of them mostly for OPTIONS
-    response["headers"]["Access-Control-Allow-Headers"] = "Content-Type,x-account-id"
-    response["headers"]["Access-Control-Allow-Methods"] = "GET,POST"
-
-    print(f"response: {response}")
-    return response

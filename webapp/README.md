@@ -1,6 +1,6 @@
 # Todo app using Supabase with Next.js
 
-SHAMELESSLY COPIED FROM [SUPABASE](https://github.com/supabase/supabase/tree/master/examples/todo-list/voxana-webapp)
+SHAMELESSLY COPIED FROM [SUPABASE](https://github.com/supabase/supabase/tree/master/examples/todo-list)
 
 - Frontend:
   - [Next.js](https://github.com/vercel/next.js) - a React framework for production.
