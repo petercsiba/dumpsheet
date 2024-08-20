@@ -12,6 +12,7 @@ import CollectEmailProcessingInfo from "@/components/CollectEmailProcessingInfo"
 import ProgressBar from "@/components/ProgressBar";
 import ConnectHubspotButton from "@/components/ConnectHubspotButton";
 
+// TODO(P1, devx): We should support local testing with a local FastAPI backend
 const PRESIGNED_URL = 'https://api.dumpsheet.com/upload/voice';
 const UPLOAD_TIMEOUT = 30000;
 const MIN_DURATION = Number(process.env.NEXT_PUBLIC_VOICE_RECORDER_MIN_DURATION_SECONDS) || 10;
@@ -533,7 +534,7 @@ export default function VoiceRecorder() {
         if (isDebug()) return RecorderState.DEBUG
         return isFirstTimeUser() ? RecorderState.WELCOME_PRIVATE_BETA : RecorderState.WELCOME
     }
-    const [recorderState, setRecorderState] = recorderState(getStartState());
+    const [recorderState, setRecorderState] = useState(getStartState());
     // Use useEffect to log whenever recorderState changes
     useEffect(() => {
          console.log(`set setRecorderState to ${recorderState}` + `(${typeof recorderState})`)

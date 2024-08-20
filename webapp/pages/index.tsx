@@ -4,6 +4,7 @@ import ConnectHubspotButton from "@/components/ConnectHubspotButton";
 import Head from "next/head";
 import Banner from "@/components/Banner";
 import {useState} from "react";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const VoiceRecorderWithNoSSR = dynamic(() => import('@/components/VoiceRecorder'), {
     ssr: false
@@ -76,7 +77,9 @@ export default function Home() {
                 <div
                     className="flex flex-col items-center justify-center gap-6 px-4 py-6 absolute top-[22rem] left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-lg border border-black bg-white voxana-middle-box"
                 >
-                    <VoiceRecorderWithNoSSR/>
+                    <ErrorBoundary>
+                        <VoiceRecorderWithNoSSR/>
+                    </ErrorBoundary>
                 </div>
                 {showExtras && (<div
                     className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 font-montserrat">
