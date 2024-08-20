@@ -1,5 +1,4 @@
 #!/bin/bash
-# TODO(P0, dumpsheet migration): Test this works with the new AWS account from peter-voxana to prod@dumpsheet.com
 
 PROFILE_NAME="PowerUserAccess-831154875375"
 
@@ -24,9 +23,10 @@ echo "=== Login to AWS ECR ==="
 # Check if logged into AWS CLI by trying to list S3 buckets
 aws s3 ls --profile $PROFILE_NAME > /dev/null 2>&1
 
-# If previous command failed, assume not logged in and login to SSO
+# If previous command failed, assume not logged in and login using IAM user
 if [ $? -ne 0 ]; then
-    aws sso login --profile $PROFILE_NAME
+    echo "Yo, you need to login to AWS CLI first. Run 'aws configure --profile $PROFILE_NAME' and read README.md"
+    exit 1
 fi
 
 # Get ECR login password and login to Docker

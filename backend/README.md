@@ -89,10 +89,10 @@ supabase db push
 
 ### Set up AWS config
 ```shell
-aws configure sso --profile voxana-prod
-# later for login you can use
-aws sso login --profile PowerUserAccess-831154875375
-# note for any IAM related stuff you would need Administrator access (or kick Peter to extend perms)
+# We used to have SSO but felt like overkill so now back to IAM with Access Key
+aws configure --profile PowerUserAccess-831154875375
+# AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY you get from Admin (or kick Peter to extend perms)
+# default region is us-east-1
 ```
 More in https://www.notion.so/AWS-83f07c0ce85d4e2f8cffbc1bf3a8d700?pvs=4#f9c71df32f024c758e523ca99980dd72
 
@@ -172,6 +172,8 @@ chmod +x ~/.docker/cli-plugins/docker-buildx
 docker buildx version # verify installation
 ```
 https://dev.to/maxtacu/cross-platform-container-images-with-buildx-and-colima-4ibj
+
+NOTE: `colima start` needs to run every time you restart your computer (or you add autostart).
 
 NOTE: Apply out of box for backwards compatibility supports `arch -x86_64`,
 which runs code on the previous architecture.

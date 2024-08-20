@@ -502,6 +502,7 @@ class OpenAiClient:
                 #   mp3, mp4, mpeg, mpga, m4a, wav, and webm (m4a FAKE news). Confirmed that webm and ffmpeg mp4 work.
                 # TODO(P2, feature); For longer inputs, we can use pydub to chunk it up
                 #   https://platform.openai.com/docs/guides/speech-to-text/longer-inputs
+                # TODO(P0, devx): You tried to access openai.Audio, but this is no longer supported in openai>=1.0.0
                 res = openai.Audio.translate(
                     model=model,
                     file=audio_file,

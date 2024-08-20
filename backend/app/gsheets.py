@@ -164,7 +164,7 @@ class GoogleClient:
         user_permission = {
             "type": "user",
             "role": "writer",
-            # 'role': 'owner',  # TODO: would be nice to have the user as owner
+            # 'role': 'owner',  # TODO(P0, ux): would be nice to have the user as owner
             # Consent is required to transfer ownership of a file to another user.
             "emailAddress": email,
             # 'allowFileDiscovery': True  # allowFileDiscovery is not valid for individual users

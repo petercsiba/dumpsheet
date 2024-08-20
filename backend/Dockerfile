@@ -1,6 +1,6 @@
 # Hacked https://aws.amazon.com/blogs/aws/new-for-aws-lambda-container-image-support/
-# TODO(p0, devx): Move this to the app/ folder, restructure this project per lambda function / server.
-# TODO(P1, devops): AWS Lambda Layers support FFmpeg - might make my life simpler instead of a Docker image.
+# TODO(P0, devops): Separate this into two Lambdas, as this tries to do too many things leading to many dependency constraints.
+# TODO(P1, devx): Move this to the app/ folder, restructure this project per lambda function / server.
 
 # Define global args
 ARG FUNCTION_DIR="/home/voxana"
@@ -33,6 +33,7 @@ RUN apk add --no-cache \
     cargo \
     postgresql-dev \
     libffi-dev
+
 
 ENV PYTHONUNBUFFERED=1
 

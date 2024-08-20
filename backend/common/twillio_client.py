@@ -18,10 +18,11 @@ class TwilioClient:
         self.client = Client(self.account_sid, self.auth_token)
         self.call_count = 0
 
-    # TODO(P1, ux): Support idempotency keys here too.
-    # TODO(P0, ux): Figure out that consent https://www.twilio.com/en-us/legal/messaging-policy
+    # TODO(P2, ux): Support idempotency keys here too.
+    # TODO(P1, ux): Figure out that consent https://www.twilio.com/en-us/legal/messaging-policy
     def send_sms(self, to_phone, body) -> Optional[str]:
         try:
+            # TODO(P1, dumpsheet migration): Failed to send SMS: HTTP 401 error: Unable to create record: Authenticate
             with Timer("Twilio Send SMS"):
                 print(f"Sending SMS to {to_phone} with body {body}")
                 message = self.client.messages.create(
