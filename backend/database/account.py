@@ -181,7 +181,7 @@ class Account(BaseAccount):
     @staticmethod
     def get_or_onboard_for_ip(ip_address: str, user_agent: str) -> "Account":
         # TODO(hack): We always generate a new "anonymous identifier" for our local network.
-        if ip_address == "76.133.98.247":
+        if ip_address in ["76.133.98.247", "172.16.9.186"]:
             anonymous_identifier = f"{ip_address}-{str(time.time())}"
             print(
                 f"HACK: anonymous_identifier rewritten for our local ip to {anonymous_identifier}"

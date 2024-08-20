@@ -1,9 +1,5 @@
-# TODO(P0, devx): Migrate this to Flask, the AWS SAM for lambdas is just crazy shit show.
-#  -- This script evolved into essentially an onboarding server endpoint.
-# AAAAAW YEAH THIS IS HAPPENING
 # TODO(P1, dumpsheet migration): Separate out this file into smaller FastAPI modules
 import datetime
-import json
 import os
 import re
 import uuid
@@ -12,12 +8,13 @@ from typing import Dict, Optional, Annotated, Union
 import boto3
 import peewee  # noqa
 from botocore.exceptions import NoCredentialsError
-from fastapi import FastAPI, Header
+from fastapi import FastAPI, Header, HTTPException
 from hubspot import HubSpot
 from hubspot.auth import oauth
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
+from starlette.responses import RedirectResponse
 
 from common.aws_utils import get_bucket_url
 from common.config import ENV, ENV_LOCAL, ENV_PROD, AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID
@@ -85,10 +82,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup():
-    postgres_login_url = get_secret(
-        secret_id="arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/supabase/postgres_login_url-AvIn1c",
-        env_var_name="POSTGRES_LOGIN_URL_FROM_ENV",
-    )
+    postgres_login_url = os.environ.get("POSTGRES_LOGIN_URL_FROM_ENV")
     # with client.connect_to_postgres(postgres_login_url):
     # Indeed, in AWS Lambda, it is generally recommended not to explicitly close database connections
     # at the end of each function invocation. Lambda execution context will freeze and thaw it.
@@ -100,55 +94,20 @@ def shutdown():
     disconnect_from_postgres_as_i_promised()
 
 
-# ======= OLD UTILS =======
-def get_secret(secret_id, env_var_name):
-    # Try to get secret from environment variable
-    return os.environ.get(env_var_name)
-
-
-# TODO(P0, dumpsheet migration): Just use the FastAPI's response model
-def craft_response(
-    status_code: int, body: Dict, headers: Optional[Dict] = None
-) -> Dict:
-    result = {"statusCode": status_code, "body": json.dumps(body)}
-    if bool(headers):
-        result["headers"] = headers
-    return result
-
-
-# NOTE: Please keep the `error_message` brief - do not include ids/values - to mitigate potential malicious action.
-# If you need more info to debug, you can always log it.
-def craft_error(status_code: int, error_message) -> Dict:
-    print(f"ERROR({status_code}): {error_message}")
-    return craft_response(status_code, {"error": error_message})
-
-
-def craft_info(status_code: int, info_message) -> Dict:
-    print(f"INFO({status_code}): {info_message}")
-    return craft_response(status_code, {"info": info_message})
-
-
-def format_user_agent(user_agent_str: str):
-    s = re.sub(r"[ /_]", "-", user_agent_str)
-    return re.sub(r"[^a-zA-Z0-9-.]", "", s)
-
-
-def get_header_value(headers, key):
-    # Match header key case in-sensitive https://chat.openai.com/share/ed8115d2-53f5-4c16-b4b3-a48c4b80e0c3
-    return next(
-        (value for header, value in headers.items() if header.lower() == key.lower()),
-        None,
-    )
-
-
 # ======= API ENDPOINTS =======
 @app.get("/")
 def read_root():
     return {"status": "ok", "version": "1.0.0"}
 
 
-@app.get("/upload/voice")
-def get_presigned_url(request: Request, x_account_id: Annotated[Union[str, None], Header()] = None) -> Dict:
+class GetPresignedUrlResponse(BaseModel):
+    presigned_url: str  # actually required, but we oftentimes mess up and that messes up return code to 500
+    email: Optional[EmailStr] = None
+    account_id: Optional[str] = None  # uuid really
+
+
+@app.get("/upload/voice", response_model=GetPresignedUrlResponse)
+async def get_presigned_url(request: Request, x_account_id: Annotated[Union[str, None], Header()] = None):
     # Specify the S3 bucket and file name
     bucket_name = "requests-from-api-voxana"
     data_entry_id = uuid.uuid4()
@@ -157,10 +116,9 @@ def get_presigned_url(request: Request, x_account_id: Annotated[Union[str, None]
     # We should get this from the request
     content_type = "audio/webm"
 
-    response = {}
     try:
         # Generate a presigned S3 PUT URL
-        response["presigned_url"] = s3.generate_presigned_url(
+        presigned_url = s3.generate_presigned_url(
             "put_object",
             # Ideally, we would include `data_entry_id` as Metadata.
             Params={
@@ -172,7 +130,8 @@ def get_presigned_url(request: Request, x_account_id: Annotated[Union[str, None]
         )
         print("presigned_url generated")
     except NoCredentialsError:
-        return craft_error(500, "error generating presigned URL: No AWS Credentials")
+        # Officially HTTPException should only be used with 4xx
+        raise HTTPException(500, "error generating presigned URL: No AWS Credentials")
 
     # NOTE: To allow extra headers you need to allow-list them in the CORS policy
     # https://chat.openai.com/share/4e0034b2-4012-4ef9-97dc-e41b66bec335
@@ -191,10 +150,10 @@ def get_presigned_url(request: Request, x_account_id: Annotated[Union[str, None]
 
     if bool(acc.user):
         # TODO(P0, auth): Support authed sessions somehow.
-        return craft_error(401, "please sign in")
+        raise HTTPException(403, "please sign in")
     # We only want to collect the email address if not already associated with this IP address.
-    response["email"] = acc.get_email()
-    response["account_id"] = str(acc.id)  # maybe we should have a UUIDEncoder
+    email = acc.get_email()
+    account_id = str(acc.id)  # maybe we should have a UUIDEncoder
 
     inserted = models.BaseDataEntry.insert(
         id=data_entry_id,
@@ -207,7 +166,7 @@ def get_presigned_url(request: Request, x_account_id: Annotated[Union[str, None]
         # output_transcript, processed_at are None
     ).execute()
     print(f"inserted data entries {inserted}")
-    return craft_response(201, response)
+    return GetPresignedUrlResponse(presigned_url=presigned_url, email=email, account_id=account_id)
 
 
 class PostUpdateEmailRequest(BaseModel):
@@ -215,29 +174,33 @@ class PostUpdateEmailRequest(BaseModel):
     account_id: str  # uuid really
 
 
+class PostUpdateEmailResponse(BaseModel):
+    detail: str
+
+
 # curl -X POST -d '{email: "petherz+curl@gmail.com", account_id: "f11a156d-2dd1-44a4-83de-3dca117765b8"}' https://api.dumpsheet.com/upload/voice  # noqa
 # TODO(P0, dumpsheet migration): This IP onboarding is just too custom use Supabase Auth or other off-shelf solution.
-@app.post("/upload/voice")
-def post_update_email(request: PostUpdateEmailRequest) -> Dict:
+@app.post("/upload/voice", response_model=PostUpdateEmailResponse, status_code=200)
+def post_update_email(request: PostUpdateEmailRequest):
     # TODO(P0, ux): Actually process terms of service from tos_accepted
     account_id = request.account_id
     email_raw = request.email
 
     if not email_raw or not account_id:
-        return craft_error(400, "both email and account_id parameters are required")
+        raise HTTPException(400, "both email and account_id parameters are required")
     email = str(email_raw).lower()
     print(f"handle_post_request_for_update_email {email}:{account_id}")
 
     print(f"looking for account with id {account_id}")
     acc: account.Account = account.Account.get_or_none(account.Account.id == account_id)
     if acc is None:
-        return craft_error(404, "account not found")
+        raise HTTPException(404, "account not found")
     existing_email = acc.get_email()
 
     # so we can set it for its Onboarding object.
     onboarding = models.BaseOnboarding.get_or_none(models.BaseOnboarding.account == acc)
     if not bool(onboarding):
-        return craft_error(404, "onboarding not found")
+        raise HTTPException(404, "onboarding not found")
 
     # We want to be careful with this update as handling identities must be robust
     # 1. Check if such email already has an account (in theory there can be multiple onboardings for the same email)
@@ -247,9 +210,9 @@ def post_update_email(request: PostUpdateEmailRequest) -> Dict:
         # However, if you want to indicate that the resource was already created prior to the request,
         # there isn't a specific HTTP status code for this situation.
         if str(acc_for_email.id) == str(account_id):
-            return craft_info(200, "account already exists with the provided email")
+            return PostUpdateEmailResponse(detail="account already exists with the provided email")
         if bool(existing_email) and existing_email != email:
-            return craft_error(
+            raise HTTPException(
                 409, "requested account is claimed by a different a email address"
             )
         new_account_id = acc_for_email.id
@@ -275,11 +238,9 @@ def post_update_email(request: PostUpdateEmailRequest) -> Dict:
             print(
                 f"Updated 1 onboardings, {num_de} data entries and {num_el} email logs"
             )
-            return craft_info(
-                200, f"account {account_id} merged into existing {new_account_id}"
-            )
+            return PostUpdateEmailResponse(detail=f"account {account_id} merged into existing {new_account_id}")
         except Exception as e:
-            return craft_error(
+            raise HTTPException(
                 500,
                 f"could not merge accounts {account_id} -> {new_account_id} cause {e}",
             )
@@ -287,10 +248,10 @@ def post_update_email(request: PostUpdateEmailRequest) -> Dict:
     # 2. Vice-versa, prevent overriding emails for existing acc by checking that account if already has claimed email
     if bool(existing_email):
         if existing_email != email:
-            return craft_error(
+            raise HTTPException(
                 409, "requested account is claimed by a different a email address"
             )
-        return craft_info(200, "account already exists with the provided email")
+        return PostUpdateEmailResponse(detail="account already exists with the provided email")
 
     # This means existing_account has NO associated User, AND the email is un-used,
     onboarding.email = email
@@ -299,7 +260,7 @@ def post_update_email(request: PostUpdateEmailRequest) -> Dict:
         acc.state = ACCOUNT_STATE_ACTIVE
         acc.save()
 
-    return craft_info(200, "account email updated")
+    return PostUpdateEmailResponse(detail="account email updated")
 
 
 class CallSetEmailRequest(BaseModel):
@@ -307,28 +268,32 @@ class CallSetEmailRequest(BaseModel):
     message: str
 
 
-@app.post("/call/set-email", status_code=201)
+class CallSetEmailResponse(BaseModel):
+    detail: str
+
+
+@app.post("/call/set-email", status_code=201, response_model=CallSetEmailResponse)
 def call_set_email(request: CallSetEmailRequest):
     # TODO(P2, dumpsheet migration): This should be a separate endpoint for Twilio Functions
     # if api_key != TWILIO_FUNCTIONS_API_KEY:
-    #    return craft_error(403, "x-api-key is required")
+    #    raise HTTPException(403, "x-api-key is required")
 
     phone_number = request.phone_number
     message = request.message
     print(f"received message from {phone_number}: {message}")
     if phone_number is None or message is None:
-        return craft_error(400, "both phone_number and message are required params")
+        raise HTTPException(400, "both phone_number and message are required params")
 
     pattern = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
     match = re.search(pattern, message)
     new_email_raw = match.group(0) if match else None
     if new_email_raw is None:
-        return craft_error(400, "no email address found in message")
+        raise HTTPException(400, "no email address found in message")
     new_email = new_email_raw.lower()
 
     acc = account.Account.get_by_phone_or_none(phone_number)
     if acc is None:
-        return craft_error(500, f"account should be already present for {phone_number}")
+        raise HTTPException(500, f"account should be already present for {phone_number}")
 
     existing_email = acc.get_email()
     if existing_email is None:
@@ -338,11 +303,12 @@ def call_set_email(request: CallSetEmailRequest):
         existing_onboarding.email = new_email
         print(f"updating existing onboarding for {phone_number} to {new_email}")
         existing_onboarding.save()
-        return craft_info(201, "email updated")
+        return CallSetEmailResponse(detail="email updated")
     elif existing_email == new_email:
-        return craft_info(200, "email already set")
+        # TODO(P2, devx): This should be a 200, but what is the FastAPI way for 200 vs 201?
+        return HTTPException(200, "email already set")
     assert existing_email != new_email
-    return craft_error(
+    raise HTTPException(
         400,
         f"cannot reset email through this endpoint, phone_number claimed by {existing_email}",
     )
@@ -370,15 +336,12 @@ def _parse_account_id_from_state_param(param: Optional[str]) -> Optional[uuid.UU
     return account_id
 
 
-@app.get("/hubspot/oauth/redirect")
-def handle_get_request_for_hubspot_oauth_redirect(code: str, state: Optional[str]) -> Dict:
+@app.get("/hubspot/oauth/redirect", response_class=RedirectResponse, status_code=302)
+def handle_get_request_for_hubspot_oauth_redirect(code: str, state: Optional[str]) -> str:
     print(f"HUBSPOT OAUTH REDIRECT EVENT: {code}")
 
     authorization_code = code
-    client_secret = get_secret(
-        "arn:aws:secretsmanager:us-east-1:831154875375:secret:prod/hubspot/client_secret-ApsPp3",
-        "HUBSPOT_CLIENT_SECRET",
-    )
+    client_secret = os.environ.get("HUBSPOT_CLIENT_SECRET")
     # TODO(p2, devx): We should move this into app.HubspotClient once our deployments are more consolidated.
     api_client = HubSpot()
     try:
@@ -391,7 +354,7 @@ def handle_get_request_for_hubspot_oauth_redirect(code: str, state: Optional[str
             code=authorization_code,
         )
     except oauth.ApiException as e:
-        return craft_error(
+        raise HTTPException(
             500, f"Exception when fetching access token from HubSpot: {e}"
         )
     api_client.access_token = tokens.access_token
@@ -523,12 +486,4 @@ def handle_get_request_for_hubspot_oauth_redirect(code: str, state: Optional[str
             )
         acc.save()
 
-    return craft_response(
-        302,
-        body={
-            "info": f"Hubspot Connected to organization {pipeline.organization_id}. Redirecting to app.dumpsheet.com ..."
-        },
-        headers={
-            "Location": f"https://app.dumpsheet.com?hubspot_status=success&account_id={admin_account_id}"
-        },
-    )
+    return f"https://app.dumpsheet.com?hubspot_status=success&account_id={admin_account_id}"
