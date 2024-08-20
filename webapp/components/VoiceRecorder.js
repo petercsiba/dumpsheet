@@ -500,7 +500,7 @@ export default function VoiceRecorder() {
     });
     useEffect(() => {
         if (accountId !== null) {
-            console.log(`set accountId to ${accountId}`)
+            console.log(`set accountId to ${accountId}` + `(${typeof accountId})`)
             localStorage.setItem('accountId', accountId);
         }
     }, [accountId]);
@@ -514,7 +514,7 @@ export default function VoiceRecorder() {
     // Use useEffect to update localStorage when registeredEmail changes
     useEffect(() => {
         // We allow setting it null - in case we didn't collect it last time.
-        console.log(`set registeredEmail to ${registeredEmail}`)
+        console.log(`set registeredEmail to ${registeredEmail}` + `(${typeof registeredEmail})`)
         localStorage.setItem('registeredEmail', registeredEmail);
     }, [registeredEmail]);
 
@@ -533,7 +533,11 @@ export default function VoiceRecorder() {
         if (isDebug()) return RecorderState.DEBUG
         return isFirstTimeUser() ? RecorderState.WELCOME_PRIVATE_BETA : RecorderState.WELCOME
     }
-    const [recorderState, setRecorderState] = useState(getStartState());
+    const [recorderState, setRecorderState] = recorderState(getStartState());
+    // Use useEffect to log whenever recorderState changes
+    useEffect(() => {
+         console.log(`set setRecorderState to ${recorderState}` + `(${typeof recorderState})`)
+    }, [recorderState]);
 
     const doCollectEmail = () => {
         return registeredEmail === null || `${registeredEmail}`.length < 6  // a@a.ai
@@ -600,6 +604,8 @@ export default function VoiceRecorder() {
 
         try {
             await uploadRecording(audioBlob);
+            // TODO: Why not working? The last log line is "set registeredEmail to null" and
+            //   "Inconsistent state, backend email is null while registeredEmail is set; will ask for it
             const nextState = doCollectEmail() ? RecorderState.REGISTER_EMAIL : RecorderState.SUCCESS
             console.log(`uploading finished, next state is ${nextState}`)
             setRecorderState(nextState)
@@ -636,7 +642,7 @@ export default function VoiceRecorder() {
 
         if (data.email === null && !doCollectEmail()) {
             // This means that POST update email previously failed - so let's try again.
-            console.warn("Inconsistent state, backend email is null while registeredEmail is set; will ask for it")
+            console.warn(`Inconsistent state, backend email is null while registeredEmail is set to ${registeredEmail} (${typeof(registeredEmail)}); will ask for it`)
         }
         setAccountId(data.account_id);
         setRegisteredEmail(data.email);
