@@ -729,9 +729,9 @@ def send_technical_failure_email(
 
     email_params = EmailLog(
         sender=SENDER_EMAIL_ALERTS,
-        recipient="peter@voxana.ai",
+        recipient="alerts@dumpsheet.com",
         recipient_full_name="Peter Csiba",
-        subject=f"[ERROR] Voxana Docker Lambda: {subject}",
+        subject=f"[ERROR] Dumpsheet Docker Lambda: {subject}",
         reply_to=NO_REPLY_EMAIL,  # We skip the orig_to_address, as that would trigger another transcription.
         idempotency_id=idempotency_id,
     )

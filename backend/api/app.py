@@ -15,12 +15,12 @@ from botocore.exceptions import NoCredentialsError
 from fastapi import FastAPI, Header
 from hubspot import HubSpot
 from hubspot.auth import oauth
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 
 from common.aws_utils import get_bucket_url
-from common.config import ENV, ENV_LOCAL, ENV_PROD
+from common.config import ENV, ENV_LOCAL, ENV_PROD, AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID
 # TODO(P2, dumpsheet migration): Instead of import the entire module, just import the classes.
 from database import account, data_entry, models
 from database.client import connect_to_postgres_i_will_call_disconnect_i_promise, disconnect_from_postgres_as_i_promised
@@ -38,12 +38,12 @@ from database.oauth_data import OauthData
 from database.organization import Organization
 from database.pipeline import Pipeline
 
-s3 = boto3.client("s3")
+s3 = boto3.client("s3", aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
 
-ALLOWED_ORIGINS = ["https://app.voxana.ai", "http://localhost:3000"]
+ALLOWED_ORIGINS = ["https://app.dumpsheet.com", "http://localhost:3000"]
 HUBSPOT_APP_ID = "2150554"
 HUBSPOT_CLIENT_ID = "501ffe58-5d49-47ff-b41f-627fccc28715"
-HUBSPOT_REDIRECT_URL = "https://api.voxana.ai/hubspot/oauth/redirect"
+HUBSPOT_REDIRECT_URL = "https://api.dumpsheet.com/hubspot/oauth/redirect"
 TWILIO_FUNCTIONS_API_KEY = "twilio-functions-super-secret-key-123"
 
 
@@ -70,6 +70,7 @@ if ENV == ENV_PROD:
     origins = [
         "https://dumpsheet.com",
         "https://www.dumpsheet.com",
+        "https://app.dumpsheet.com",
     ]
 # Apply CORS middleware
 # TODO(P1, devx): It would be nice to add a correlation id https://github.com/snok/asgi-correlation-id
@@ -214,7 +215,7 @@ class PostUpdateEmailRequest(BaseModel):
     account_id: str  # uuid really
 
 
-# curl -X POST -d '{email: "petherz+curl@gmail.com", account_id: "f11a156d-2dd1-44a4-83de-3dca117765b8"}' https://api.voxana.ai/upload/voice  # noqa
+# curl -X POST -d '{email: "petherz+curl@gmail.com", account_id: "f11a156d-2dd1-44a4-83de-3dca117765b8"}' https://api.dumpsheet.com/upload/voice  # noqa
 # TODO(P0, dumpsheet migration): This IP onboarding is just too custom use Supabase Auth or other off-shelf solution.
 @app.post("/upload/voice")
 def post_update_email(request: PostUpdateEmailRequest) -> Dict:
@@ -525,9 +526,9 @@ def handle_get_request_for_hubspot_oauth_redirect(code: str, state: Optional[str
     return craft_response(
         302,
         body={
-            "info": f"Hubspot Connected to organization {pipeline.organization_id}. Redirecting to app.voxana.ai ..."
+            "info": f"Hubspot Connected to organization {pipeline.organization_id}. Redirecting to app.dumpsheet.com ..."
         },
         headers={
-            "Location": f"https://app.voxana.ai?hubspot_status=success&account_id={admin_account_id}"
+            "Location": f"https://app.dumpsheet.com?hubspot_status=success&account_id={admin_account_id}"
         },
     )

@@ -18,7 +18,7 @@ ALTER TABLE public.destination ENABLE ROW LEVEL SECURITY;
 INSERT INTO public.destination (
     id, name, install_url
 ) VALUES (
-    1, 'hubspot', 'https://app.hubspot.com/oauth/authorize?client_id=501ffe58-5d49-47ff-b41f-627fccc28715&scope=oauth%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.owners.read&redirect_uri=https%3A%2F%2Fapi.voxana.ai%2Fhubspot%2Foauth%2Fredirect&state=accountId%3Anull'
+    1, 'hubspot', 'https://app.hubspot.com/oauth/authorize?client_id=501ffe58-5d49-47ff-b41f-627fccc28715&scope=oauth%20crm.objects.contacts.read%20crm.objects.contacts.write%20crm.objects.owners.read&redirect_uri=https%3A%2F%2Fapi.dumpsheet.com%2Fhubspot%2Foauth%2Fredirect&state=accountId%3Anull'
 );
 
 create table

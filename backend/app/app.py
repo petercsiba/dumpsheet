@@ -499,7 +499,7 @@ if __name__ == "__main__":
         orig_data_entry = None
         if test_case == "app":
             app_account = Account.get_or_onboard_for_email(
-                "test@voxana.ai", utm_source="test"
+                "test@dumpsheet.com", utm_source="test"
             )
             app_account.gsheet_id = "1CDW7dNs6CKkpyl7AEspAXinwp2NWYyQkyRTQtQwDynE"
             app_account.save()

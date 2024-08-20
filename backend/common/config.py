@@ -17,6 +17,8 @@ SKIP_SENDING_EMAILS = os.environ.get("SKIP_SENDING_EMAILS", "0")
 
 # AWS stuff
 DEFAULT_REGION = "us-west-2"
+AWS_ACCESS_KEY_ID: str = os.environ.get("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY: str = os.environ.get("AWS_SECRET_ACCESS_KEY")
 
 # EMAIL Stuff
 NO_REPLY_EMAIL = "No Reply <no-reply@mail.dumpsheet.com>"
@@ -39,7 +41,7 @@ ADMIN_CONSOLE_HUBSPOT_REFRESH_TOKEN = os.environ.get(
 HUBSPOT_APP_ID = "2150554"
 HUBSPOT_CLIENT_ID = "501ffe58-5d49-47ff-b41f-627fccc28715"
 HUBSPOT_CLIENT_SECRET = os.environ.get("HUBSPOT_CLIENT_SECRET")
-HUBSPOT_REDIRECT_URL = "https://api.voxana.ai/hubspot/oauth/redirect"
+HUBSPOT_REDIRECT_URL = "https://api.dumpsheet.com/hubspot/oauth/redirect"
 
 # OPENAI STUFF
 OPEN_AI_API_KEY: str = os.environ.get("OPEN_AI_API_KEY")

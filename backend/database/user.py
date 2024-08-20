@@ -85,7 +85,7 @@ class User(BaseUsers):
             {
                 "email": email,
                 "options": {
-                    "email_redirect_to": "https://app.voxana.ai/"
+                    "email_redirect_to": "https://www.dumpsheet.com/"
                     if is_running_in_aws()
                     else "http://localhost:3000/"
                 },

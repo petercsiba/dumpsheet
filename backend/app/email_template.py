@@ -29,7 +29,7 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
       <table width="100%" cellspacing="0" cellpadding="10">
         <tr>
           <td style="text-align: left;">
-            <a href="https://www.voxana.ai">
+            <a href="https://www.dumpsheet.com/">
               <img src="https://voxana-ai-static.s3.amazonaws.com/voxana-logo-text-rectangle-930x174-transparent.png"
                    width="192"
               />
@@ -63,7 +63,7 @@ style="background-image: url('https://voxana-ai-static.s3.amazonaws.com/voxana-h
                 style="background-color: white; border: 1px solid black; border-radius: 12px; width: auto;">
               <tr>
                 <td align="center">
-                  Thank you for using <b><a href="https://www.voxana.ai/">Voxana.ai</a></b>
+                  Thank you for using <b><a href="https://www.dumpsheet.com/">Dumpsheet.com</a></b>
                 </td>
               </tr>
               <tr>

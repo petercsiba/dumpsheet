@@ -46,7 +46,7 @@ def get_event_fixture(
 ):
     if extra_headers is None:
         extra_headers = {}
-    headers = {"origin": "https://app.voxana.ai"}
+    headers = {"origin": "https://app.dumpsheet.com"}
     headers.update(**extra_headers)
 
     return {
@@ -94,7 +94,7 @@ def get_event_for_post_call_set_email(account_id: UUID):
             },
         },
         "headers": {
-            "origin": "https://app.voxana.ai",
+            "origin": "https://app.dumpsheet.com",
         },
         "httpMethod": "POST",
         "path": "/call/set-email",

@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 exports.handler = async function(context, event, callback) {
-    const url = 'https://api.voxana.ai/call/set-email';
+    const url = 'https://api.dumpsheet.com/call/set-email';
     const apiKey = context.AWS_UPDATE_EMAIL_API_KEY;
 
     try {

@@ -187,7 +187,7 @@ class GoogleClient:
                 f"with {email} cause {gsheets_err.reason}"
             )
             # For non-existing Google accounts sendNotificationEmail must be true, otherwise an error is received:
-            # You are trying to invite peter+localtest@voxana.ai.
+            # You are trying to invite peter+localtest@dumpsheet.com.
             # Since there is no Google account associated with this email address,
             # you must check the "Notify people" box to invite this recipient.
             if "invalidSharingRequest" in GoogleClient._get_error_reason(gsheets_err):
@@ -710,10 +710,10 @@ def convert_dates(worksheet: Worksheet, cell_range="A2:A100"):
 
 def test_gsheets():
     test_acc = Account.get_or_onboard_for_email(
-        "peter@voxana.ai", utm_source="test", full_name="Peter Csiba"
+        "peter@dumpsheet.com", utm_source="test", full_name="Peter Csiba"
     )
 
-    test_spreadsheet_name = f"Voxana Data Entry - Peter Csiba - {time.time()}"
+    test_spreadsheet_name = f"Dumpsheet - Peter Csiba - {time.time()}"
     # test_key = "10RbqaqCjB9qPZPUxE40FAs6t1zIveTUKRnSHhbIepis"
     test_key = None
     # peter_key = "1-FyMc_W6d1PTuR4re5d5-uVowmgVWQtpEDjDsP1KplY"

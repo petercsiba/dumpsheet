@@ -657,6 +657,8 @@ export default function VoiceRecorder() {
         ]);
 
         if (!response.ok) {
+            // TODO(P1, ux): Might be too harsh as it shows a mostly black screen
+            // Application error: a client-side exception has occurred (see the browser console for more information).
             throw new Error(`HTTP ${response.status}`);
         }
 
