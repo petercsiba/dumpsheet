@@ -68,6 +68,7 @@ if ENV == ENV_PROD:
         "https://dumpsheet.com",
         "https://www.dumpsheet.com",
         "https://app.dumpsheet.com",
+        "https://api.dumpsheet.com",
     ]
 # Apply CORS middleware
 # TODO(P1, devx): It would be nice to add a correlation id https://github.com/snok/asgi-correlation-id
@@ -135,8 +136,8 @@ async def get_presigned_url(request: Request, x_account_id: Annotated[Union[str,
 
     # NOTE: To allow extra headers you need to allow-list them in the CORS policy
     # https://chat.openai.com/share/4e0034b2-4012-4ef9-97dc-e41b66bec335
-    if x_account_id:
-        print(f"Received account_id: {x_account_id}")
+    if x_account_id and x_account_id != "null" and x_account_id != "undefined":
+        print(f"Received account_id: {x_account_id} type {type(x_account_id)}")
         acc = account.Account.get_by_id(x_account_id)
     else:
         # TODO(P0, dumpsheet migration): This IP onboarding is just too custom, remove and just require X-Account-Id.

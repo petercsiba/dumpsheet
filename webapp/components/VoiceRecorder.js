@@ -624,7 +624,7 @@ export default function VoiceRecorder() {
 
         // First, get the presigned URL from your Lambda function
         const headers = {};
-        if (accountId) {
+        if (accountId && accountId !== "undefined") {
              headers['X-Account-Id'] = accountId;
         }
         // # TODO(P1, ux): we can send a client-side recording idempotency id per recording
