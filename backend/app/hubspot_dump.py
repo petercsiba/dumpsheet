@@ -16,7 +16,9 @@ from app.hubspot_models import (
     ObjectType,
 )
 from common.form import FormData, FormDefinition, FormName
-from common.openai_client import OpenAiClient
+from gpt_form_filler.openai_client import OpenAiClient
+
+from common.gpt_client import open_ai_client_with_db_cache
 from database.account import Account
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from database.constants import DESTINATION_HUBSPOT_ID, OAUTH_DATA_TOKEN_TYPE_OAUTH
@@ -99,9 +101,8 @@ def extract_and_sync_contact_with_follow_up(
 
     # CONTACT CREATION
     contact_form = get_form(FormName.HUBSPOT_CONTACT)
-    contact_form_data, contact_err = gpt_client.fill_in_form(
-        form=contact_form, task_id=db_task.id, text=text
-    )
+    # TODO(P1, gpt-form-filler migration): We lost task_id=db_task.id which was nice for tracking
+    contact_form_data, contact_err = gpt_client.fill_in_form(form=contact_form, text=text)
     _maybe_add_hubspot_owner_id(contact_form_data, hubspot_owner_id)
     db_task.add_generated_output(KEY_HUBSPOT_CONTACT, contact_form_data)
 
@@ -137,9 +138,8 @@ def extract_and_sync_contact_with_follow_up(
     # CALL CREATION
     call_form = get_form(FormName.HUBSPOT_MEETING)
     # use_current_time so hs_timestamp gets filled
-    call_form_data, call_err = gpt_client.fill_in_form(
-        form=call_form, task_id=db_task.id, text=text, use_current_time=True
-    )
+    # TODO(P2, gpt-form-filler migration): We lost task_id=db_task.id which was nice for tracking
+    call_form_data, call_err = gpt_client.fill_in_form(form=call_form, text=text, use_current_time=True)
     _maybe_add_hubspot_owner_id(call_form_data, hubspot_owner_id)
     db_task.add_generated_output(KEY_HUBSPOT_CALL, call_form_data)
 
@@ -153,9 +153,8 @@ def extract_and_sync_contact_with_follow_up(
     # TODO(P1, ux): Sometimes, there might be no task.
     hs_task_form = get_form(FormName.HUBSPOT_TASK)
     # use_current_time so hs_timestamp gets filled
-    hs_task_data, hs_task_err = gpt_client.fill_in_form(
-        form=hs_task_form, task_id=db_task.id, text=text, use_current_time=True
-    )
+    # TODO(P2, gpt-form-filler migration): We lost task_id=db_task.id which was nice for tracking
+    hs_task_data, hs_task_err = gpt_client.fill_in_form(form=hs_task_form, text=text, use_current_time=True)
     _maybe_add_hubspot_owner_id(hs_task_data, hubspot_owner_id)
     db_task.add_generated_output(KEY_HUBSPOT_TASK, hs_task_data)
 
@@ -337,7 +336,7 @@ if __name__ == "__main__":
         # print(f"contact_def to_python_definition: {contact_def.to_python_definition()}")
         # exit()
 
-        test_gpt_client = OpenAiClient()
+        test_gpt_client = open_ai_client_with_db_cache()
         test_data_entry_id = BaseDataEntry.insert(
             account_id=test_acc.id,
             display_name=f"Data entry for {test_acc.id}",

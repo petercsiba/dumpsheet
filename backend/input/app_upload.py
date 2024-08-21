@@ -4,7 +4,7 @@ from app.emails import (
     send_app_upload_confirmation,
     wait_for_email_updated_on_data_entry,
 )
-from common.openai_client import OpenAiClient
+from gpt_form_filler.openai_client import OpenAiClient
 from database.account import Account
 from database.data_entry import STATE_UPLOAD_DONE
 from database.email_log import EmailLog

@@ -11,7 +11,9 @@ import pandas as pd
 from openai.embeddings_utils import cosine_similarity
 
 from app.datashare import DataEntry, PersonDataEntry, dict_to_dataclass
-from common.openai_client import OpenAiClient
+from gpt_form_filler.openai_client import OpenAiClient
+
+from common.gpt_client import open_ai_client_with_db_cache
 
 MIN_TEXT_CHAR_LENGTH = 100
 
@@ -179,7 +181,7 @@ and
 
 
 if __name__ == "__main__":
-    openai_client = OpenAiClient()
+    openai_client = open_ai_client_with_db_cache()
 
     filepath = "test/katka-data-entries.csv"
     embed_filepath = filepath + ".embedded"

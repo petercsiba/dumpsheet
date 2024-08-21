@@ -2,7 +2,7 @@ from typing import Dict
 
 from bs4 import BeautifulSoup, Comment
 
-from common.openai_client import OpenAiClient, gpt_response_to_json
+from gpt_form_filler.openai_client import OpenAiClient, gpt_response_to_json
 
 
 def tag_visible(element):

@@ -3,7 +3,8 @@ from typing import List
 import pytest
 
 from app.contacts_dump import extract_everyone_i_have_talked_to
-from common.openai_client import OpenAiClient
+
+from common.gpt_client import open_ai_client_with_db_cache
 from database.client import (
     POSTGRES_LOGIN_URL_FROM_ENV,
     connect_to_postgres_i_will_call_disconnect_i_promise,
@@ -61,7 +62,7 @@ and about the next steps, and then keep it under 500 characters.
 
 
 def test_people_name_extraction():
-    gpt_client = OpenAiClient()
+    gpt_client = open_ai_client_with_db_cache()
     test_cases = {
         "with anonymous and month August": {
             "input": who_i_talked_to_test_case_1,

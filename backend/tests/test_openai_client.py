@@ -1,21 +1,6 @@
 import pytest
 
-from common.openai_client import gpt_response_to_json
-from database.client import (
-    POSTGRES_LOGIN_URL_FROM_ENV,
-    connect_to_postgres_i_will_call_disconnect_i_promise,
-    disconnect_from_postgres_as_i_promised,
-)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def db_connection():
-    connect_to_postgres_i_will_call_disconnect_i_promise(POSTGRES_LOGIN_URL_FROM_ENV)
-    print("truncating tables")
-
-    yield
-
-    disconnect_from_postgres_as_i_promised()
+from gpt_form_filler.openai_client import gpt_response_to_json
 
 
 FUZZY_PLACEHOLDER = "__FUZZY__"

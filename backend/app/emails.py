@@ -235,13 +235,14 @@ def send_email(params: EmailLog) -> bool:
         return True
 
     if params.check_if_already_sent():
+        # TODO(P2, bug): params.account might be None, observe for now as it might be a result of an inconsistent state.
         print(
             f"SKIPPING email '{params.idempotency_id}' cause already sent for {params.account}"
         )
         return True
     try:
         print(
-            f"Attempting to send email {params.idempotency_id} to {params.recipient}"
+            f"Attempting to send email {params.idempotency_id} to {params.recipient} "
             f"with attached files {params.attachment_paths}"
         )
 
@@ -705,6 +706,8 @@ def send_result_no_people_found(
         subject="Unfortunately, I did not found people in your recent voice note",
     )
 
+    if full_transcript is None or len(str(full_transcript)) == 0:
+        full_transcript = "<NOTHING>"
     email_params.body_html = simple_email_body_html(
         title=email_params.subject,
         content_text="""

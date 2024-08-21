@@ -4,11 +4,10 @@ from typing import Dict, List, Optional
 from app.datashare import PersonDataEntry
 from app.form_library import get_form
 from common.form import FormName
-from common.openai_client import (
+from gpt_form_filler.openai_client import (
     DEFAULT_MODEL,
     OpenAiClient,
     gpt_response_to_json,
-    gpt_response_to_json_list,
     num_tokens_from_string,
 )
 
@@ -61,7 +60,9 @@ def extract_everyone_i_have_talked_to(
     if raw_response is None:
         print("WARNING: Likely no people found in the input transcript")
         return []
-    people = gpt_response_to_json_list(raw_response)
+    people = gpt_response_to_json(raw_response)
+    if people is not None and not isinstance(people, list):
+        print(f"ERROR: Could NOT parse people into LIST from raw_response {raw_response}")
     print(f"==PEOPLE I TALKED TO: {json.dumps(people)}")
     return people
 
@@ -150,7 +151,6 @@ def summarize_raw_note_to_person_data_entry(
     else:
         form_data, err = gpt_client.fill_in_form(
             form=get_form(form_name=FormName.CONTACTS),
-            task_id=None,
             text=raw_note,
             print_prompt=True,
         )

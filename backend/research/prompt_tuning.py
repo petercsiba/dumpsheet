@@ -3,7 +3,9 @@ import random
 import time
 
 from app.app import process_networking_transcript
-from common.openai_client import OpenAiClient
+from gpt_form_filler.openai_client import OpenAiClient
+
+from common.gpt_client import open_ai_client_with_db_cache
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 from input.email import process_email_input
 
@@ -41,7 +43,7 @@ random.seed(current_time)
 random.shuffle(file_list)
 
 with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
-    open_ai_client = OpenAiClient(force_no_print_prompt=True)
+    open_ai_client = open_ai_client_with_db_cache(force_no_print_prompt=True)
 
     # Loop through each file
     for i, file in enumerate(file_list):

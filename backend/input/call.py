@@ -4,7 +4,7 @@ import re
 from typing import Optional
 
 from common.config import SUPPORT_EMAIL
-from common.openai_client import OpenAiClient
+from gpt_form_filler.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
 from database.account import Account
 from database.data_entry import STATE_UPLOAD_DONE

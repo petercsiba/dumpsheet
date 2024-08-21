@@ -3,5 +3,6 @@
 # See part of https://chat.openai.com/share/e42961e1-b060-447b-824f-ff6a47f6c0e1
 # aws-sam-cli
 black
+pandas
 pre-commit
 pytest

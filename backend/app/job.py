@@ -1,7 +1,7 @@
 from typing import List
 
 from common.form import FormDefinition
-from common.openai_client import OpenAiClient
+from gpt_form_filler.openai_client import OpenAiClient
 
 
 def decide_on_workflow(gpt_client: OpenAiClient, text: str):

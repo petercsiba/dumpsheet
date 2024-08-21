@@ -7,8 +7,9 @@ import time
 import openai
 import toml
 
-# TODO(P1, devx): Refactor this into common and python modules - that requires some docker and install stuff.
-from common.openai_client import OpenAiClient, gpt_response_to_json
+from gpt_form_filler.openai_client import OpenAiClient, gpt_response_to_json
+
+from common.gpt_client import open_ai_client_with_db_cache
 
 # from app.storage_utils import write_to_csv
 
@@ -136,7 +137,7 @@ def evaluate_match(openai_client: OpenAiClient, orig_person1: dict, orig_person2
 
 # Matching part
 # TODO(peter): There is a lot to train / experiment with here.
-openai_client = OpenAiClient()
+openai_client = open_ai_client_with_db_cache()
 
 
 with open(SCRAPED_OUTPUT, "r") as handle:

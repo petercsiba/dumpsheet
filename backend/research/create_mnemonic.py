@@ -1,5 +1,5 @@
 from app.datashare import PersonDataEntry
-from common.openai_client import OpenAiClient
+from gpt_form_filler.openai_client import OpenAiClient
 
 
 # TODO: Remove if not needed OR update to new infra - parking it here until then.

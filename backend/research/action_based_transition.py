@@ -4,7 +4,9 @@ from typing import Any, List
 
 import pandas as pd
 
-from common.openai_client import OpenAiClient
+from gpt_form_filler.openai_client import OpenAiClient
+
+from common.gpt_client import open_ai_client_with_db_cache
 
 
 def get_query_for_actionable_email(actions: List) -> str:
@@ -129,7 +131,7 @@ As my executive assistant reading my notes do:
     return "\n===============\n\n".join(parts)
 
 
-open_ai_client = OpenAiClient()
+open_ai_client = open_ai_client_with_db_cache()
 
 # Load the csv
 df = pd.read_csv("test/prod-dataentry-dump.csv")

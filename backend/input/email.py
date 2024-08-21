@@ -8,7 +8,7 @@ from app.emails import (
     send_confirmation,
     store_and_get_attachments_from_email,
 )
-from common.openai_client import OpenAiClient
+from gpt_form_filler.openai_client import OpenAiClient
 from database.account import Account
 from database.data_entry import STATE_UPLOAD_DONE
 from database.email_log import EmailLog

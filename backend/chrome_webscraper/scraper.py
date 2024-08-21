@@ -1,3 +1,4 @@
+# TODO: We should just move it into plugin-intelligence (or even the new webscraping project).
 # Remember that while web scraping can be a powerful tool,
 # it's important to always respect the terms of service of the website you're scraping,
 # as well as the laws and regulations applicable to your area.
@@ -15,7 +16,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from chrome_webscraper.extract_profile import extract_profile_data, text_from_html
-from common.openai_client import OpenAiClient
+from common.gpt_client import open_ai_client_with_db_cache
 from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
 
 pp = pprint.PrettyPrinter(indent=2)
@@ -166,7 +167,7 @@ profile_test_urls = [
 ]
 
 with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
-    open_ai_client = OpenAiClient(force_no_print_prompt=False)
+    open_ai_client = open_ai_client_with_db_cache(force_no_print_prompt=False)
 
     for profile_url in profile_test_urls:
         # profile_url = get_first_linkedin_search_result("Peter Csiba")

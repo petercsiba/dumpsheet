@@ -36,7 +36,9 @@ from common.config import (
     SKIP_SHARE_SPREADSHEET,
 )
 from common.form import FormData, FormName
-from common.openai_client import CHEAPER_MODEL, OpenAiClient
+from gpt_form_filler.openai_client import CHEAPEST_MODEL, OpenAiClient
+
+from common.gpt_client import open_ai_client_with_db_cache
 from common.twillio_client import TwilioClient
 from database.account import Account
 from database.client import (
@@ -133,6 +135,7 @@ FORM_CLASSIFICATION = {
 }
 
 
+# TODO(P0, dumpsheet migration): This is trying to be over-smart, we should just have the user to choose the sheet.
 def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> FormName:
     topics = "\n".join(
         f"* {name} -> {description}"
@@ -148,7 +151,7 @@ def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> FormName:
         topics=topics,
         transcript=transcript,
     )
-    raw_response = gpt_client.run_prompt(query, model=CHEAPER_MODEL)
+    raw_response = gpt_client.run_prompt(query, model=CHEAPEST_MODEL)
     if raw_response in FORM_CLASSIFICATION:
         print(f"classified transcript as {raw_response}")
         return FormName.from_str(raw_response)
@@ -168,7 +171,8 @@ def process_networking_transcript(
     task = Task.create_task(
         workflow_name=FormName.CONTACTS.value, data_entry_id=data_entry.id
     )
-    gpt_client.set_task_id(task_id=task.id)
+    # TODO(P1, devx): With gpt-form-filler migration, we lost the task_id setting. Would be nice to have it back.
+    # gpt_client.set_task_id(task_id=task.id)
     # ===== Actually perform black magic
     # TODO(P1, feature): We should gather general context, e.g. try to infer the event type, the person's vibes, ...
     people_entries = run_executive_assistant_to_get_drafts(
@@ -243,6 +247,7 @@ def process_networking_transcript(
     return people_entries
 
 
+# TODO(P1, cleanup): This only seems to be used by local runs, so we might move it.
 def process_hubspot_transcript(
     hs_client: HubspotClient,
     gpt_client: OpenAiClient,
@@ -285,7 +290,8 @@ def process_food_log_transcript(
     print("process_food_log_transcript")
 
     task = Task.create_task(workflow_name="food_log", data_entry_id=data_entry.id)
-    gpt_client.set_task_id(task.id)
+    # TODO(P1, devx): With gpt-form-filler migration, we lost the task_id setting. Would be nice to have it back.
+    # gpt_client.set_task_id(task.id)
 
     form_datas = run_food_ingredient_extraction(
         gpt_client=gpt_client,
@@ -339,7 +345,7 @@ def first_lambda_handler_wrapper(event, context) -> BaseDataEntry:
     # as was lazy to set up the permissions and code reuse for this lambda.
     print("Initializing globals")
     connect_to_postgres_i_will_call_disconnect_i_promise(POSTGRES_LOGIN_URL_FROM_ENV)
-    gpt_client = OpenAiClient()
+    gpt_client = open_ai_client_with_db_cache()
     twilio_client = TwilioClient()
 
     # First Lambda
@@ -402,7 +408,7 @@ def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
         print(
             "WARNING: data entry has no associated email - we might be operating on an incomplete account"
         )
-    gpt_client = OpenAiClient()
+    gpt_client = open_ai_client_with_db_cache()
     acc: BaseAccount = BaseAccount.get_by_id(data_entry.account_id)
     print(f"gonna process transcript for account {acc.__dict__}")
     # TODO(P0, ux): Have a clearer way to decide which path to go with (select box, or "auto-gpt")
@@ -486,13 +492,14 @@ def lambda_handler(event, context):
 
 
 # For local testing without emails or S3, great for bigger refactors.
+# TODO(P1, devx): Would be nice to get this working again, BUT my local supabase is somehow broken :(
 # TODO(P2): Make this an automated-ish test
 #  although would require further mocking of OpenAI calls from the test_.. stuff
 if __name__ == "__main__":
     OUTPUT_BUCKET_NAME = None
 
     with connect_to_postgres(POSTGRES_LOGIN_URL_FROM_ENV):
-        open_ai_client = OpenAiClient()
+        open_ai_client = open_ai_client_with_db_cache()
         # open_ai_client.run_prompt(f"test {time.time()}")
 
         test_case = "app"  # FOR EASY TEST CASE SWITCHING

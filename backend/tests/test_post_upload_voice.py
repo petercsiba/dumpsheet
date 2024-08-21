@@ -1,4 +1,5 @@
-# TODO(P1, dumpsheet migration): This used to be an AWS Gateway Lambda handler now it's a FastAPI endpoint
+# TODO(P2, dumpsheet migration): This used to be an AWS Gateway Lambda handler now it's a FastAPI endpoint
+#   Maybe delete it as the business logic might change quite a lot.
 import json
 import uuid
 from typing import Dict, Optional
