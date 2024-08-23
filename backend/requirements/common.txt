@@ -1,4 +1,5 @@
 git+https://github.com/petercsiba/gpt-form-filler
+git+https://github.com/petercsiba/supawee
 beautifulsoup4
 boto3
 google-auth

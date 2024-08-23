@@ -1,9 +1,10 @@
-# TODO(P1, dumpsheet migration): Use supawee to manage models
 from peewee import *
 from playhouse.postgres_ext import *
 
 # NOTE: this file is fully generated, if you change something, it will go away
-from database.client import database_proxy
+# database_proxy is an abstraction around PostgresqlDatabase so we can defer initialization after model
+# declaration (i.e. the BaseDatabaseModels don't need to import that heavy object).
+from supawee.client import database_proxy
 
 
 class UnknownField(object):
@@ -11,12 +12,12 @@ class UnknownField(object):
         pass
 
 
-class BaseModel(Model):
+class BaseDatabaseModel(Model):
     class Meta:
         database = database_proxy
 
 
-class BaseOrganization(BaseModel):
+class BaseOrganization(BaseDatabaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     id = UUIDField(constraints=[SQL("DEFAULT gen_random_uuid()")], primary_key=True)
     name = TextField()
@@ -26,7 +27,7 @@ class BaseOrganization(BaseModel):
         table_name = "organization"
 
 
-class BaseUsers(BaseModel):
+class BaseUsers(BaseDatabaseModel):
     aud = CharField(null=True)
     banned_until = DateTimeField(null=True)
     confirmation_sent_at = DateTimeField(null=True)
@@ -45,6 +46,7 @@ class BaseUsers(BaseModel):
     id = UUIDField(null=True)
     instance_id = UUIDField(null=True)
     invited_at = DateTimeField(null=True)
+    is_anonymous = BooleanField(null=True)
     is_sso_user = BooleanField(null=True)
     is_super_admin = BooleanField(null=True)
     last_sign_in_at = DateTimeField(null=True)
@@ -68,7 +70,7 @@ class BaseUsers(BaseModel):
         primary_key = False
 
 
-class BaseAccount(BaseModel):
+class BaseAccount(BaseDatabaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     full_name = TextField(null=True)
     gsheet_id = TextField(null=True, unique=True)
@@ -90,7 +92,7 @@ class BaseAccount(BaseModel):
         table_name = "account"
 
 
-class BaseDataEntry(BaseModel):
+class BaseDataEntry(BaseDatabaseModel):
     account = ForeignKeyField(
         column_name="account_id", field="id", model=BaseAccount, null=True
     )
@@ -109,7 +111,7 @@ class BaseDataEntry(BaseModel):
         table_name = "data_entry"
 
 
-class BaseDestination(BaseModel):
+class BaseDestination(BaseDatabaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")], null=True)
     id = BigAutoField()
     install_url = TextField(null=True)
@@ -121,7 +123,7 @@ class BaseDestination(BaseModel):
         table_name = "destination"
 
 
-class BaseEmailLog(BaseModel):
+class BaseEmailLog(BaseDatabaseModel):
     account = ForeignKeyField(
         column_name="account_id", field="id", model=BaseAccount, null=True
     )
@@ -146,7 +148,7 @@ class BaseEmailLog(BaseModel):
         indexes = ((("recipient", "idempotency_id"), True),)
 
 
-class BaseOauthData(BaseModel):
+class BaseOauthData(BaseDatabaseModel):
     access_token = TextField(null=True)
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     expires_at = DateTimeField(null=True)
@@ -160,7 +162,7 @@ class BaseOauthData(BaseModel):
         table_name = "oauth_data"
 
 
-class BaseOnboarding(BaseModel):
+class BaseOnboarding(BaseDatabaseModel):
     account = ForeignKeyField(
         column_name="account_id", field="id", model=BaseAccount, null=True
     )
@@ -179,7 +181,7 @@ class BaseOnboarding(BaseModel):
         indexes = ((("ip_address", "email"), True),)
 
 
-class BasePipeline(BaseModel):
+class BasePipeline(BaseDatabaseModel):
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")], null=True)
     destination = ForeignKeyField(
         column_name="destination_id", field="id", model=BaseDestination
@@ -197,10 +199,13 @@ class BasePipeline(BaseModel):
     class Meta:
         schema = "public"
         table_name = "pipeline"
-        indexes = ((("organization", "destination"), True),)
+        indexes = (
+            (("external_org_id", "destination"), True),
+            (("organization", "destination"), True),
+        )
 
 
-class BaseTask(BaseModel):
+class BaseTask(BaseDatabaseModel):
     api_response = JSONField(null=True)
     code_version = TextField(null=True)
     created_at = DateTimeField(
@@ -223,7 +228,7 @@ class BaseTask(BaseModel):
         table_name = "task"
 
 
-class BasePromptLog(BaseModel):
+class BasePromptLog(BaseDatabaseModel):
     completion_tokens = BigIntegerField(constraints=[SQL("DEFAULT '0'::bigint")])
     created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
     id = BigAutoField()

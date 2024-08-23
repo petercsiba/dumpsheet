@@ -4,4 +4,8 @@ __pycache__*
 buildx*
 chromedriver.log
 testdata
+# for npx supabase I guess
+node_modules
+package-lock.json
+package.json
 

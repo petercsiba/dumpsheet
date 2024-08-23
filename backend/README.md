@@ -73,16 +73,24 @@ There are a few ways, the best feels like:
 * Get the definition of it
 * Potentially add stuff (like multicolumn indexes)
 ```shell
-supabase migration new create_prompt_log
-# generate new python models, add some functionality (might need chmod +x)
-./database/generate_models.sh
-# copy paste that definition to the generated file
-supabase db reset  # weird name i know, this takes quite long :/
-# pro-tip: if you have cached a bunch of stuff, you would like to dump your DB into `seed.sql`
+# Navigate to ./backend
+supabase migration new my_new_table_or_my_new_column
+
+# (optional) in case the migration wasn't yet applied through the UI (or psql)
+# this applies all migrations after it deletes the DB (you can persist fixtures with seed.sql see below)
+supabase db reset  
+
+# generate new python models (requires local supabase running see Setup Supabase)
+# NOTE: Potential setup BUG when it replaces to single quotes, workaround is to run this from a local clone of `supawee`.
+supawee database/models.py --circular_deps_fields merged_into
+# do some testing
+# then push migrations to be applied in prod
+supabase db push
+
+# optional pro-tip: if you have cached a bunch of stuff, you would like to dump your DB into `seed.sql`
 # --inserts likely required for `supabase db reset`
 export PGPASSWORD=postgres; pg_dump -h localhost -p 54322 -U postgres -d postgres --schema=public -F p --inserts > supabase/seed.sql
-# do some testing, then push migrations to be applied in prod
-supabase db push
+
 ```
 
 ## Deployment
