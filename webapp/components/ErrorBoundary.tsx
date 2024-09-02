@@ -32,7 +32,8 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
             // Render fallback UI with error message
             return (
                 <div>
-                    <h1>Something went wrong.</h1>
+                    <h3>Something went wrong.</h3>
+                    <h4>Please send the below to our beloved support</h4>
                     {this.state.error && <p>{this.state.error.message}</p>}
                 </div>
             );

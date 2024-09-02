@@ -1,9 +1,8 @@
-import {Analytics} from '@vercel/analytics/react';
+"use client";
 import dynamic from "next/dynamic";
 import ConnectHubspotButton from "@/components/ConnectHubspotButton";
 import Head from "next/head";
 import Banner from "@/components/Banner";
-import {useState} from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 const VoiceRecorderWithNoSSR = dynamic(() => import('@/components/VoiceRecorder'), {
@@ -12,8 +11,6 @@ const VoiceRecorderWithNoSSR = dynamic(() => import('@/components/VoiceRecorder'
 
 export default function Home() {
     const isProduction = process.env.NODE_ENV === 'production';
-
-    const [showExtras, setShowExtras] = useState(false);
 
     return (
         <>
@@ -73,7 +70,7 @@ export default function Home() {
                      backgroundPosition: 'bottom right', imageRendering: 'auto',
                      backgroundRepeat: 'no-repeat', backgroundSize: 'cover', backgroundAttachment: 'fixed'
                  }}>
-                <Banner showExtras={showExtras}></Banner>
+                <Banner></Banner>
                 <div
                     className="flex flex-col items-center justify-center gap-6 px-4 py-6 absolute top-[22rem] left-1/2 transform -translate-x-1/2 -translate-y-1/2 rounded-lg border border-black bg-white voxana-middle-box"
                 >
@@ -81,7 +78,7 @@ export default function Home() {
                         <VoiceRecorderWithNoSSR/>
                     </ErrorBoundary>
                 </div>
-                {showExtras && (<div
+                {false && (<div
                     className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 font-montserrat">
                     <div className="w-full px-4 py-1 flex items-center justify-center">
                         <ConnectHubspotButton></ConnectHubspotButton>
@@ -89,8 +86,6 @@ export default function Home() {
                 </div>)
                 }
             </div>
-
-            <Analytics/>
         </>
     );
 };
