@@ -8,8 +8,8 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import disposableDomains from "disposable-email-domains";
 import { useState } from "react";
 import { SubmitHandler, useForm } from "react-hook-form";
-import { AiOutlineGoogle } from "react-icons/ai";
 import { WaitingForMagicLink } from "./WaitingForMagicLink";
+// import { AiOutlineGoogle } from "react-icons/ai";
 
 type Inputs = {
   email: string;
@@ -58,6 +58,7 @@ export const Login = ({
     }
   };
 
+  // TODO(P1, migration): Why not used?
   let inviteToken = null;
   if (searchParams && "inviteToken" in searchParams) {
     inviteToken = searchParams["inviteToken"];
