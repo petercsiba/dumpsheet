@@ -1,6 +1,5 @@
 "use client";
 import dynamic from "next/dynamic";
-import ConnectHubspotButton from "@/components/ConnectHubspotButton";
 import Head from "next/head";
 import Banner from "@/components/Banner";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -82,13 +81,6 @@ export default function Home() {
                         <VoiceRecorderWithNoSSR/>
                     </ErrorBoundary>
                 </div>
-                {false && (<div
-                    className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex items-center space-x-2 font-montserrat">
-                    <div className="w-full px-4 py-1 flex items-center justify-center">
-                        <ConnectHubspotButton></ConnectHubspotButton>
-                    </div>
-                </div>)
-                }
             </div>
         </>
     );

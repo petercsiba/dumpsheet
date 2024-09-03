@@ -10,7 +10,6 @@ import MicrophoneIconHover from '../public/images/icons/microphone-button-green-
 import StopIcon from '../public/images/icons/stop-button-red-icon.svg'
 import CollectEmailProcessingInfo from "@/components/CollectEmailProcessingInfo";
 import ProgressBar from "@/components/ProgressBar";
-import ConnectHubspotButton from "@/components/ConnectHubspotButton";
 
 // TODO(P1, devx): We should support local testing with a local FastAPI backend
 const PRESIGNED_URL = 'https://api.dumpsheet.com/upload/voice';
@@ -137,20 +136,10 @@ const WelcomeState = ({moveToNextState}) => {
         <>
             <HeadingText text={"Welcome!"}/>
             <div className="flex flex-col items-center text-center">
-                <p className="text-lg"><b>What you want to do?</b></p>
-                <p className="pt-4 mt-2">For Individuals:</p>
-                <div className="pt-2"><SelectButton onClick={() => moveToNextState(RecorderState.DEMO_SELECT_PERSONA)}
+                <div className="text-lg pt-2"><b>What you want to do?</b></div>
+                <div className="pt-4"><SelectButton onClick={() => moveToNextState(RecorderState.DEMO_SELECT_PERSONA)}
                                                     label={"Show me how it works!"}/></div>
                 <div className="pt-4"><SelectButton onClick={() => moveToNextState(RecorderState.LETS_RECORD)} label={"Lets Record a Voice Memo"}/></div>
-
-                <div className="pt-8">
-                    <p className="mb-2">For Organizations:</p>
-                    <ConnectHubspotButton></ConnectHubspotButton>
-                </div>
-                { /* <div className="pt-4"><SelectButton onClick={() => onSelectPersona('C')} label={"Khary Payton"}/></div> */}
-
-                {/*<p className="text-lg pt-8">We are in private beta</p>*/}
-                {/*<p className="text-lg pt-4">Your feedback counts</p>*/}
             </div>
         </>
     );
