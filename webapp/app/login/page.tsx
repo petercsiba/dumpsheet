@@ -6,6 +6,8 @@ import { Login } from "./components/Login";
 
 export const dynamic = "force-dynamic";
 
+// TODO(build, P2): couldn't be rendered statically because it used `cookies`
+// https://github.com/vercel/next.js/issues/56630#issuecomment-1755473286
 export default async function LoginPage({
   searchParams,
 }: {
