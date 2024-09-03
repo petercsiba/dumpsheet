@@ -36,14 +36,20 @@ export default async function Navbar() {
     <div className="flex w-full px-4 lg:px-40 py-4 items-center border-b text-center gap-8 justify-between">
       <div className="flex gap-2 h-full">
         <Link href="/">
-          <h2 className="font-bold">Audio To Email</h2>
+          <h2 className="font-bold pt-1.5 pr-4">Audio To Email</h2>
+        </Link>
+        <Link href="/record">
+          <Button variant={"ghost"} className="px-4">Record Audio</Button>
+        </Link>
+        <Link href="/upload">
+          <Button variant={"ghost"} className="px-4">Upload Audio</Button>
+        </Link>
+        <Link href="/upload">
+          <Button variant={"ghost"} className="px-4">Upload Video</Button>
         </Link>
       </div>
       {user && (
         <div className="hidden lg:flex flex-row gap-2">
-          <Link href="/overview">
-            <Button variant={"ghost"}>Home</Button>
-          </Link>
           {stripeIsConfigured && (
             <Link href="/get-credits">
               <Button variant={"ghost"}>Get Credits</Button>

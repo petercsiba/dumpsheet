@@ -15,6 +15,7 @@ export default function Home() {
     return (
         <>
             <Head>
+                {/*TODO(P0, migration): We need to consolidate this with the app/layout.tsx */}
                 {isProduction && (
                     // TODO(P1, compliance): We need to disclose this tracking */
                     <>
