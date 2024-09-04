@@ -2,8 +2,7 @@ import json
 from typing import Dict, List, Optional
 
 from app.datashare import PersonDataEntry
-from app.form_library import get_form
-from common.form import FormName
+from app.form_library import get_form, FormName
 from gpt_form_filler.openai_client import (
     DEFAULT_MODEL,
     OpenAiClient,

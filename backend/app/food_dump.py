@@ -1,7 +1,7 @@
 from typing import List
 
-from app.form_library import get_form
-from common.form import FormData, FormName
+from app.form_library import get_form, FormName
+from gpt_form_filler.form import FormData
 from gpt_form_filler.openai_client import OpenAiClient
 
 

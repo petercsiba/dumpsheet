@@ -1,11 +1,32 @@
-from common.form import FieldDefinition, FormDefinition, FormName, Option
+from enum import Enum
+
+from gpt_form_filler.form import FieldDefinition, FormDefinition, Option
+
+
+class FormName(Enum):
+    CONTACTS = "contacts"
+    HUBSPOT_CONTACT = "hubspot_contact"
+    HUBSPOT_TASK = "hubspot_task"
+    HUBSPOT_MEETING = "hubspot_meeting"
+    FOOD_LOG = "food_log"
+
+    @property
+    def value(self):
+        return self._value_
+
+    @staticmethod
+    def from_str(str_value: str):
+        for form in FormName:
+            if form.value == str_value:
+                return form
+        return None
 
 
 def get_form(form_name: FormName) -> FormDefinition:
     if form_name == FormName.CONTACTS:
-        return FormDefinition(FormName.CONTACTS, CONTACTS_FIELDS)
+        return FormDefinition(FormName.CONTACTS.value, CONTACTS_FIELDS)
     if form_name == FormName.FOOD_LOG:
-        return FormDefinition(FormName.FOOD_LOG, FOOD_LOG_FIELDS)
+        return FormDefinition(FormName.FOOD_LOG.value, FOOD_LOG_FIELDS)
     raise ValueError(f"unknown form_name: {form_name.value}")
 
 

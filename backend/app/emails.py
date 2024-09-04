@@ -35,7 +35,7 @@ from common.config import (
     SKIP_SENDING_EMAILS,
     SUPPORT_EMAIL,
 )
-from common.form import FormData
+from gpt_form_filler.form import FormData
 from common.storage_utils import pretty_filesize_path
 from common.twillio_client import TwilioClient
 from database.account import Account

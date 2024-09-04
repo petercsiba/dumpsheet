@@ -4,7 +4,7 @@ from dataclasses import dataclass, field, fields, is_dataclass
 from json import JSONEncoder
 from typing import Any, List, Optional, Type, get_args, get_origin
 
-from common.form import FormData
+from gpt_form_filler.form import FormData
 
 
 def check_required_str(name, s):

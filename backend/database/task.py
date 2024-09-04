@@ -2,7 +2,7 @@ import datetime
 import uuid
 
 from common import utils
-from common.form import FormData
+from gpt_form_filler.form import FormData
 from database.models import BaseTask
 
 TASK_INITIATED = "initiated"

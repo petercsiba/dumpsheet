@@ -19,10 +19,10 @@ from gspread_formatting import (
 
 from app.email_template import button_snippet_for_spreadsheet, simple_email_body_html
 from app.emails import send_email
-from app.form_library import FOOD_LOG_FIELDS, get_form
+from app.form_library import FOOD_LOG_FIELDS, get_form, FormName
 from app.gsheets_view import get_overlay_cell_format
 from common.config import GOOGLE_FORMS_SERVICE_ACCOUNT_PRIVATE_KEY, POSTGRES_LOGIN_URL_FROM_ENV
-from common.form import FormData, FormDefinition, FormName
+from gpt_form_filler.form import FormData, FormDefinition
 from database.account import Account
 from supawee.client import connect_to_postgres
 from database.email_log import EmailLog
@@ -231,7 +231,7 @@ class GoogleClient:
             form_name = form_data.form.form_name.value
             if form_name not in sheet_cache:
                 sheet_cache[form_name] = get_or_create_worksheet(
-                    self.spreadsheet, form_name
+                    self.spreadsheet, name=form_name.value
                 )
             # NOTE: A much better way is that you use B6:B200 instead of $B6:$B200,
             #   the first one stays, the other is shifted.
@@ -519,7 +519,7 @@ def update_row_with_range(sheet: Worksheet, row_number: int, values_list):
     sheet.update(range_name=cell_range, values=[values_list])
 
 
-def get_or_create_worksheet(spreadsheet, name: FormName):
+def get_or_create_worksheet(spreadsheet, name: str):
     all_worksheets = spreadsheet.worksheets()
 
     # Try to find the worksheet with the given name
@@ -708,6 +708,7 @@ def convert_dates(worksheet: Worksheet, cell_range="A2:A100"):
     print(f"gsheets convert_dates converted {converted_count} cells")
 
 
+# TODO(P1, devx): Move this into tests directory
 def test_gsheets():
     test_acc = Account.get_or_onboard_for_email(
         "peter@dumpsheet.com", utm_source="test", full_name="Peter Csiba"

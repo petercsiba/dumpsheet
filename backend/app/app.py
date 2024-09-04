@@ -23,6 +23,7 @@ from app.emails import (
     wait_for_email_updated_on_data_entry,
 )
 from app.food_dump import run_food_ingredient_extraction
+from app.form_library import FormName
 from app.gsheets import TEMPLATE_CONTACTS_SPREADSHEET_ID, GoogleClient
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.config import (
@@ -32,7 +33,7 @@ from common.config import (
     SKIP_PROCESSED_DATA_ENTRIES,
     SKIP_SHARE_SPREADSHEET, POSTGRES_LOGIN_URL_FROM_ENV,
 )
-from common.form import FormData, FormName
+from gpt_form_filler.form import FormData
 from gpt_form_filler.openai_client import CHEAPEST_MODEL, OpenAiClient
 
 from common.gpt_client import open_ai_client_with_db_cache
