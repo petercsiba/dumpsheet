@@ -154,6 +154,8 @@ class UserFrontEnd(BaseModel):
     is_anonymous: bool
 
 
+# TODO(P2, devx): Maybe better is to have a Depends(JWTBearer) for protected routes.
+#   https://dev.to/j0/integrating-fastapi-with-supabase-auth-780
 def maybe_get_current_user(access_token: str = Cookie(None)) -> Optional[UserFrontEnd]:
     try:
         # Decoding the JWT token
