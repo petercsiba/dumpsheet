@@ -12,9 +12,9 @@ from fastapi import FastAPI, Header, HTTPException
 from hubspot import HubSpot
 from hubspot.auth import oauth
 from pydantic import BaseModel, EmailStr
-from starlette.middleware.cors import CORSMiddleware
-from starlette.requests import Request
-from starlette.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.requests import Request
+from fastapi.responses import RedirectResponse
 
 from common.aws_utils import get_bucket_url
 from common.config import ENV, ENV_LOCAL, ENV_PROD, AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID
@@ -51,25 +51,31 @@ app = FastAPI()
 
 
 origins = []
+local_origins = [
+    "http://localhost:3000",  # Adjust this if needed
+    "http://localhost:8080",  # Your server's port
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8080",
+]
+prod_origins = [
+    "https://dumpsheet.com",
+    "https://www.dumpsheet.com",
+    "https://app.dumpsheet.com",
+    "https://api.dumpsheet.com",
+]
 if ENV == ENV_LOCAL:
     print(
         "INFO: Adding CORS Middleware for LOCAL Environment (DO NOT DO IN PRODUCTION)"
     )
-    # Allow all origins for development purposes
-    origins = [
-        "http://localhost:3000",  # Adjust this if needed
-        "http://localhost:8080",  # Your server's port
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:8080",
-    ]
-if ENV == ENV_PROD:
-    # List of trusted domains in production
-    origins = [
-        "https://dumpsheet.com",
-        "https://www.dumpsheet.com",
-        "https://app.dumpsheet.com",
-        "https://api.dumpsheet.com",
-    ]
+    origins = local_origins
+elif ENV == ENV_PROD:
+    print(
+        "INFO: Adding CORS Middleware for PROD Environment"
+    )
+    origins = prod_origins + local_origins  # TODO(P1, yolo): Remove local_origins
+else:
+    raise Exception(f"Unknown environment {ENV} cannot start server")
+
 # Apply CORS middleware
 # TODO(P1, devx): It would be nice to add a correlation id https://github.com/snok/asgi-correlation-id
 app.add_middleware(
