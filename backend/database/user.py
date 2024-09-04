@@ -19,7 +19,7 @@ def generate_temp_password(length=8):
 # https://supabase.com/docs/guides/cli/local-development#use-auth-locally
 class User(BaseUsers):
     class Meta:
-        db_table = "users"
+        table_name = "users"
 
     @staticmethod
     def exists_by_email(email_raw: str) -> bool:

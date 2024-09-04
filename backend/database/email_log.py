@@ -12,7 +12,7 @@ from database.models import BaseEmailLog
 # TODO(P3, correctness): We should persist both intent, and actually sent. SES is quite stable, so let it be for now.
 class EmailLog(BaseEmailLog):
     class Meta:
-        db_table = "email_log"
+        table_name = "email_log"
 
     def get_recipient_first_name(self):
         # Somehow self.recipient_full_name is None

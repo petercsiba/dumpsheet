@@ -11,4 +11,4 @@ STATE_UPLOAD_PROCESSED = "processed"
 #   and somehow re-use the bucket-key url as we cannot rely on metadata.
 class DataEntry(BaseDataEntry):
     class Meta:
-        db_table = "data_entry"
+        table_name = "data_entry"

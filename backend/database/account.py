@@ -27,7 +27,7 @@ def generate_temp_password(length=8):
 # and ideally just use the Supabase functionality for simplicity and it is something I want to learn anyway.
 class Account(BaseAccount):
     class Meta:
-        db_table = "account"
+        table_name = "account"
 
     def get_email(self) -> Optional[str]:
         if bool(self.user):

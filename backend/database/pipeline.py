@@ -7,7 +7,7 @@ STATE_INITIATED = "initiated"
 
 class Pipeline(BasePipeline):
     class Meta:
-        db_table = "pipeline"
+        table_name = "pipeline"
 
     @staticmethod
     def get_or_none_for_org_id(org_id: str, destination_id: int) -> "Pipeline":

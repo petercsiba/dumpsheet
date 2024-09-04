@@ -9,7 +9,7 @@ from database.models import BaseOauthData
 
 class OauthData(BaseOauthData):
     class Meta:
-        db_table = "oauth_data"
+        table_name = "oauth_data"
 
     # @input: `tokens` is to be expected a valid response from HubSpot().auth.oauth.tokens_api.create
     @staticmethod

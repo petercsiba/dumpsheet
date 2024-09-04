@@ -7,7 +7,7 @@ from database.models import BaseAccount, BaseOrganization, BasePipeline
 
 class Organization(BaseOrganization):
     class Meta:
-        db_table = "organization"
+        table_name = "organization"
 
     @staticmethod
     def get_or_create_for_account_id(

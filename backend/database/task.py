@@ -21,7 +21,7 @@ KEY_HUBSPOT_TASK = "hubspot_task"
 # The primary use case is for debugging rather than consistency, so things might be a bit messy here.
 class Task(BaseTask):
     class Meta:
-        db_table = "task"
+        table_name = "task"
 
     @staticmethod
     def create_task(workflow_name: str, data_entry_id: uuid.UUID) -> "Task":
