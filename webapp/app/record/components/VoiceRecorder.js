@@ -5,11 +5,11 @@ import React, {useEffect, useRef, useState} from 'react'
 import RecordRTC from 'recordrtc'
 import Image from 'next/image'
 // https://uxwing.com/stop-button-red-icon/
-import MicrophoneIcon from '../public/images/icons/microphone-button-green-icon.svg'
-import MicrophoneIconHover from '../public/images/icons/microphone-button-green-hover-icon.png'
-import StopIcon from '../public/images/icons/stop-button-red-icon.svg'
-import CollectEmailProcessingInfo from "@/components/CollectEmailProcessingInfo";
-import ProgressBar from "@/components/ProgressBar";
+import MicrophoneIcon from '../../../public/images/icons/microphone-button-green-icon.svg'
+import MicrophoneIconHover from '../../../public/images/icons/microphone-button-green-hover-icon.png'
+import StopIcon from '../../../public/images/icons/stop-button-red-icon.svg'
+import CollectEmailProcessingInfo from "components/CollectEmailProcessingInfo";
+import ProgressBar from "components/ProgressBar";
 
 // TODO(P1, devx): We should support local testing with a local FastAPI backend
 const PRESIGNED_URL = 'https://api.dumpsheet.com/upload/voice';
@@ -17,7 +17,7 @@ const UPLOAD_TIMEOUT = 30000;
 const MIN_DURATION = Number(process.env.NEXT_PUBLIC_VOICE_RECORDER_MIN_DURATION_SECONDS) || 10;
 const SHORT_RECORDING_TIMEOUT = 7000;
 
-const RecorderState = {
+export const RecorderState = {
     WELCOME_PRIVATE_BETA: 'welcome_private_beta',
     WELCOME: 'welcome',
     // For handholding demo
@@ -473,7 +473,6 @@ const PlayPersonaState = ({onPlaybackComplete, currentPersona}) => {
 const isDebug = () => {
     return new URLSearchParams(window.location.search).get('debug') === 'true';
 }
-
 export default function VoiceRecorder() {
     // == Media related
     const [stream, setStream] = useState(null);
@@ -483,6 +482,8 @@ export default function VoiceRecorder() {
     const [recordingElapsedTime, setRecordingElapsedTime] = useState(0);
 
     // == Login info related
+    // TODO(P0, migration): Replace accountId with userId and allow anonymous users from Supabase
+    //  -- first step I guess just normal logged in users with FastAPI might take a while
     const [accountId, setAccountId] = useState(() => {
         const savedAccountId = localStorage.getItem('accountId');
         console.log(`savedAccountId is ${savedAccountId}`)
@@ -521,7 +522,7 @@ export default function VoiceRecorder() {
     const isFirstTimeUser = () => { return accountId === null }
     const getStartState = () => {
         if (isDebug()) return RecorderState.DEBUG
-        return isFirstTimeUser() ? RecorderState.WELCOME_PRIVATE_BETA : RecorderState.WELCOME
+        return isFirstTimeUser() ? RecorderState.WELCOME : RecorderState.LETS_RECORD
     }
     const [recorderState, setRecorderState] = useState(getStartState());
     // Use useEffect to log whenever recorderState changes
