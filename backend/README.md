@@ -55,6 +55,14 @@ supabase start
 
 
 ## Development Workflow
+### Running Tests
+```shell
+# TODO(P2, devx): Figure out why it needs PYTHONPATH
+#   conftest.py:4: in <module>
+#    from common.config import ENV, ENV_LOCAL, ENV_TEST
+#E   ModuleNotFoundError: No module named 'common'
+PYTHONPATH=/Users/petercsiba/code/dumpsheet/backend pytest tests/api/test_auth.py
+```
 
 ### Committing Changes
 We use `pre-commit` to run flake8, isort, black.
@@ -99,6 +107,12 @@ export PGPASSWORD=postgres; pg_dump -h localhost -p 54322 -U postgres -d postgre
 npx supabase start
 # Run the FastAPI server - you can test the endpoints directly (shell, Postman), or connect frontend to it.
 uvicorn api.app:app --reload --port 8080
+# For authenticated endpoints, you can test with passing the JWT token in a cookie
+ACCESS_TOKEN=# see create_test_jwt (it depends on your GOTRUE_JWT_SECRET)
+curl -X GET http://localhost:8080/upload/voice --cookie "access_token=${ACCESS_TOKEN}"
+
+# For local supabase auth, you should use the following in your .env:
+# GOTRUE_URL=http://127.0.0.1:54321/auth/v1
 ```
 ## Deployment
 

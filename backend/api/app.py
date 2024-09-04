@@ -6,19 +6,21 @@ import uuid
 from typing import Dict, Optional, Annotated, Union
 
 import boto3
+import jwt
 import peewee  # noqa
 from botocore.exceptions import NoCredentialsError
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Cookie, Depends
 from hubspot import HubSpot
 from hubspot.auth import oauth
 from pydantic import BaseModel, EmailStr
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import Response, RedirectResponse
+from supabase_auth import SyncGoTrueClient, AuthResponse
 
 from common.aws_utils import get_bucket_url
 from common.config import ENV, ENV_LOCAL, ENV_PROD, AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID, \
-    POSTGRES_LOGIN_URL_FROM_ENV
+    POSTGRES_LOGIN_URL_FROM_ENV, GOTRUE_URL, GOTRUE_JWT_SECRET
 # TODO(P2, dumpsheet migration): Instead of import the entire module, just import the classes.
 from database import account, data_entry, models
 from database.constants import (
@@ -110,6 +112,93 @@ def read_root():
     return {"status": "ok", "version": "1.0.0"}
 
 
+def sign_in_anonymously() -> AuthResponse:
+    # https://github.com/supabase/auth-py/blob/main/README.md
+    headers = {
+        "apiKey": GOTRUE_JWT_SECRET,
+    }
+    client = SyncGoTrueClient(
+        url=GOTRUE_URL,
+        headers=headers,
+    )
+    # TODO(P2, ux): Seems like Captcha should be passed in here
+    # https://supabase.com/docs/guides/auth/auth-anonymous?queryGroups=language&language=python
+    auth_response = client.sign_in_anonymously()
+    # auth_response = {
+    #     "user": {
+    #         "id": "85014069-9137-40a5-ac56-835c124fe0a3",
+    #         "aud": "authenticated",
+    #         "role": "authenticated",
+    #         "is_anonymous": True
+    #     },
+    #     "session": {
+    #         "access_token": "eyJhbGciOiJIU...",
+    #         "refresh_token": "PPXspKiu-T6AzZu1jvPMqg",
+    #         "expires_in": 3600,
+    #         "expires_at": 1725433359,
+    #         "token_type": "bearer",
+    #         "user": <same as above>
+    #     }
+    # }
+    return auth_response
+
+
+# UserFrontEnd is just a helper class to pass decoded JWT values
+# https://phillyharper.medium.com/implementing-supabase-auth-in-fastapi-63d9d8272c7b
+class UserFrontEnd(BaseModel):
+    # user-id in the database
+    user_id: str
+    username: Optional[str] = None
+    # Optional for anonymous, or phone based / social logins
+    email: Optional[str] = None
+    is_anonymous: bool
+
+
+def maybe_get_current_user(access_token: str = Cookie(None)) -> Optional[UserFrontEnd]:
+    try:
+        # Decoding the JWT token
+        decoded = jwt.decode(
+            access_token,
+            key=GOTRUE_JWT_SECRET,  # The secret key from Supabase CMS
+            algorithms=["HS256"],  # Specifying the JWT algorithm
+            audience="authenticated",  # Setting the audience
+            options={"verify_aud": True}  # Enabling audience verification
+        )
+        # {
+        #     'iss': 'http://127.0.0.1:54321/auth/v1',  # Local GOTRUE_URL
+        #     'sub': '4fa826b0-e928-4441-9fea-0a713178507b',  # this the supabase user id
+        #     'aud': 'authenticated',
+        #     'exp': 1725476400,
+        #     'iat': 1725472800,
+        #     'role': 'authenticated',
+        #     'aal': 'aal1',
+        #     'amr': [{'method': 'anonymous', 'timestamp': 1725472800}],
+        #     'session_id': '2d6849c8-c6cb-455f-840c-43dc4a307833',
+        #     'is_anonymous': True
+        # }
+
+        # Extracting user data
+        # TODO(P1, ux): What about users with phone number or anonymous ones?
+        email = decoded.get("email")
+        user_metadata = decoded.get("user_metadata", {})
+        username = user_metadata.get("username")
+
+        # Returning a user object
+        return UserFrontEnd(
+            user_id=decoded.get("sub"),
+            username=username if username else email,
+            email=email,
+            is_anonymous=False,
+        )
+    # TODO(P1, ux): We should inform the user that their token has expired
+    except jwt.ExpiredSignatureError as e:
+        print(f"WARNING: Token expired {e}")
+        return None
+    except jwt.InvalidTokenError as e:
+        print(f"ERROR: Invalid token {e}")
+        return None
+
+
 class GetPresignedUrlResponse(BaseModel):
     presigned_url: str  # actually required, but we oftentimes mess up and that messes up return code to 500
     email: Optional[EmailStr] = None
@@ -117,7 +206,19 @@ class GetPresignedUrlResponse(BaseModel):
 
 
 @app.get("/upload/voice", response_model=GetPresignedUrlResponse)
-async def get_presigned_url(request: Request, x_account_id: Annotated[Union[str, None], Header()] = None):
+async def get_presigned_url(request: Request, response: Response, current_user: Optional[UserFrontEnd] = Depends(maybe_get_current_user)):
+    print(f"DEBUG DEBUG DEBUG: current_user {current_user}")
+    if not current_user:
+        auth_response = sign_in_anonymously()
+        # So in subsequent requests the current_user will be logged in.
+        response.set_cookie(
+            key="access_token",
+            value=f"Bearer {auth_response.session.access_token}",
+            httponly=True,
+        )
+
+    # DEPRECATED
+    x_account_id = request.headers.get("X-Account-Id")
     # Specify the S3 bucket and file name
     bucket_name = "requests-from-api-voxana"
     data_entry_id = uuid.uuid4()

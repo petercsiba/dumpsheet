@@ -1,5 +1,8 @@
 fastapi
+jwt
 pydantic[email]
+# We really only need the AUTH part of the Supabase Client; for DB operations we use pre-generated models
+supabase-auth
 uvicorn
 # https://stackoverflow.com/questions/76414514/cannot-import-name-default-ciphers-from-urllib3-util-ssl-on-aws-lambda-us
 # requests==2.28.2
