@@ -74,6 +74,7 @@ There are a few ways, the best feels like:
 * Potentially add stuff (like multicolumn indexes)
 ```shell
 # Navigate to ./backend
+# They might have switched `supabase` to `npx supabase`
 supabase migration new my_new_table_or_my_new_column
 
 # (optional) in case the migration wasn't yet applied through the UI (or psql)
@@ -90,9 +91,15 @@ supabase db push
 # optional pro-tip: if you have cached a bunch of stuff, you would like to dump your DB into `seed.sql`
 # --inserts likely required for `supabase db reset`
 export PGPASSWORD=postgres; pg_dump -h localhost -p 54322 -U postgres -d postgres --schema=public -F p --inserts > supabase/seed.sql
-
 ```
 
+### Running API Server Locally
+```shell
+# Starts the local Supabase stack (Postgres, API, Auth etc.)
+npx supabase start
+# Run the FastAPI server - you can test the endpoints directly (shell, Postman), or connect frontend to it.
+uvicorn api.app:app --reload --port 8080
+```
 ## Deployment
 
 ### Set up AWS config

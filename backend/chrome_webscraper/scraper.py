@@ -16,8 +16,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from chrome_webscraper.extract_profile import extract_profile_data, text_from_html
+from common.config import POSTGRES_LOGIN_URL_FROM_ENV
 from common.gpt_client import open_ai_client_with_db_cache
-from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
+from supawee.client import connect_to_postgres
 
 pp = pprint.PrettyPrinter(indent=2)
 

@@ -33,7 +33,7 @@ from common.config import (
     ENV_LOCAL,
     RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS,
     SKIP_PROCESSED_DATA_ENTRIES,
-    SKIP_SHARE_SPREADSHEET,
+    SKIP_SHARE_SPREADSHEET, POSTGRES_LOGIN_URL_FROM_ENV,
 )
 from common.form import FormData, FormName
 from gpt_form_filler.openai_client import CHEAPEST_MODEL, OpenAiClient
@@ -41,8 +41,7 @@ from gpt_form_filler.openai_client import CHEAPEST_MODEL, OpenAiClient
 from common.gpt_client import open_ai_client_with_db_cache
 from common.twillio_client import TwilioClient
 from database.account import Account
-from database.client import (
-    POSTGRES_LOGIN_URL_FROM_ENV,
+from supawee.client import (
     connect_to_postgres,
     connect_to_postgres_i_will_call_disconnect_i_promise,
 )

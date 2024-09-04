@@ -17,10 +17,10 @@ from fastapi.requests import Request
 from fastapi.responses import RedirectResponse
 
 from common.aws_utils import get_bucket_url
-from common.config import ENV, ENV_LOCAL, ENV_PROD, AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID
+from common.config import ENV, ENV_LOCAL, ENV_PROD, AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID, \
+    POSTGRES_LOGIN_URL_FROM_ENV
 # TODO(P2, dumpsheet migration): Instead of import the entire module, just import the classes.
 from database import account, data_entry, models
-from database.client import connect_to_postgres_i_will_call_disconnect_i_promise, disconnect_from_postgres_as_i_promised
 from database.constants import (
     ACCOUNT_STATE_ACTIVE,
     ACCOUNT_STATE_MERGED,
@@ -34,6 +34,7 @@ from database.models import BaseDataEntry, BaseEmailLog
 from database.oauth_data import OauthData
 from database.organization import Organization
 from database.pipeline import Pipeline
+from supawee.client import connect_to_postgres_i_will_call_disconnect_i_promise, disconnect_from_postgres_as_i_promised
 
 s3 = boto3.client("s3", aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
 
@@ -78,6 +79,8 @@ else:
 
 # Apply CORS middleware
 # TODO(P1, devx): It would be nice to add a correlation id https://github.com/snok/asgi-correlation-id
+#   Actually, we can likely just use the fly-request-id header maybe (at least present on the response)
+#   curl -I -X GET https://api.dumpsheet.com/
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  # or use ["*"] to allow all origins
@@ -89,7 +92,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup():
-    postgres_login_url = os.environ.get("POSTGRES_LOGIN_URL_FROM_ENV")
+    postgres_login_url = POSTGRES_LOGIN_URL_FROM_ENV
     # with client.connect_to_postgres(postgres_login_url):
     # Indeed, in AWS Lambda, it is generally recommended not to explicitly close database connections
     # at the end of each function invocation. Lambda execution context will freeze and thaw it.

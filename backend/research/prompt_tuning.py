@@ -5,8 +5,9 @@ import time
 from app.app import process_networking_transcript
 from gpt_form_filler.openai_client import OpenAiClient
 
+from common.config import POSTGRES_LOGIN_URL_FROM_ENV
 from common.gpt_client import open_ai_client_with_db_cache
-from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
+from supawee.client import connect_to_postgres
 from input.email import process_email_input
 
 

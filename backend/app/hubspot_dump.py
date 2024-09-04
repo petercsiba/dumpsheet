@@ -15,12 +15,13 @@ from app.hubspot_models import (
     HubspotObject,
     ObjectType,
 )
+from common.config import POSTGRES_LOGIN_URL_FROM_ENV
 from common.form import FormData, FormDefinition, FormName
 from gpt_form_filler.openai_client import OpenAiClient
 
 from common.gpt_client import open_ai_client_with_db_cache
 from database.account import Account
-from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
+from supawee.client import connect_to_postgres
 from database.constants import DESTINATION_HUBSPOT_ID, OAUTH_DATA_TOKEN_TYPE_OAUTH
 from database.email_log import EmailLog
 from database.models import BaseDataEntry, BaseOrganization

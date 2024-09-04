@@ -19,10 +19,10 @@ from common.config import (
     ADMIN_CONSOLE_HUBSPOT_REFRESH_TOKEN,
     HUBSPOT_CLIENT_ID,
     HUBSPOT_CLIENT_SECRET,
-    HUBSPOT_REDIRECT_URL,
+    HUBSPOT_REDIRECT_URL, POSTGRES_LOGIN_URL_FROM_ENV,
 )
 from database.account import Account
-from database.client import POSTGRES_LOGIN_URL_FROM_ENV, connect_to_postgres
+from supawee.client import connect_to_postgres
 from database.constants import OAUTH_DATA_TOKEN_TYPE_OAUTH
 from database.oauth_data import OauthData
 

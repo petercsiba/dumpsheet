@@ -45,3 +45,6 @@ HUBSPOT_REDIRECT_URL = "https://api.dumpsheet.com/hubspot/oauth/redirect"
 
 # OPENAI STUFF
 OPEN_AI_API_KEY: str = os.environ.get("OPEN_AI_API_KEY")
+
+# SUPABASE / POSTGRES STUFF
+POSTGRES_LOGIN_URL_FROM_ENV = os.environ.get("POSTGRES_LOGIN_URL_FROM_ENV")

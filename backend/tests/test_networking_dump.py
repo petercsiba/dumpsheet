@@ -3,10 +3,10 @@ from typing import List
 import pytest
 
 from app.contacts_dump import extract_everyone_i_have_talked_to
+from common.config import POSTGRES_LOGIN_URL_FROM_ENV
 
 from common.gpt_client import open_ai_client_with_db_cache
-from database.client import (
-    POSTGRES_LOGIN_URL_FROM_ENV,
+from supawee.client import (
     connect_to_postgres_i_will_call_disconnect_i_promise,
     disconnect_from_postgres_as_i_promised,
 )

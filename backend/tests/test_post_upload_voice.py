@@ -7,10 +7,9 @@ from uuid import UUID
 
 import pytest
 
-from common.config import ENV, ENV_LOCAL, ENV_TEST
+from common.config import ENV, ENV_LOCAL, ENV_TEST, POSTGRES_LOGIN_URL_FROM_ENV
 from database.account import Account
-from database.client import (
-    POSTGRES_LOGIN_URL_FROM_ENV,
+from supawee.client import (
     connect_to_postgres_i_will_call_disconnect_i_promise,
     disconnect_from_postgres_as_i_promised,
 )
