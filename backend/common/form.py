@@ -1,3 +1,4 @@
+# TODO(P0, migration): Use the new FormDefinition and FieldDefinition classes from gpt_form_filler.form
 import datetime
 from enum import Enum
 from typing import Any, List, Optional, Tuple
@@ -107,7 +108,7 @@ class FieldDefinition:
             # We output more machine-like so it can be sorted in Excel
             return datetime_value.strftime("%Y-%m-%d %H:%M %Z")
 
-        # TODO(P0, hack): Add special handling on the FieldDefinition; especially HubSpot fields like ObjId can use it
+        # TODO(P2, hack): Add special handling on the FieldDefinition
         if self.name in ["firstname", "lastname"]:
             return " ".join(word.capitalize() for word in str(value).split(" "))
 
@@ -279,9 +280,6 @@ class FieldDefinition:
 
 class FormName(Enum):
     CONTACTS = "contacts"
-    HUBSPOT_CONTACT = "hubspot_contact"
-    HUBSPOT_TASK = "hubspot_task"
-    HUBSPOT_MEETING = "hubspot_meeting"
     FOOD_LOG = "food_log"
 
     @property
@@ -320,7 +318,6 @@ class FormDefinition:
         return ",\n".join([field.to_python_definition() for field in self.fields])
 
 
-# Related to HubspotObject
 class FormData:
     def __init__(
         self,

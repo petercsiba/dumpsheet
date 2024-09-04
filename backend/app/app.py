@@ -16,7 +16,6 @@ from uuid import UUID
 from app.contacts_dump import run_executive_assistant_to_get_drafts
 from app.datashare import PersonDataEntry
 from app.emails import (
-    send_hubspot_result,
     send_result,
     send_result_no_people_found,
     send_result_rest_of_the_crowd,
@@ -25,8 +24,6 @@ from app.emails import (
 )
 from app.food_dump import run_food_ingredient_extraction
 from app.gsheets import TEMPLATE_CONTACTS_SPREADSHEET_ID, GoogleClient
-from app.hubspot_client import HubspotClient
-from app.hubspot_dump import HubspotDataEntry, extract_and_sync_contact_with_follow_up
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.config import (
     ENV,
@@ -45,12 +42,9 @@ from supawee.client import (
     connect_to_postgres,
     connect_to_postgres_i_will_call_disconnect_i_promise,
 )
-from database.constants import DESTINATION_HUBSPOT_ID
 from database.data_entry import STATE_UPLOAD_PROCESSED, STATE_UPLOAD_TRANSCRIBED
 from database.email_log import EmailLog
-from database.models import BaseAccount, BaseDataEntry, BaseOrganization
-from database.organization import ORGANIZATION_ROLE_OWNER, Organization
-from database.pipeline import Pipeline
+from database.models import BaseAccount, BaseDataEntry
 from database.task import Task
 from input.app_upload import process_app_upload
 from input.call import process_voice_recording_input
@@ -90,7 +84,6 @@ def wait_for_sms_email_update():
     #                 break
 
 
-# TODO(P1, features): Also support this for HubSpot dump.
 def sync_form_datas_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]):
     print(
         f"Gonna sync {len(form_datas)} FormDatas into GSheets for account {account_id}"
@@ -246,42 +239,6 @@ def process_networking_transcript(
     return people_entries
 
 
-# TODO(P1, cleanup): This only seems to be used by local runs, so we might move it.
-def process_hubspot_transcript(
-    hs_client: HubspotClient,
-    gpt_client: OpenAiClient,
-    data_entry: BaseDataEntry,
-) -> HubspotDataEntry:
-    task = Task.create_task(workflow_name="hubspot", data_entry_id=data_entry.id)
-    acc: Account = Account.get_by_id(data_entry.account_id)
-    pipeline = Pipeline.get_or_none_for_org_id(
-        acc.organization_id, DESTINATION_HUBSPOT_ID
-    )
-    hub_id = pipeline.external_org_id if bool(pipeline) else None
-
-    # TODO(P1, ux): Maybe we should wait_for_email_updated_on_data_entry
-    #   But then might be better to update without email confirmations.
-    data = extract_and_sync_contact_with_follow_up(
-        client=hs_client,
-        gpt_client=gpt_client,
-        db_task=task,
-        text=data_entry.output_transcript,
-        hub_id=hub_id,
-        hubspot_owner_id=acc.organization_user_id,
-    )
-
-    # To process and upload the Hubspot entries, we do not need an email address.
-    # But to send a confirmation, we do need one.
-    if wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=3 * 60):
-        send_hubspot_result(data_entry.account, data_entry.idempotency_id, data)
-    else:
-        print(
-            f"WARNING: email missing for data_entry {data_entry.id} - cannot send results email"
-        )
-
-    return data
-
-
 def process_food_log_transcript(
     gpt_client: OpenAiClient,
     data_entry: BaseDataEntry,
@@ -300,8 +257,6 @@ def process_food_log_transcript(
         # TODO(devx, P0): We need to generate an unique id for each row so we can better track it.
         task.add_generated_output(key=str(i), form_data=form_data)
 
-    # To process and upload the Hubspot entries, we do not need an email address.
-    # But to send a confirmation, we do need one.
     if not wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=3 * 60):
         print(
             f"WARNING: email missing for data_entry {data_entry.id} - cannot send results email"
@@ -410,20 +365,6 @@ def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
     gpt_client = open_ai_client_with_db_cache()
     acc: BaseAccount = BaseAccount.get_by_id(data_entry.account_id)
     print(f"gonna process transcript for account {acc.__dict__}")
-    # TODO(P0, ux): Have a clearer way to decide which path to go with (select box, or "auto-gpt")
-    if bool(acc.organization):
-        print("Account is part of an organization, will sync data directly there")
-        org = Organization.get_by_id(
-            acc.organization_id
-        )  # acc.organization is of type BaseOrganization
-        hs_client = HubspotClient(
-            org.get_oauth_data_id_for_destination(DESTINATION_HUBSPOT_ID)
-        )
-        return process_hubspot_transcript(
-            hs_client=hs_client,
-            gpt_client=gpt_client,
-            data_entry=data_entry,
-        )
 
     if (
         str(data_entry.account.id) == "c6b5882d-929a-41c5-8eb0-3740965b8e8e"
@@ -559,46 +500,18 @@ if __name__ == "__main__":
         loaded_data_entry = BaseDataEntry.get(BaseDataEntry.id == orig_data_entry.id)
         print(f"loaded_data_entry: {loaded_data_entry}")
 
-        # since we have one TestHubspot integration, all accounts have to be part of the same organization
-        # (alternatively we can mock the entire HubspotClient)
-        existing_organization: Organization = BaseOrganization.get_or_none(
-            BaseOrganization.name == "testing locally"
+        workflow_name = get_workflow_name(
+            open_ai_client, loaded_data_entry.output_transcript
         )
-        if bool(existing_organization):  # Feel free to hardcode by-pass this
-            # Make sure the account is connected to this organization
-            test_acc: BaseAccount = BaseAccount.get_by_id(orig_data_entry.account_id)
-            if (
-                test_acc.organization is None
-                or test_acc.organization_id != existing_organization.id
-            ):
-                print("INFO: Linking account to existing organization")
-                test_acc.organization_id = existing_organization.id
-                test_acc.organization_role = ORGANIZATION_ROLE_OWNER
-                test_acc.save()
-
-            test_hs_client = HubspotClient(
-                existing_organization.get_oauth_data_id_for_destination(
-                    DESTINATION_HUBSPOT_ID
-                )
+        if workflow_name == FormName.FOOD_LOG:
+            process_food_log_transcript(
+                gpt_client=open_ai_client, data_entry=loaded_data_entry
             )
-            process_hubspot_transcript(
-                hs_client=test_hs_client,
+        elif workflow_name == FormName.CONTACTS:
+            # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
+            process_networking_transcript(
                 gpt_client=open_ai_client,
                 data_entry=orig_data_entry,
             )
-        else:
-            workflow_name = get_workflow_name(
-                open_ai_client, loaded_data_entry.output_transcript
-            )
-            if workflow_name == FormName.FOOD_LOG:
-                process_food_log_transcript(
-                    gpt_client=open_ai_client, data_entry=loaded_data_entry
-                )
-            elif workflow_name == FormName.CONTACTS:
-                # NOTE: We pass "orig_data_entry" here cause the loaded would include the results.
-                process_networking_transcript(
-                    gpt_client=open_ai_client,
-                    data_entry=orig_data_entry,
-                )
 
         EmailLog.save_last_email_log_to("result-app-app.html")

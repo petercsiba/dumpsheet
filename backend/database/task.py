@@ -9,11 +9,6 @@ TASK_INITIATED = "initiated"
 TASK_DONE = "done"
 TASK_TERMINATED = "terminated"
 
-# Feels like "app.result"
-KEY_HUBSPOT_CONTACT = "hubspot_contact"
-KEY_HUBSPOT_CALL = "hubspot_call"
-KEY_HUBSPOT_TASK = "hubspot_task"
-
 
 # Retains data from the done transcription -> action performed.
 # -- in the ETL world usually encompasses all the Task, Logs (Events) and Audit Trail (History).

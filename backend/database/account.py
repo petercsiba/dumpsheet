@@ -3,7 +3,6 @@ import string
 import time
 from typing import List, Optional
 
-from hubspot.crm.owners import PublicOwner
 from peewee import DoesNotExist
 
 from common.config import ALLOW_ONBOARDING_IP_MATCHING
@@ -258,38 +257,3 @@ class Account(BaseAccount):
         print(f"onboarded account {account}")
         return account
 
-    # TODO(P2, devx): There might be a better place for_hubspot function, as this depends on Hubspot.
-    @staticmethod
-    def get_or_onboard_for_hubspot(
-        owners_response: Optional[List[PublicOwner]],
-    ) -> List["Account"]:
-        if owners_response is None or not isinstance(owners_response, list):
-            print(
-                f"WARNING: Unexpected owners_response {type(owners_response)}: {owners_response}"
-            )
-            return []
-
-        print(f"Gonna onboard *up to* {len(owners_response)} Hubspot accounts")
-        accounts = []
-        for owner in owners_response:
-            if not isinstance(owner, PublicOwner):
-                print(f"WARNING: Unexpected owner structure {type(owner)}: {owner}")
-                continue
-
-            # Since the no-login onboarding is already quite complex, we will just do the simple thing here.
-            full_name = f"{owner.first_name} {owner.last_name}"
-            acc = Account.get_or_onboard_for_email(
-                email=owner.email,
-                full_name=full_name,
-                utm_source="hubspot_app",
-            )
-            if acc.organization_user_id is None:
-                # TODO(P2, devx): For this, it makes more sense to have acc <-> pipeline.
-                acc.organization_user_id = owner.id  # not user_id, we allow overwrites
-                acc.save()
-            accounts.append(acc)
-            print(
-                f"Hubspot owner creation success - yielded account {acc} for email {owner.email}"
-            )
-
-        return accounts

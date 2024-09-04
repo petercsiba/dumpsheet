@@ -34,15 +34,6 @@ GOOGLE_FORMS_SERVICE_ACCOUNT_PRIVATE_KEY = os.environ.get(
     "GOOGLE_FORMS_SERVICE_ACCOUNT_PRIVATE_KEY", ""
 ).replace("|", "\n")
 
-# HUBSPOT STUFF https://app.hubspot.com/developer/43920988/application/2150554/?tab=auth
-ADMIN_CONSOLE_HUBSPOT_REFRESH_TOKEN = os.environ.get(
-    "ADMIN_CONSOLE_HUBSPOT_REFRESH_TOKEN"
-)
-HUBSPOT_APP_ID = "2150554"
-HUBSPOT_CLIENT_ID = "501ffe58-5d49-47ff-b41f-627fccc28715"
-HUBSPOT_CLIENT_SECRET = os.environ.get("HUBSPOT_CLIENT_SECRET")
-HUBSPOT_REDIRECT_URL = "https://api.dumpsheet.com/hubspot/oauth/redirect"
-
 # OPENAI STUFF
 OPEN_AI_API_KEY: str = os.environ.get("OPEN_AI_API_KEY")
 
