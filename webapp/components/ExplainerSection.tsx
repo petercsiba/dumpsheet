@@ -21,19 +21,24 @@ export default function ExplainerSection() {
         <p className="text-sm text-gray-600 text-center">
           Any audio file would do, or you can <Link href="/record">record one </Link> right here!.
         </p>
+        {/*
+        TODO(P0, ux): Explain the "just send an email" upload version
+          * Make it interactive? (e.g. a carousel with different ways of upload)
+        */}
         <img
             src={example.src}
             alt="Audio file upload example"
             className="rounded-lg object-cover w-3/4 md:w-1/2 lg:w-1/3 mx-auto"
         />
         <p className="text-sm text-gray-600 text-center">
+          {/*TODO(P1, ux): Figure out how to start the voice recorder in the Demo mode */}
           <Link href="/record/demo" className="flex-grow-0">
             <Button className="px-4 py-2 whitespace-nowrap">Interactive Demo</Button>
           </Link>
         </p>
       </div>
 
-      {/* Step 2: Ba */}
+      {/* Step 2: Backend Work */}
       <div className="space-y-4">
         <div className="flex items-center justify-center space-x-4">
           <div

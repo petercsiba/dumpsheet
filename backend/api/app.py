@@ -1,19 +1,18 @@
 # TODO(P1, dumpsheet migration): Separate out this file into smaller FastAPI modules
 import datetime
-import os
 import re
 import uuid
-from typing import Dict, Optional, Annotated, Union
+from typing import Optional
 
 import boto3
 import jwt
 import peewee  # noqa
 from botocore.exceptions import NoCredentialsError
-from fastapi import FastAPI, Header, HTTPException, Cookie, Depends
+from fastapi import FastAPI, HTTPException, Cookie, Depends
 from pydantic import BaseModel, EmailStr
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
-from fastapi.responses import Response, RedirectResponse
+from fastapi.responses import Response
 from supabase_auth import SyncGoTrueClient, AuthResponse
 
 from common.aws_utils import get_bucket_url
@@ -31,15 +30,10 @@ from supawee.client import connect_to_postgres_i_will_call_disconnect_i_promise,
 
 s3 = boto3.client("s3", aws_access_key_id=AWS_ACCESS_KEY_ID, aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
 
-ALLOWED_ORIGINS = ["https://app.dumpsheet.com", "http://localhost:3000"]
-TWILIO_FUNCTIONS_API_KEY = "twilio-functions-super-secret-key-123"
-
 
 # ======= FAST API BOILERPLATE =======
 
 app = FastAPI()
-
-
 origins = []
 local_origins = [
     "http://localhost:3000",  # Adjust this if needed
@@ -71,7 +65,7 @@ else:
 #   Actually, we can likely just use the fly-request-id header maybe (at least present on the response)
 #   curl -I -X GET https://api.dumpsheet.com/
 app.add_middleware(
-    CORSMiddleware,
+    CORSMiddleware,  # noqa
     allow_origins=origins,  # or use ["*"] to allow all origins
     allow_credentials=True,
     allow_methods=["*"],
@@ -79,7 +73,6 @@ app.add_middleware(
 )
 
 
-@app.on_event("startup")
 def startup():
     postgres_login_url = POSTGRES_LOGIN_URL_FROM_ENV
     # with client.connect_to_postgres(postgres_login_url):
@@ -88,9 +81,12 @@ def startup():
     connect_to_postgres_i_will_call_disconnect_i_promise(postgres_login_url)  # lies
 
 
-@app.on_event("shutdown")
 def shutdown():
     disconnect_from_postgres_as_i_promised()
+
+
+app.add_event_handler("startup", startup)
+app.add_event_handler("shutdown", shutdown)
 
 
 # ======= API ENDPOINTS =======
@@ -195,7 +191,9 @@ class GetPresignedUrlResponse(BaseModel):
 
 
 @app.get("/upload/voice", response_model=GetPresignedUrlResponse)
-async def get_presigned_url(request: Request, response: Response, current_user: Optional[UserFrontEnd] = Depends(maybe_get_current_user)):
+async def get_presigned_url(request: Request, response: Response, current_user: Optional[UserFrontEnd] = Depends(
+    maybe_get_current_user
+)):
     print(f"DEBUG DEBUG DEBUG: current_user {current_user}")
     if not current_user:
         auth_response = sign_in_anonymously()
@@ -206,7 +204,8 @@ async def get_presigned_url(request: Request, response: Response, current_user: 
             httponly=True,
         )
 
-    # DEPRECATED
+    # TODO(P0, user-migration): Move the Supabase Auth altogether; use new UserAccount object instead.
+    #   Account will still be the central point of the schema; just that FrontEnd will only be exposed to User.
     x_account_id = request.headers.get("X-Account-Id")
     # Specify the S3 bucket and file name
     bucket_name = "requests-from-api-voxana"
@@ -231,6 +230,7 @@ async def get_presigned_url(request: Request, response: Response, current_user: 
         print("presigned_url generated")
     except NoCredentialsError:
         # Officially HTTPException should only be used with 4xx
+        # TODO(P1, devx): This somewhat causes missing CORS headers on browser leading to a Red Herring.
         raise HTTPException(500, "error generating presigned URL: No AWS Credentials")
 
     # NOTE: To allow extra headers you need to allow-list them in the CORS policy
@@ -239,7 +239,7 @@ async def get_presigned_url(request: Request, response: Response, current_user: 
         print(f"Received account_id: {x_account_id} type {type(x_account_id)}")
         acc = account.Account.get_by_id(x_account_id)
     else:
-        # TODO(P0, dumpsheet migration): This IP onboarding is just too custom, remove and just require X-Account-Id.
+        # TODO(P0, dumpsheet migration): This IP onboarding is just too custom, moving to anonymous users.
         # Extract some identifiers - these should NOT be use for auth - but good enough for a demo.
         source_ip = request.client.host
         user_agent = "this is deprecated in the future"
@@ -255,11 +255,15 @@ async def get_presigned_url(request: Request, response: Response, current_user: 
     email = acc.get_email()
     account_id = str(acc.id)  # maybe we should have a UUIDEncoder
 
+    # This BaseDataEntry is mapped to the uploaded file by the data_entry_id
     inserted = models.BaseDataEntry.insert(
         id=data_entry_id,
         account=acc,
         display_name=f"Voice recording upload from {(datetime.datetime.now().strftime('%B %d, %H:%M'))}",
-        idempotency_id=data_entry_id,  # TODO(P1, ux): we can send a client-side recording idempotency id
+        # TODO(P2, ux): Also persist the original file name (in case of uploads)
+        idempotency_id=data_entry_id,
+        # TODO(P1, devx): We should also store input_method (like recording, upload, ...).
+        #   OR use different buckets as we already do for email, calls and recordings.
         input_type=content_type,
         input_uri=get_bucket_url(bucket=bucket_name, key=file_name),
         state=data_entry.STATE_UPLOAD_INTENT
@@ -434,4 +438,3 @@ def _parse_account_id_from_state_param(param: Optional[str]) -> Optional[uuid.UU
         print(f"Invalid state parameter {param}")
 
     return account_id
-
