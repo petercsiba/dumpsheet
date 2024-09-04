@@ -27,8 +27,8 @@ export default function ExplainerSection() {
             className="rounded-lg object-cover w-3/4 md:w-1/2 lg:w-1/3 mx-auto"
         />
         <p className="text-sm text-gray-600 text-center">
-          <Link href="/upload" className="flex-grow-0">
-            <Button className="px-4 py-2 whitespace-nowrap">Upload Now</Button>
+          <Link href="/record/demo" className="flex-grow-0">
+            <Button className="px-4 py-2 whitespace-nowrap">Interactive Demo</Button>
           </Link>
         </p>
       </div>

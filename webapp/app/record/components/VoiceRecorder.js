@@ -5,9 +5,9 @@ import React, {useEffect, useRef, useState} from 'react'
 import RecordRTC from 'recordrtc'
 import Image from 'next/image'
 // https://uxwing.com/stop-button-red-icon/
-import MicrophoneIcon from '../../../public/images/icons/microphone-button-green-icon.svg'
-import MicrophoneIconHover from '../../../public/images/icons/microphone-button-green-hover-icon.png'
-import StopIcon from '../../../public/images/icons/stop-button-red-icon.svg'
+import MicrophoneIcon from '@/public/images/icons/microphone-button-green-icon.svg'
+import MicrophoneIconHover from '@/public/images/icons/microphone-button-green-hover-icon.png'
+import StopIcon from '@/public/images/icons/stop-button-red-icon.svg'
 import CollectEmailProcessingInfo from "components/CollectEmailProcessingInfo";
 import ProgressBar from "components/ProgressBar";
 
