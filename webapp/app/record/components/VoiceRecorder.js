@@ -11,8 +11,8 @@ import StopIcon from '@/public/images/icons/stop-button-red-icon.svg'
 import CollectEmailProcessingInfo from "components/CollectEmailProcessingInfo";
 import ProgressBar from "components/ProgressBar";
 
-// TODO(P1, devx): We should support local testing with a local FastAPI backend
-const PRESIGNED_URL = 'https://api.dumpsheet.com/upload/voice';
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+const PRESIGNED_URL = `${apiBaseUrl}/upload/voice`;
 const UPLOAD_TIMEOUT = 30000;
 const MIN_DURATION = Number(process.env.NEXT_PUBLIC_VOICE_RECORDER_MIN_DURATION_SECONDS) || 10;
 const SHORT_RECORDING_TIMEOUT = 7000;

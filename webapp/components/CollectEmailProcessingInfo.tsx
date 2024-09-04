@@ -5,7 +5,8 @@ interface CollectEmailProcessingInfoProps {
     onRegistrationSuccess: (emailAddress: string) => void;
 }
 
-const UPDATE_EMAIL_URL = 'https://api.dumpsheet.com/upload/voice';
+const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+const UPDATE_EMAIL_URL = `${apiBaseUrl}/upload/voice`;
 
 const CollectEmailProcessingInfo: FC<CollectEmailProcessingInfoProps> = ({accountId, onRegistrationSuccess}) => {
     const [email, setEmail] = useState('');
