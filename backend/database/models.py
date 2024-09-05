@@ -244,3 +244,15 @@ class BasePromptLog(BaseDatabaseModel):
         schema = "public"
         table_name = "prompt_log"
         indexes = ((("prompt_hash", "model"), True),)
+
+
+class BaseUserAccount(BaseDatabaseModel):
+    account_id = UUIDField()
+    created_at = DateTimeField(constraints=[SQL("DEFAULT now()")])
+    id = BigAutoField()
+    user_id = UUIDField(constraints=[SQL("DEFAULT auth.uid()")])
+
+    class Meta:
+        schema = "public"
+        table_name = "user_account"
+        indexes = ((("user_id", "account_id"), True),)
