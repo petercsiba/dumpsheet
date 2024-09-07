@@ -7,7 +7,7 @@ import re
 import time
 import traceback
 import uuid
-from email.header import decode_header
+from email.header import decode_header, Header
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -132,6 +132,18 @@ def get_email_params_for_reply(msg):
     )
 
 
+# https://chatgpt.com/share/a78ed814-63ab-4d1c-9d82-30fc9de045c3
+# e.g. multi-line headers can be a problem:
+# [ERROR] Dumpsheet Docker Lambda: ...
+# DETAI...
+def clean_subject(subject: str) -> str:
+    # Strip newlines and control characters
+    subject = subject.replace('\n', ' ').replace('\r', ' ')
+    # Create a Header object which encodes the subject correctly for email usage
+    header = Header(subject, charset='utf-8')
+    return str(header)
+
+
 def create_raw_email_with_attachments(params: EmailLog):
     if not isinstance(params.recipient, str):
         print(
@@ -175,8 +187,10 @@ def create_raw_email_with_attachments(params: EmailLog):
         )
 
     # Create a multipart/mixed parent container
+    cleaned_subject = clean_subject(params.subject)
+
     msg = MIMEMultipart("mixed")
-    msg["Subject"] = params.subject
+    msg["Subject"] = cleaned_subject
     msg["From"] = params.sender
     msg["To"] = params.recipient
     msg["Reply-To"] = ", ".join(params.reply_to)
@@ -184,7 +198,7 @@ def create_raw_email_with_attachments(params: EmailLog):
         msg["Bcc"] = ", ".join(params.bcc)
 
     print(
-        f"Sending email from {msg['From']} to {msg['To']} (and bcc {msg['Bcc']}) with subject {msg['Subject']}"
+        f"Sending email from {msg['From']} to {msg['To']} (and bcc {msg['Bcc']}) with subject {cleaned_subject}"
     )
 
     # Create a multipart/alternative child container
