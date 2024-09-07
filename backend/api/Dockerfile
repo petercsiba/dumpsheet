@@ -6,22 +6,11 @@ WORKDIR /app/backend
 
 # `git` is required by python package `supawee`
 # `postgresql-dev` and `libffi-dev` are for psycopg[binary,pool] (this is always such a pain to install)
-# `curl` for rustup
 RUN apt-get update && apt-get install -y \
     git \
     libpq-dev \
     gcc \
-    curl \
     && rm -rf /var/lib/apt/lists/
-
-# `rust` and `cargo` for tiktoken; sight such a little library and such a big dependency (commands for debian)
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
-    # Source the cargo environment
-    && . $HOME/.cargo/env
-# Add Rust to PATH explicitly
-ENV PATH="/root/.cargo/bin:${PATH}"
-# Check if Rust compiler is installed
-RUN rustc --version
 
 # Install Python dependencies
 COPY requirements/common.txt /app/backend/common.txt

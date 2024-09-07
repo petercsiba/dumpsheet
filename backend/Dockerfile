@@ -19,7 +19,6 @@ RUN apk add --no-cache \
 FROM python-alpine AS build-image
 # Install aws-lambda-cpp build dependencies
 # postgresql-dev a libffi-dev are for psycopg[binary,pool] (this is always such a pain to install)
-# `rust` and `cargo` for tiktoken
 # git for git-based requirements (my own projects)
 RUN apk add --no-cache \
     build-base \
@@ -32,8 +31,6 @@ RUN apk add --no-cache \
     libcurl \
     ffmpeg \
     git \
-    rust \
-    cargo \
     postgresql-dev \
     libffi-dev
 
