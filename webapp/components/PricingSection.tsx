@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 
 export default function PricingSection() {
   return (
-    <div className="w-full max-w-6xl mt-16 mb-16 p-8 rounded-lg space-y-8">
+    <div className="w-full max-w-6xl mt-16 mb-6 p-8 rounded-lg space-y-8">
       <h2 className="text-3xl font-bold text-center mb-8">Pricing</h2>
       <div className="flex flex-wrap justify-center lg:space-x-4 space-y-4 lg:space-y-0 items-stretch">
         {pricingOptions.map((option, index) => (
@@ -48,7 +48,7 @@ const pricingOptions = [
     title: "Goodwill",
     price: "Free",
     description:
-      "I am busy lets do it",
+      "I am busy just give me your free sample",
     features: [
       "~15min of audio per day",
       "No Account Needed",
@@ -60,8 +60,8 @@ const pricingOptions = [
     bgColor: "bg-white",
   },
   {
-    title: "Pay as you go",
-    price: "3x of our compute cost",
+    title: "Invoice",
+    price: "2x of our compute cost",
     description:
       "This is how much $1 gets you:",
     features: [
@@ -76,7 +76,7 @@ const pricingOptions = [
   {
     title: "Enterprise",
     price: "Lets Negotiate",
-    description: "The best value for \"high volumes\" (pun intended).",
+    description: "The best value for \"high volumes\" (pun intended - we can handle your yelling!).",
     features: [
       "Lower cost for bulk purchases",
     ],
