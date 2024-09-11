@@ -16,11 +16,11 @@ from uuid import UUID
 from app.contacts_dump import run_executive_assistant_to_get_drafts
 from app.datashare import PersonDataEntry
 from app.emails import (
-    send_result,
+    send_networking_per_person_result,
     send_result_no_people_found,
     send_result_rest_of_the_crowd,
     send_technical_failure_email,
-    wait_for_email_updated_on_data_entry,
+    wait_for_email_updated_on_data_entry, send_generic_result,
 )
 from app.food_dump import run_food_ingredient_extraction
 from app.form_library import FormName
@@ -34,7 +34,7 @@ from common.config import (
     SKIP_SHARE_SPREADSHEET, POSTGRES_LOGIN_URL_FROM_ENV,
 )
 from gpt_form_filler.form import FormData
-from gpt_form_filler.openai_client import CHEAPEST_MODEL, OpenAiClient
+from gpt_form_filler.openai_client import CHEAPEST_MODEL, OpenAiClient, BEST_MODEL
 
 from common.gpt_client import open_ai_client_with_db_cache
 from common.twillio_client import TwilioClient
@@ -129,7 +129,7 @@ FORM_CLASSIFICATION = {
 
 
 # TODO(P0, dumpsheet migration): This is trying to be over-smart, we should just have the user to choose the sheet.
-def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> FormName:
+def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> Optional[FormName]:
     topics = "\n".join(
         f"* {name} -> {description}"
         for name, description in FORM_CLASSIFICATION.items()
@@ -149,7 +149,7 @@ def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> FormName:
         print(f"classified transcript as {raw_response}")
         return FormName.from_str(raw_response)
 
-    default_classification = FormName.CONTACTS
+    default_classification = None
     print(
         f"WARNING: classified transcript as unknown type: {raw_response}; defaulting to {default_classification}"
     )
@@ -223,7 +223,7 @@ def process_networking_transcript(
     # SEND EMAILS
     for person in legit_results:
         # if user.contact_method() == "email":
-        send_result(
+        send_networking_per_person_result(
             account_id=data_entry.account_id,
             idempotency_id_prefix=data_entry.idempotency_id,
             person=person,
@@ -358,6 +358,32 @@ def first_lambda_handler_wrapper(event, context) -> BaseDataEntry:
     return data_entry
 
 
+def process_generic_prompt(gpt_client, data_entry) -> str:
+    print("process_generic_prompt for data_entry", data_entry.id)
+
+    task = Task.create_task(workflow_name="generic_id", data_entry_id=data_entry.id)
+    # TODO(P1, devx): With gpt-form-filler migration, we lost the task_id setting. Would be nice to have it back.
+    # gpt_client.set_task_id(task.id)
+
+    format_prompt = " . Your output format is as if a human executive assistant writes a plaintext email."
+    result = gpt_client.run_prompt(data_entry.output_transcript + format_prompt, model=BEST_MODEL)
+
+    if not wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=3 * 60):
+        print(
+            f"WARNING: email missing for data_entry {data_entry.id} - cannot send results email"
+        )
+
+    # sync_form_datas_to_gsheets(data_entry.account_id, form_datas=form_datas)
+    send_generic_result(
+        account_id=data_entry.account_id,
+        idempotency_id=data_entry.idempotency_id + "-generic-result",
+        email_subject=f"Re: {data_entry.display_name}",
+        email_body=result,
+    )
+
+    return result
+
+
 def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
     if not wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=5 * 60):
         print(
@@ -367,24 +393,18 @@ def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
     acc: BaseAccount = BaseAccount.get_by_id(data_entry.account_id)
     print(f"gonna process transcript for account {acc.__dict__}")
 
-    if (
-        str(data_entry.account.id) == "c6b5882d-929a-41c5-8eb0-3740965b8e8e"
-        or ENV == ENV_LOCAL
-    ):
-        if (
-            get_workflow_name(gpt_client, data_entry.output_transcript)
-            == FormName.FOOD_LOG
-        ):
-            return process_food_log_transcript(
-                gpt_client=gpt_client, data_entry=data_entry
-            )
+    suggested_workflow_name = get_workflow_name(gpt_client, data_entry.output_transcript)
+    if suggested_workflow_name == FormName.CONTACTS:
+        process_networking_transcript(
+            gpt_client=gpt_client,
+            data_entry=data_entry,
+        )
+    if suggested_workflow_name == FormName.FOOD_LOG:
+        process_food_log_transcript(
+            gpt_client=gpt_client, data_entry=data_entry
+        )
 
-    # Our OG product
-    # NOTE: When we actually separate them - be careful about re-tries to clear the output.
-    return process_networking_transcript(
-        gpt_client=gpt_client,
-        data_entry=data_entry,
-    )
+    process_generic_prompt(gpt_client, data_entry)
 
 
 def _event_idempotency_id(event):
@@ -513,6 +533,11 @@ if __name__ == "__main__":
             process_networking_transcript(
                 gpt_client=open_ai_client,
                 data_entry=orig_data_entry,
+            )
+        else:
+            process_generic_prompt(
+                gpt_client=open_ai_client,
+                data_entry=orig_data_entry
             )
 
         EmailLog.save_last_email_log_to("result-app-app.html")

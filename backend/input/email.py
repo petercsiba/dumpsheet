@@ -79,6 +79,9 @@ def process_email_input(
             subject=f"Re: {base_email_params.subject}",
             # NOTE: We do NOT include the original attachments cause in the reply
         )
+        # TODO(P0, ux): Kinda annoying to get the confirmation every time,
+        #   instead we should just send error email when it occurs.
+        #   That is around the time Poor Man's Opsgenie runs.
         send_confirmation(
             params=confirmation_email_params,
             first_time_use=account.gsheet_id is None,

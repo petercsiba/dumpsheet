@@ -457,7 +457,7 @@ def _form_data_to_email_table_html(form_data: FormData) -> str:
     return "\n".join(rows)
 
 
-def _craft_result_email_body(
+def _craft_networking_person_result_email_body(
     person: PersonDataEntry, shareable_link: Optional[str]
 ) -> (str, str):
     # TODO(P1, ux): Migrate to new email template
@@ -522,12 +522,25 @@ def _craft_result_email_body(
     return subject_prefix, res_content_html
 
 
-def send_result(
+def send_generic_result(
+    account_id: UUID, idempotency_id: str, email_subject: str, email_body: str
+) -> bool:
+    email_params = EmailLog.get_email_reply_params_for_account_id(
+        account_id=account_id,
+        idempotency_id=idempotency_id,
+        subject=email_subject,
+    )
+    email_params.body_text = email_body
+
+    return send_email(params=email_params)
+
+
+def send_networking_per_person_result(
     account_id: UUID, idempotency_id_prefix: str, person: PersonDataEntry
 ) -> bool:
     person_name_safe = re.sub(r"\W", "-", person.name).lower()
     acc: Account = Account.get_by_id(account_id)
-    subject_prefix, content_html = _craft_result_email_body(
+    subject_prefix, content_html = _craft_networking_person_result_email_body(
         person, shareable_link=acc.get_shareable_spreadsheet_link()
     )
 
