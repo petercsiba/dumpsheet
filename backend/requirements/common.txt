@@ -12,6 +12,7 @@ peewee
 phonenumbers
 plotly
 psycopg2[binary,pool]
+pydub  # requires ffmpeg on the machine
 python-dotenv
 python-dateutil
 pytz

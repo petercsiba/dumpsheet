@@ -7,6 +7,7 @@ from app.emails import (
 from gpt_form_filler.openai_client import OpenAiClient
 
 from common.aws_utils import is_running_in_aws
+from common.gpt_utils import transcribe_audio_chunk_filepaths
 from database.account import Account
 from database.data_entry import STATE_UPLOAD_DONE
 from database.email_log import EmailLog
@@ -26,14 +27,11 @@ def process_app_upload(
     # First check if everything is fine
     data_entry: BaseDataEntry = BaseDataEntry.get_by_id(data_entry_id)
 
-    # Even though browsers upload webm files, and my works (on the desktop), clearly it isn't standardized.
-    converted_audio_filepath = ffmpeg_convert_to_whisper_supported_audio(audio_or_video_filepath)
+    # Browser standards now suggest .webm format, but with so many client versions you cannot guarantee that.
+    converted_audio_filepath_chunks = ffmpeg_convert_to_whisper_supported_audio(audio_or_video_filepath)
+    output_transcript = transcribe_audio_chunk_filepaths(gpt_client, converted_audio_filepath_chunks)
 
-    data_entry.output_transcript = gpt_client.transcribe_audio(
-        audio_filepath=converted_audio_filepath,
-        prompt_hint="voice memo",
-        use_cache_hit=not is_running_in_aws(),
-    )
+    data_entry.output_transcript = output_transcript
     data_entry.state = STATE_UPLOAD_DONE
     data_entry.save()
 

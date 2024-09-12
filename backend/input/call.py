@@ -6,6 +6,8 @@ from typing import Optional
 from common.aws_utils import is_running_in_aws
 from common.config import SUPPORT_EMAIL
 from gpt_form_filler.openai_client import OpenAiClient
+
+from common.gpt_utils import transcribe_audio_chunk_filepaths
 from common.twillio_client import TwilioClient
 from database.account import Account
 from database.data_entry import STATE_UPLOAD_DONE
@@ -92,13 +94,10 @@ def process_voice_recording_input(
     file_path = os.path.join("/tmp/", call_sid)
     with open(file_path, "wb") as f:
         f.write(voice_file_data)
-    audio_filepath = ffmpeg_convert_to_whisper_supported_audio(file_path)
-    if bool(audio_filepath):
-        res.output_transcript = gpt_client.transcribe_audio(
-            audio_filepath=audio_filepath,
-            prompt_hint="phone call to my assistant",
-            use_cache_hit=not is_running_in_aws(),
-        )
+
+    converted_audio_filepath_chunks = ffmpeg_convert_to_whisper_supported_audio(file_path)
+    output_transcript = transcribe_audio_chunk_filepaths(gpt_client, converted_audio_filepath_chunks)
+    res.output_transcript = output_transcript
 
     res.save()
     return res

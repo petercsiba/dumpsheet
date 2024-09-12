@@ -494,7 +494,8 @@ if __name__ == "__main__":
             orig_data_entry = process_app_upload(
                 gpt_client=open_ai_client,
                 # audio_or_video_filepath="testdata/brainfarting-boomergpt-mail.m4a",
-                audio_or_video_filepath="testdata/video-hvac-air-pump-cover.mp4",
+                # audio_or_video_filepath="testdata/video-hvac-air-pump-cover.mp4",  # small video
+                audio_or_video_filepath="testdata/localonly/toastmasters-showcase-bricks.mp4",  # large video
                 data_entry_id=test_parsing_too,
             )
         if test_case == "email":
