@@ -11,12 +11,12 @@ from database.account import Account
 from database.data_entry import STATE_UPLOAD_DONE
 from database.email_log import EmailLog
 from database.models import BaseDataEntry
-from input.common import ffmpeg_convert_audio_to_mp4
+from input.ffmpeg_utils import ffmpeg_convert_to_whisper_supported_audio
 
 
 # App uploads are in webm format - which should work with Whisper (but then they claimed the same for .wav).
 def process_app_upload(
-    gpt_client: OpenAiClient, audio_filepath: str, data_entry_id: uuid.UUID
+    gpt_client: OpenAiClient, audio_or_video_filepath: str, data_entry_id: uuid.UUID
 ) -> BaseDataEntry:
     print(f"process_app_upload for data_entry_id {data_entry_id}")
 
@@ -27,7 +27,7 @@ def process_app_upload(
     data_entry: BaseDataEntry = BaseDataEntry.get_by_id(data_entry_id)
 
     # Even though browsers upload webm files, and my works (on the desktop), clearly it isn't standardized.
-    converted_audio_filepath = ffmpeg_convert_audio_to_mp4(audio_filepath)
+    converted_audio_filepath = ffmpeg_convert_to_whisper_supported_audio(audio_or_video_filepath)
 
     data_entry.output_transcript = gpt_client.transcribe_audio(
         audio_filepath=converted_audio_filepath,

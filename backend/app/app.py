@@ -314,7 +314,7 @@ def first_lambda_handler_wrapper(event, context) -> BaseDataEntry:
         data_entry_id = parse_uuid_from_string(key)
         data_entry = process_app_upload(
             gpt_client=gpt_client,
-            audio_filepath=download_path,
+            audio_or_video_filepath=download_path,
             data_entry_id=data_entry_id,
         )
     elif bucket == EMAIL_BUCKET:
@@ -368,7 +368,7 @@ def process_generic_prompt(gpt_client, data_entry) -> str:
     # TODO(P1, devx): With gpt-form-filler migration, we lost the task_id setting. Would be nice to have it back.
     # gpt_client.set_task_id(task.id)
 
-    format_prompt = "Respond to this prompt as a human executive assistant in a plaintext email: "
+    format_prompt = "Respond to this intake as a human executive assistant in a plaintext email: "
     result = gpt_client.run_prompt(format_prompt + data_entry.output_transcript, model=BEST_MODEL)
 
     transcript_prompt = """
@@ -473,7 +473,7 @@ if __name__ == "__main__":
         open_ai_client = open_ai_client_with_db_cache()
         # open_ai_client.run_prompt(f"test {time.time()}")
 
-        test_case = "email"  # FOR EASY TEST CASE SWITCHING
+        test_case = "app"  # FOR EASY TEST CASE SWITCHING
         orig_data_entry = None
         if test_case == "app":
             app_account = Account.get_or_onboard_for_email(
@@ -493,7 +493,8 @@ if __name__ == "__main__":
             # TODO: remember what all this setup shabang does
             orig_data_entry = process_app_upload(
                 gpt_client=open_ai_client,
-                audio_filepath="testdata/brainfarting-boomergpt-mail.m4a",
+                # audio_or_video_filepath="testdata/brainfarting-boomergpt-mail.m4a",
+                audio_or_video_filepath="testdata/video-hvac-air-pump-cover.mp4",
                 data_entry_id=test_parsing_too,
             )
         if test_case == "email":

@@ -10,7 +10,7 @@ from common.twillio_client import TwilioClient
 from database.account import Account
 from database.data_entry import STATE_UPLOAD_DONE
 from database.models import BaseDataEntry
-from input.common import ffmpeg_convert_audio_to_mp4
+from input.ffmpeg_utils import ffmpeg_convert_to_whisper_supported_audio
 
 
 def strip_empty_tokens(text):
@@ -92,7 +92,7 @@ def process_voice_recording_input(
     file_path = os.path.join("/tmp/", call_sid)
     with open(file_path, "wb") as f:
         f.write(voice_file_data)
-    audio_filepath = ffmpeg_convert_audio_to_mp4(file_path)
+    audio_filepath = ffmpeg_convert_to_whisper_supported_audio(file_path)
     if bool(audio_filepath):
         res.output_transcript = gpt_client.transcribe_audio(
             audio_filepath=audio_filepath,

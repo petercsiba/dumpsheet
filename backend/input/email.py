@@ -15,7 +15,7 @@ from database.account import Account
 from database.data_entry import STATE_UPLOAD_DONE
 from database.email_log import EmailLog
 from database.models import BaseDataEntry
-from input.common import ffmpeg_convert_audio_to_mp4
+from input.ffmpeg_utils import ffmpeg_convert_to_whisper_supported_audio
 
 
 def process_email_input(
@@ -102,7 +102,7 @@ def process_email_input(
             f"Processing attachment {attachment_num} out of {len(attachment_file_paths)}"
         )
         # TODO(ux, P1): Make sure the attachment_file_path is globally unique
-        audio_filepath = ffmpeg_convert_audio_to_mp4(attachment_file_path)
+        audio_filepath = ffmpeg_convert_to_whisper_supported_audio(attachment_file_path)
         if bool(audio_filepath):
             input_transcripts.append(
                 gpt_client.transcribe_audio(
