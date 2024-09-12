@@ -9,6 +9,8 @@ from app.emails import (
     store_and_get_attachments_from_email,
 )
 from gpt_form_filler.openai_client import OpenAiClient
+
+from common.aws_utils import is_running_in_aws
 from database.account import Account
 from database.data_entry import STATE_UPLOAD_DONE
 from database.email_log import EmailLog
@@ -103,7 +105,11 @@ def process_email_input(
         audio_filepath = ffmpeg_convert_audio_to_mp4(attachment_file_path)
         if bool(audio_filepath):
             input_transcripts.append(
-                gpt_client.transcribe_audio(audio_filepath=audio_filepath)
+                gpt_client.transcribe_audio(
+                    audio_filepath=audio_filepath,
+                    prompt_hint="voice memo",
+                    use_cache_hit=not is_running_in_aws(),
+                )
             )
     result.output_transcript = "\n\n".join(input_transcripts)
     result.save()

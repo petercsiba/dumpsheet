@@ -179,7 +179,7 @@ def create_raw_email_with_attachments(params: EmailLog):
             <head></head>
             <body>
               """
-            + params.body_text
+            + params.body_text.replace("\n", "<br />")
             + """
         </body>
         </html>
@@ -237,6 +237,7 @@ def send_email(params: EmailLog) -> bool:
 
     if not is_running_in_aws() or str(SKIP_SENDING_EMAILS) == "1":
         # TODO(P2, testing): Ideally we should also test the translation from params to raw email.
+        # TODO(P1, devx): How this can be printed "an contents None"? If params is None, it should fail earlier.
         print(
             f"Skipping ses.send_raw_email cause NOT in AWS or SKIP_SENDING_EMAILS={SKIP_SENDING_EMAILS} "
             f"Dumping the email {params.idempotency_id} contents {params}"
@@ -445,7 +446,7 @@ def _form_data_to_email_table_html(form_data: FormData) -> str:
     for field in form_data.form.fields:
         if field.ignore_in_display or field.ignore_in_email:
             print(
-                f"INFO: ignoring {field.name} for emails (ignore_id_display: {field.ignore_in_display}"
+                f"INFO: ignoring {field.name} for emails (ignore_id_display: {field.ignore_in_display} "
                 f"ignore_in_email: {field.ignore_in_email}"
             )
             continue

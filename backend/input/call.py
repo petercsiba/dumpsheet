@@ -3,6 +3,7 @@ import os
 import re
 from typing import Optional
 
+from common.aws_utils import is_running_in_aws
 from common.config import SUPPORT_EMAIL
 from gpt_form_filler.openai_client import OpenAiClient
 from common.twillio_client import TwilioClient
@@ -94,7 +95,9 @@ def process_voice_recording_input(
     audio_filepath = ffmpeg_convert_audio_to_mp4(file_path)
     if bool(audio_filepath):
         res.output_transcript = gpt_client.transcribe_audio(
-            audio_filepath=audio_filepath
+            audio_filepath=audio_filepath,
+            prompt_hint="phone call to my assistant",
+            use_cache_hit=not is_running_in_aws(),
         )
 
     res.save()

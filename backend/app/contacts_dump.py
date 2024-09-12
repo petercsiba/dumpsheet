@@ -7,7 +7,6 @@ from gpt_form_filler.openai_client import (
     DEFAULT_MODEL,
     OpenAiClient,
     gpt_response_to_json,
-    num_tokens_from_string,
 )
 
 # Min transcript size somewhat trims down on "hallucinations"
@@ -15,6 +14,13 @@ MIN_FULL_TRANSCRIPT_CHAR_LENGTH = 100
 MIN_FULL_TRANSCRIPT_CHAR_LENGTH_TO_GENERATE_SUMMARY = 200
 MIN_PERSON_TRANSCRIPT_CHAR_LENGTH = 140
 MAX_TRANSCRIPT_TOKEN_COUNT = 2500  # words
+
+
+# https://help.openai.com/en/articles/4936856-what-are-tokens-and-how-to-count-them
+def poor_mans_token_counter(text: str) -> int:
+    by_character = len(text) / 4
+    by_words = 3 * len(text.split()) // 4
+    return int(by_character + by_words) // 2
 
 
 # TODO(P1, devx): Historically, this query give me most of the headaches.
@@ -25,7 +31,7 @@ def extract_everyone_i_have_talked_to(
     gpt_client: OpenAiClient, full_transcript: str
 ) -> List:
     # NOTE: We shorten the string by words cause easier, but we better estimate the token count by OpenAI counter.
-    token_count = num_tokens_from_string(full_transcript)
+    token_count = poor_mans_token_counter(full_transcript)
     print(f"Transcript has {token_count} words and {len(full_transcript)} characters")
 
     # This can happen for either super-short, or silent uploads
@@ -47,7 +53,7 @@ def extract_everyone_i_have_talked_to(
     # https://openai.com/blog/function-calling-and-other-api-updates
     # TODO(P0, ux): Still often-times it treats "Katka" and "Katka Sabo" as different people.
     query_people = """
-    This is a voice note from a meeting or event where I talked to one or multiple people.
+    This is a transcribed voice note.
     List everybody I have directly talked to, omit mentions of other people in our conversation.
     Output a valid json list of strings of the people I have directly talked to
     - sometimes I don't recall their names so use a short description.
@@ -55,6 +61,7 @@ def extract_everyone_i_have_talked_to(
         """.format(
         full_transcript
     )
+    # TODO(ux): Maybe worth using GPT4-32k here, also I though I have changed these?
     raw_response = gpt_client.run_prompt(query_people)
     if raw_response is None:
         print("WARNING: Likely no people found in the input transcript")
@@ -260,7 +267,7 @@ def run_executive_assistant_to_get_drafts(
             f"WARNING: full_transcript length too short {MIN_FULL_TRANSCRIPT_CHAR_LENGTH}"
         )
 
-    token_count = num_tokens_from_string(full_transcript)
+    token_count = poor_mans_token_counter(full_transcript)
     print(f"extract_context_per_person on raw_transcript of {token_count} token count")
 
     people = extract_everyone_i_have_talked_to(gpt_client, full_transcript)

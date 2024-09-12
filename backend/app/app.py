@@ -59,6 +59,7 @@ s3 = get_boto_s3_client()
 APP_UPLOADS_BUCKET = "requests-from-api-voxana"
 EMAIL_BUCKET = "draft-requests-from-ai-mail-voxana"
 PHONE_RECORDINGS_BUCKET = "requests-from-twilio"
+GPTo_MODEL = "gpt-4o-2024-08-06"
 # RESPONSE_EMAILS_MAX_PER_DATA_ENTRY = 3
 
 
@@ -365,8 +366,15 @@ def process_generic_prompt(gpt_client, data_entry) -> str:
     # TODO(P1, devx): With gpt-form-filler migration, we lost the task_id setting. Would be nice to have it back.
     # gpt_client.set_task_id(task.id)
 
-    format_prompt = " . Your output format is as if a human executive assistant writes a plaintext email."
-    result = gpt_client.run_prompt(data_entry.output_transcript + format_prompt, model=BEST_MODEL)
+    format_prompt = "Respond to this prompt as a human executive assistant in a plaintext email: "
+    result = gpt_client.run_prompt(format_prompt + data_entry.output_transcript, model=BEST_MODEL)
+
+    transcript_prompt = """
+        Just reformat this transcript, omit filler words, better sentence structure, keep the wording,
+        add paragraphs if needed. Especially make sure you keep all mentioned facts and details.
+    """
+    # CHEAPEST_MODEL leads to overly short answers.
+    transcription = gpt_client.run_prompt(transcript_prompt + data_entry.output_transcript, model=GPTo_MODEL)
 
     if not wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=3 * 60):
         print(
@@ -378,7 +386,7 @@ def process_generic_prompt(gpt_client, data_entry) -> str:
         account_id=data_entry.account_id,
         idempotency_id=data_entry.idempotency_id + "-generic-result",
         email_subject=f"Re: {data_entry.display_name}",
-        email_body=result,
+        email_body=result + "\n\n === Transcription === \n\n" + transcription,
     )
 
     return result
@@ -463,7 +471,7 @@ if __name__ == "__main__":
         open_ai_client = open_ai_client_with_db_cache()
         # open_ai_client.run_prompt(f"test {time.time()}")
 
-        test_case = "app"  # FOR EASY TEST CASE SWITCHING
+        test_case = "email"  # FOR EASY TEST CASE SWITCHING
         orig_data_entry = None
         if test_case == "app":
             app_account = Account.get_or_onboard_for_email(
@@ -480,15 +488,14 @@ if __name__ == "__main__":
             test_parsing_too = parse_uuid_from_string(
                 f"folder/{app_data_entry_id}.webm"
             )
+            # TODO: remember what all this setup shabang does
             orig_data_entry = process_app_upload(
                 gpt_client=open_ai_client,
-                # audio_filepath="testdata/app-silent-audio.webm",
-                audio_filepath="testdata/sequioa-guy.webm",
+                audio_filepath="testdata/brainfarting-boomergpt-mail.m4a",
                 data_entry_id=test_parsing_too,
             )
         if test_case == "email":
-            # with open("testdata/katka-new-draft-test", "rb") as handle:
-            with open("testdata/katka-middle-1", "rb") as handle:
+            with open("testdata/boomergpt-mail-email", "rb") as handle:
                 file_contents = handle.read()
                 orig_data_entry = process_email_input(
                     gpt_client=open_ai_client,
@@ -534,10 +541,10 @@ if __name__ == "__main__":
                 gpt_client=open_ai_client,
                 data_entry=orig_data_entry,
             )
-        else:
-            process_generic_prompt(
-                gpt_client=open_ai_client,
-                data_entry=orig_data_entry
-            )
+
+        process_generic_prompt(
+            gpt_client=open_ai_client,
+            data_entry=orig_data_entry
+        )
 
         EmailLog.save_last_email_log_to("result-app-app.html")

@@ -5,6 +5,8 @@ from app.emails import (
     wait_for_email_updated_on_data_entry,
 )
 from gpt_form_filler.openai_client import OpenAiClient
+
+from common.aws_utils import is_running_in_aws
 from database.account import Account
 from database.data_entry import STATE_UPLOAD_DONE
 from database.email_log import EmailLog
@@ -28,7 +30,9 @@ def process_app_upload(
     converted_audio_filepath = ffmpeg_convert_audio_to_mp4(audio_filepath)
 
     data_entry.output_transcript = gpt_client.transcribe_audio(
-        audio_filepath=converted_audio_filepath
+        audio_filepath=converted_audio_filepath,
+        prompt_hint="voice memo",
+        use_cache_hit=not is_running_in_aws(),
     )
     data_entry.state = STATE_UPLOAD_DONE
     data_entry.save()

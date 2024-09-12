@@ -39,6 +39,7 @@ retry_delay=15
 
 for i in $(seq 1 $max_retries); do
   echo "=== Building Image: Attempt $i ==="
+  # TODO(P), devx): Move this into the /app directory
   docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups .  && break
   if [ $i -eq $max_retries ]; then
     echo "Max retries reached. Exiting."
