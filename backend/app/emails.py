@@ -179,7 +179,7 @@ def create_raw_email_with_attachments(params: EmailLog):
             <head></head>
             <body>
               """
-+            + (params.body_text.replace("\n", "<br />") if params.body_text else "")
+            + (params.body_text.replace("\n", "<br />") if params.body_text else "")
             + """
         </body>
         </html>
