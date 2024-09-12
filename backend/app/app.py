@@ -124,25 +124,21 @@ def sync_form_datas_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]
 
 # Second lambda
 FORM_CLASSIFICATION = {
-    FormName.CONTACTS.value: "a person i talk to at an event or virtually",
-    FormName.FOOD_LOG.value: "an ingredient i ate",
+    FormName.CONTACTS.value: "a voice note about me meeting people, their contact info, ...",
+    FormName.FOOD_LOG.value: "foods or ingredient i ate",
 }
 
 
 # TODO(P1, dumpsheet migration): This is trying to be over-smart, we should just have the user to choose the sheet.
 def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> Optional[FormName]:
-    topics = "\n".join(
-        f"* {name} -> {description}"
-        for name, description in FORM_CLASSIFICATION.items()
-    )
     query = """
-    For the below transcript, decide which topics it talks about.
-    The topics are structured as a list of topic name -> description.
-    Only output one topic name.
+    For the below transcript, decide which topic it talks about.
+    The topics are structured as a python dictionary keyed name and value is description.
+    Only output one of the dictionary keys, or return None if none of them fit very well.
     Topics: {topics}
     Transcript: {transcript}
     """.format(
-        topics=topics,
+        topics=FORM_CLASSIFICATION,
         transcript=transcript,
     )
     raw_response = gpt_client.run_prompt(query, model=CHEAPEST_MODEL)
@@ -154,7 +150,7 @@ def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> Optional[For
 
     default = None
     print(
-        f"WARNING: classified transcript unknown: {raw_response}->{classification}; defaulting to {default}"
+        f"WARNING: classified transcript unknown: {raw_response} -> {classification}; defaulting to {default}"
     )
     return default
 
