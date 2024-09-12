@@ -129,7 +129,7 @@ FORM_CLASSIFICATION = {
 }
 
 
-# TODO(P0, dumpsheet migration): This is trying to be over-smart, we should just have the user to choose the sheet.
+# TODO(P1, dumpsheet migration): This is trying to be over-smart, we should just have the user to choose the sheet.
 def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> Optional[FormName]:
     topics = "\n".join(
         f"* {name} -> {description}"
@@ -138,7 +138,7 @@ def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> Optional[For
     query = """
     For the below transcript, decide which topics it talks about.
     The topics are structured as a list of topic name -> description.
-    Only output the topic name.
+    Only output one topic name.
     Topics: {topics}
     Transcript: {transcript}
     """.format(
@@ -146,15 +146,17 @@ def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> Optional[For
         transcript=transcript,
     )
     raw_response = gpt_client.run_prompt(query, model=CHEAPEST_MODEL)
-    if raw_response in FORM_CLASSIFICATION:
-        print(f"classified transcript as {raw_response}")
-        return FormName.from_str(raw_response)
+    classification = re.sub(r'[^a-zA-Z0-9_]', '', raw_response)
 
-    default_classification = None
+    if raw_response in FORM_CLASSIFICATION:
+        print(f"classified transcript as {classification}")
+        return FormName.from_str(classification)
+
+    default = None
     print(
-        f"WARNING: classified transcript as unknown type: {raw_response}; defaulting to {default_classification}"
+        f"WARNING: classified transcript unknown: {raw_response}->{classification}; defaulting to {default}"
     )
-    return default_classification
+    return default
 
 
 def process_networking_transcript(
