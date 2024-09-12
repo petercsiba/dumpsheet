@@ -51,7 +51,7 @@ class EmailLog(BaseEmailLog):
     @staticmethod
     def get_email_reply_params_for_account_id(
         account_id: uuid, idempotency_id: str, subject: Optional[str]
-    ):
+    ) -> "EmailLog":
         account = Account.get_by_id(account_id)
         return EmailLog(
             sender=SENDER_EMAIL,

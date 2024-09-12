@@ -179,7 +179,7 @@ def create_raw_email_with_attachments(params: EmailLog):
             <head></head>
             <body>
               """
-            + params.body_text
++            + (params.body_text.replace("\n", "<br />") if params.body_text else "")
             + """
         </body>
         </html>
@@ -237,6 +237,7 @@ def send_email(params: EmailLog) -> bool:
 
     if not is_running_in_aws() or str(SKIP_SENDING_EMAILS) == "1":
         # TODO(P2, testing): Ideally we should also test the translation from params to raw email.
+        # TODO(P1, devx): How this can be printed "an contents None"? If params is None, it should fail earlier.
         print(
             f"Skipping ses.send_raw_email cause NOT in AWS or SKIP_SENDING_EMAILS={SKIP_SENDING_EMAILS} "
             f"Dumping the email {params.idempotency_id} contents {params}"
@@ -445,7 +446,7 @@ def _form_data_to_email_table_html(form_data: FormData) -> str:
     for field in form_data.form.fields:
         if field.ignore_in_display or field.ignore_in_email:
             print(
-                f"INFO: ignoring {field.name} for emails (ignore_id_display: {field.ignore_in_display}"
+                f"INFO: ignoring {field.name} for emails (ignore_id_display: {field.ignore_in_display} "
                 f"ignore_in_email: {field.ignore_in_email}"
             )
             continue
@@ -457,7 +458,7 @@ def _form_data_to_email_table_html(form_data: FormData) -> str:
     return "\n".join(rows)
 
 
-def _craft_result_email_body(
+def _craft_networking_person_result_email_body(
     person: PersonDataEntry, shareable_link: Optional[str]
 ) -> (str, str):
     # TODO(P1, ux): Migrate to new email template
@@ -522,12 +523,25 @@ def _craft_result_email_body(
     return subject_prefix, res_content_html
 
 
-def send_result(
+def send_generic_result(
+    account_id: UUID, idempotency_id: str, email_subject: str, email_body: str
+) -> bool:
+    email_params = EmailLog.get_email_reply_params_for_account_id(
+        account_id=account_id,
+        idempotency_id=idempotency_id,
+        subject=email_subject,
+    )
+    email_params.body_text = email_body
+
+    return send_email(params=email_params)
+
+
+def send_networking_per_person_result(
     account_id: UUID, idempotency_id_prefix: str, person: PersonDataEntry
 ) -> bool:
     person_name_safe = re.sub(r"\W", "-", person.name).lower()
     acc: Account = Account.get_by_id(account_id)
-    subject_prefix, content_html = _craft_result_email_body(
+    subject_prefix, content_html = _craft_networking_person_result_email_body(
         person, shareable_link=acc.get_shareable_spreadsheet_link()
     )
 

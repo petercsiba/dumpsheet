@@ -16,11 +16,11 @@ from uuid import UUID
 from app.contacts_dump import run_executive_assistant_to_get_drafts
 from app.datashare import PersonDataEntry
 from app.emails import (
-    send_result,
+    send_networking_per_person_result,
     send_result_no_people_found,
     send_result_rest_of_the_crowd,
     send_technical_failure_email,
-    wait_for_email_updated_on_data_entry,
+    wait_for_email_updated_on_data_entry, send_generic_result,
 )
 from app.food_dump import run_food_ingredient_extraction
 from app.form_library import FormName
@@ -34,7 +34,7 @@ from common.config import (
     SKIP_SHARE_SPREADSHEET, POSTGRES_LOGIN_URL_FROM_ENV,
 )
 from gpt_form_filler.form import FormData
-from gpt_form_filler.openai_client import CHEAPEST_MODEL, OpenAiClient
+from gpt_form_filler.openai_client import CHEAPEST_MODEL, OpenAiClient, BEST_MODEL
 
 from common.gpt_client import open_ai_client_with_db_cache
 from common.twillio_client import TwilioClient
@@ -59,6 +59,7 @@ s3 = get_boto_s3_client()
 APP_UPLOADS_BUCKET = "requests-from-api-voxana"
 EMAIL_BUCKET = "draft-requests-from-ai-mail-voxana"
 PHONE_RECORDINGS_BUCKET = "requests-from-twilio"
+GPTo_MODEL = "gpt-4o-2024-08-06"
 # RESPONSE_EMAILS_MAX_PER_DATA_ENTRY = 3
 
 
@@ -129,7 +130,7 @@ FORM_CLASSIFICATION = {
 
 
 # TODO(P0, dumpsheet migration): This is trying to be over-smart, we should just have the user to choose the sheet.
-def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> FormName:
+def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> Optional[FormName]:
     topics = "\n".join(
         f"* {name} -> {description}"
         for name, description in FORM_CLASSIFICATION.items()
@@ -149,7 +150,7 @@ def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> FormName:
         print(f"classified transcript as {raw_response}")
         return FormName.from_str(raw_response)
 
-    default_classification = FormName.CONTACTS
+    default_classification = None
     print(
         f"WARNING: classified transcript as unknown type: {raw_response}; defaulting to {default_classification}"
     )
@@ -223,7 +224,7 @@ def process_networking_transcript(
     # SEND EMAILS
     for person in legit_results:
         # if user.contact_method() == "email":
-        send_result(
+        send_networking_per_person_result(
             account_id=data_entry.account_id,
             idempotency_id_prefix=data_entry.idempotency_id,
             person=person,
@@ -358,6 +359,39 @@ def first_lambda_handler_wrapper(event, context) -> BaseDataEntry:
     return data_entry
 
 
+def process_generic_prompt(gpt_client, data_entry) -> str:
+    print("process_generic_prompt for data_entry", data_entry.id)
+
+    task = Task.create_task(workflow_name="generic_id", data_entry_id=data_entry.id)
+    # TODO(P1, devx): With gpt-form-filler migration, we lost the task_id setting. Would be nice to have it back.
+    # gpt_client.set_task_id(task.id)
+
+    format_prompt = "Respond to this prompt as a human executive assistant in a plaintext email: "
+    result = gpt_client.run_prompt(format_prompt + data_entry.output_transcript, model=BEST_MODEL)
+
+    transcript_prompt = """
+        Just reformat this transcript, omit filler words, better sentence structure, keep the wording,
+        add paragraphs if needed. Especially make sure you keep all mentioned facts and details.
+    """
+    # CHEAPEST_MODEL leads to overly short answers.
+    transcription = gpt_client.run_prompt(transcript_prompt + data_entry.output_transcript, model=GPTo_MODEL)
+
+    if not wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=3 * 60):
+        print(
+            f"WARNING: email missing for data_entry {data_entry.id} - cannot send results email"
+        )
+
+    # sync_form_datas_to_gsheets(data_entry.account_id, form_datas=form_datas)
+    send_generic_result(
+        account_id=data_entry.account_id,
+        idempotency_id=data_entry.idempotency_id + "-generic-result",
+        email_subject=f"Re: {data_entry.display_name}",
+        email_body=result + "\n\n === Transcription === \n\n" + transcription,
+    )
+
+    return result
+
+
 def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
     if not wait_for_email_updated_on_data_entry(data_entry.id, max_wait_seconds=5 * 60):
         print(
@@ -367,24 +401,18 @@ def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
     acc: BaseAccount = BaseAccount.get_by_id(data_entry.account_id)
     print(f"gonna process transcript for account {acc.__dict__}")
 
-    if (
-        str(data_entry.account.id) == "c6b5882d-929a-41c5-8eb0-3740965b8e8e"
-        or ENV == ENV_LOCAL
-    ):
-        if (
-            get_workflow_name(gpt_client, data_entry.output_transcript)
-            == FormName.FOOD_LOG
-        ):
-            return process_food_log_transcript(
-                gpt_client=gpt_client, data_entry=data_entry
-            )
+    suggested_workflow_name = get_workflow_name(gpt_client, data_entry.output_transcript)
+    if suggested_workflow_name == FormName.CONTACTS:
+        process_networking_transcript(
+            gpt_client=gpt_client,
+            data_entry=data_entry,
+        )
+    if suggested_workflow_name == FormName.FOOD_LOG:
+        process_food_log_transcript(
+            gpt_client=gpt_client, data_entry=data_entry
+        )
 
-    # Our OG product
-    # NOTE: When we actually separate them - be careful about re-tries to clear the output.
-    return process_networking_transcript(
-        gpt_client=gpt_client,
-        data_entry=data_entry,
-    )
+    process_generic_prompt(gpt_client, data_entry)
 
 
 def _event_idempotency_id(event):
@@ -443,7 +471,7 @@ if __name__ == "__main__":
         open_ai_client = open_ai_client_with_db_cache()
         # open_ai_client.run_prompt(f"test {time.time()}")
 
-        test_case = "app"  # FOR EASY TEST CASE SWITCHING
+        test_case = "email"  # FOR EASY TEST CASE SWITCHING
         orig_data_entry = None
         if test_case == "app":
             app_account = Account.get_or_onboard_for_email(
@@ -460,15 +488,14 @@ if __name__ == "__main__":
             test_parsing_too = parse_uuid_from_string(
                 f"folder/{app_data_entry_id}.webm"
             )
+            # TODO: remember what all this setup shabang does
             orig_data_entry = process_app_upload(
                 gpt_client=open_ai_client,
-                # audio_filepath="testdata/app-silent-audio.webm",
-                audio_filepath="testdata/sequioa-guy.webm",
+                audio_filepath="testdata/brainfarting-boomergpt-mail.m4a",
                 data_entry_id=test_parsing_too,
             )
         if test_case == "email":
-            # with open("testdata/katka-new-draft-test", "rb") as handle:
-            with open("testdata/katka-middle-1", "rb") as handle:
+            with open("testdata/boomergpt-mail-email", "rb") as handle:
                 file_contents = handle.read()
                 orig_data_entry = process_email_input(
                     gpt_client=open_ai_client,
@@ -514,5 +541,10 @@ if __name__ == "__main__":
                 gpt_client=open_ai_client,
                 data_entry=orig_data_entry,
             )
+
+        process_generic_prompt(
+            gpt_client=open_ai_client,
+            data_entry=orig_data_entry
+        )
 
         EmailLog.save_last_email_log_to("result-app-app.html")

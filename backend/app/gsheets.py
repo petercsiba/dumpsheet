@@ -228,6 +228,7 @@ class GoogleClient:
         sheet_cache = {}
 
         for form_data in form_datas:
+            # TODO: AttributeError: 'str' object has no attribute 'value'
             form_name = form_data.form.form_name.value
             if form_name not in sheet_cache:
                 sheet_cache[form_name] = get_or_create_worksheet(

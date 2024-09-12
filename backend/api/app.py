@@ -190,6 +190,7 @@ class GetPresignedUrlResponse(BaseModel):
     account_id: Optional[str] = None  # uuid really
 
 
+# TODO(P0, ux): Make sure this works with uploading files too; not just the recorded ones
 @app.get("/upload/voice", response_model=GetPresignedUrlResponse)
 async def get_presigned_url(request: Request, response: Response, current_user: Optional[UserFrontEnd] = Depends(
     maybe_get_current_user
