@@ -11,6 +11,7 @@ from app.emails import (
 from gpt_form_filler.openai_client import OpenAiClient
 
 from common.aws_utils import is_running_in_aws
+from common.gpt_utils import transcribe_audio_chunk_filepaths
 from database.account import Account
 from database.data_entry import STATE_UPLOAD_DONE
 from database.email_log import EmailLog
@@ -101,16 +102,9 @@ def process_email_input(
         print(
             f"Processing attachment {attachment_num} out of {len(attachment_file_paths)}"
         )
-        # TODO(ux, P1): Make sure the attachment_file_path is globally unique
-        audio_filepath = ffmpeg_convert_to_whisper_supported_audio(attachment_file_path)
-        if bool(audio_filepath):
-            input_transcripts.append(
-                gpt_client.transcribe_audio(
-                    audio_filepath=audio_filepath,
-                    prompt_hint="voice memo",
-                    use_cache_hit=not is_running_in_aws(),
-                )
-            )
+        converted_audio_filepath_chunks = ffmpeg_convert_to_whisper_supported_audio(attachment_file_path)
+        input_transcripts.append(transcribe_audio_chunk_filepaths(converted_audio_filepath_chunks))
+
     result.output_transcript = "\n\n".join(input_transcripts)
     result.save()
     return result
