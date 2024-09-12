@@ -94,31 +94,6 @@ class Account(BaseAccount):
 
         return None
 
-    # @staticmethod
-    # # TODO(P2): This feels like a too dangerous function to have around
-    # def merge_in(new_account_id, old_account_id):
-    #     new_account = BaseAccount.get_or_none(BaseAccount.id == new_account_id)
-    #     if new_account is None:
-    #         raise ValueError(f"new_account_id {new_account_id} must exist")
-    #
-    #     old_account = BaseAccount.get_or_none(BaseAccount.id == old_account_id)
-    #     if old_account is None:
-    #         raise ValueError(f"old_account_id {old_account_id} must exist")
-    #
-    #     with database_proxy.transaction() as tx:
-    #         print(f"merging {old_account_id} into {new_account_id}")
-    #         num_onb = BaseOnboarding.update(account_id=new_account_id).where(
-    #           BaseOnboarding.account_id == old_account_id).execute()
-    #         num_de = BaseDataEntry.update(account_id=new_account_id).where(
-    #           BaseDataEntry.account_id == old_account_id).execute()
-    #         num_el = BaseEmailLog.update(account_id=new_account_id).where(
-    #           BaseEmailLog.account_id == old_account_id).execute()
-    #         tx.commit()
-    #
-    #     assert BaseOnboarding.get_or_none(BaseOnboarding.account_id == old_account_id) is None
-    #     # old_account.delete_instance()
-    #     print(f"Account.merge_in updated {num_onb} onboardings, {num_de} data entries and {num_el} email logs")
-
     @staticmethod
     def get_by_email_or_none(email_raw: str) -> Optional["Account"]:
         email = email_raw.lower()

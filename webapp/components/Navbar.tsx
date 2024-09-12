@@ -21,6 +21,15 @@ const stripeIsConfigured = process.env.NEXT_PUBLIC_STRIPE_IS_ENABLED === "true";
 
 export const revalidate = 0;
 
+const SoonBadge = () => {
+  return (
+    <span className="relative -top-2 -left-3 bg-gray-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+      Soon
+    </span>
+  );
+};
+
+
 export default async function Navbar() {
   const supabase = createServerComponentClient<Database>({ cookies });
 
@@ -36,21 +45,38 @@ export default async function Navbar() {
     <div className="flex w-full px-4 lg:px-40 py-4 items-center border-b text-center gap-8 justify-between">
       <div className="flex gap-2 h-full">
         <Link href="/">
-          <h2 className="font-bold pt-1.5 pr-4">Audio To Email</h2>
+          <h2 className="font-bold pt-1.5 pr-2">GPT Like a Boomer</h2>
+        </Link>
+        <Link href="mailto:ai@mail.dumpsheet.com?subject=Attached%20Are%20My%20Audio%20Files">
+          <Button variant={"ghost"} className="px-2">Attach Audio via Email</Button>
         </Link>
         <Link href="/record">
-          <Button variant={"ghost"} className="px-4">Record Audio</Button>
+          <Button variant={"ghost"} className="px-2">Record Voice Mail</Button>
         </Link>
         <Link href="/upload">
-          <Button variant={"ghost"} className="px-4">Upload Audio</Button>
+          <Button variant={"ghost"} className="px-2">Upload from your PC</Button>
         </Link>
-        <Link href="/upload">
-          <Button variant={"ghost"} className="px-4">Upload Video</Button>
+        {/*<Link href="/upload">*/}
+        {/*  <Button variant={"ghost"} className="px-2">Send us Direct Mail</Button>*/}
+        {/*</Link>*/}
+        <Link href="tel:+18554137047">
+          <Button variant={"ghost"} className="px-2">Dial Up GPT <br />+1 (855) 413-7047</Button>
+        </Link>
+        {/*<Link href="mailto:support@gptboomer.com?subject=Support%20Request">*/}
+        {/*  <Button variant={"ghost"} className="px-2" style={{ fontFamily: 'Courier, monospace'}}>Send a Fax</Button>*/}
+        {/*</Link>*/}
+        <Link href="/fax">
+          <Button variant={"ghost"} className="px-4">Fax</Button>
+          <SoonBadge />
+        </Link>
+        <Link href="/direct-mail">
+          <Button variant={"ghost"} className="px-2">Direct Mail</Button>
+          <SoonBadge />
         </Link>
       </div>
       {user && (
-        <div className="hidden lg:flex flex-row gap-2">
-          {stripeIsConfigured && (
+          <div className="hidden lg:flex flex-row gap-2">
+            {stripeIsConfigured && (
             <Link href="/get-credits">
               <Button variant={"ghost"}>Get Credits</Button>
             </Link>
@@ -60,7 +86,7 @@ export default async function Navbar() {
       <div className="flex gap-4 lg:ml-auto">
         {!user && (
           <Link href="/login">
-            <Button variant={"ghost"}>Login / Signup</Button>
+            <Button>Login / Signup</Button>
           </Link>
         )}
         {user && (

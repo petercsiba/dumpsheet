@@ -16,10 +16,10 @@ export default function ExplainerSection() {
               className="text-3xl font-bold text-blue-600 bg-white border-2 border-blue-600 rounded-full w-10 h-10 flex items-center justify-center">
             1
           </div>
-          <h3 className="text-2xl font-semibold">Upload or Record your Audio</h3>
+          <h3 className="text-2xl font-semibold">Upload your Audio/Video</h3>
         </div>
         <p className="text-sm text-gray-600 text-center">
-          Any audio file would do, or you can <Link href="/record">record one </Link> right here!.
+          Any audio like a voice memo would do, or you can <Link href="/record">record one </Link> right here!.
         </p>
         {/*
         TODO(P0, ux): Explain the "just send an email" upload version
@@ -30,12 +30,6 @@ export default function ExplainerSection() {
             alt="Audio file upload example"
             className="rounded-lg object-cover w-3/4 md:w-1/2 lg:w-1/3 mx-auto"
         />
-        <p className="text-sm text-gray-600 text-center">
-          {/*TODO(P1, ux): Figure out how to start the voice recorder in the Demo mode */}
-          <Link href="/record/demo" className="flex-grow-0">
-            <Button className="px-4 py-2 whitespace-nowrap">Interactive Demo</Button>
-          </Link>
-        </p>
       </div>
 
       {/* Step 2: Backend Work */}
@@ -48,7 +42,7 @@ export default function ExplainerSection() {
           <h3 className="text-2xl font-semibold">Our Agents get to Work</h3>
         </div>
         <p className="text-sm text-gray-600 text-center">
-          Only takes a few minutes as you grab your drink of choice on your way to your desk.
+          And forget about it, while we transcribe and post-process your audio.
         </p>
         <img
             src={blur.src}
@@ -66,7 +60,7 @@ export default function ExplainerSection() {
           <h3 className="text-2xl font-semibold">Your Voice Memo in your Mailbox</h3>
         </div>
         <p className="text-sm text-gray-600 text-center">
-          Audio text ready for its next destination when you ready to do so!
+          Oh look, what is in your inbox? Waiting for you when you are ready to "do your emails".
         </p>
         <img
           src={result.src}

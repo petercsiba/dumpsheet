@@ -22,9 +22,9 @@ AWS_SECRET_ACCESS_KEY: str = os.environ.get("AWS_SECRET_ACCESS_KEY")
 
 # EMAIL Stuff
 NO_REPLY_EMAIL = "No Reply <no-reply@mail.dumpsheet.com>"
-SENDER_EMAIL = "Dumpsheet Workers Union<worker@mail.dumpsheet.com>"  # From:
+SENDER_EMAIL = "GPT Workers Union<worker@mail.dumpsheet.com>"  # From:
 SENDER_EMAIL_ALERTS = "Poor Mans Opsgenie <alerts@mail.dumpsheet.com>"  # From:
-SUPPORT_EMAIL = "Dumpsheet Support <support@dumpsheet.com>"
+SUPPORT_EMAIL = "Audio To Email Support <support@dumpsheet.com>"
 DEBUG_RECIPIENTS = []  # used to be a google group
 RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS = int(
     os.environ.get("RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS", 30)
