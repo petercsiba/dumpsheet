@@ -16,6 +16,6 @@ venv/
 *.pyc
 
 docker-compose.yml
-Dockerfile*
+app/Dockerfile
 README.md
 

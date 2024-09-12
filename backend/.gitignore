@@ -3,7 +3,7 @@ __pycache__*
 .idea
 buildx*
 chromedriver.log
-testdata
+testdata/localonly
 # for npx supabase I guess
 node_modules
 package-lock.json

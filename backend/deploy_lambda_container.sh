@@ -39,8 +39,7 @@ retry_delay=15
 
 for i in $(seq 1 $max_retries); do
   echo "=== Building Image: Attempt $i ==="
-  # TODO(P), devx): Move this into the /app directory
-  docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups .  && break
+  docker build -f app/Dockerfile -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups  . && break
   if [ $i -eq $max_retries ]; then
     echo "Max retries reached. Exiting."
     exit 1
@@ -84,7 +83,7 @@ fi
 # Upload a test file to S3 to trigger Lambda function
 echo "=== Upload test file to S3 bucket ==="
 sleep 10
-aws s3 cp testdata/jessica-lehane-email-upload-test-recording s3://draft-requests-from-ai-mail-voxana/ --profile $PROFILE_NAME
+aws s3 cp testdata/boomergpt-mail-email s3://draft-requests-from-ai-mail-voxana/ --profile $PROFILE_NAME
 
 # Handle the exit code
 if [ $? -ne 0 ]; then

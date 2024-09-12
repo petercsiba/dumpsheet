@@ -3,7 +3,7 @@
 # TODO(P1, devx): Move this to the app/ folder, restructure this project per lambda function / server.
 
 # Define global args
-ARG FUNCTION_DIR="/home/voxana"
+ARG FUNCTION_DIR="/home/dumpsheet"
 ARG RUNTIME_VERSION="3.9"
 ARG DISTRO_VERSION="3.12"
 
@@ -45,7 +45,7 @@ RUN mkdir -p ${FUNCTION_DIR}
 # We just copy the project, instead of pip install it
 # NOTE: We have a .dockerignore to omit a good amount of stuff
 # They say it's more standard to just copy over everything
-COPY . ${FUNCTION_DIR}/
+COPY .. ${FUNCTION_DIR}/
 
 RUN python${RUNTIME_VERSION} -m pip install --upgrade pip
 # This is a bit slow.
