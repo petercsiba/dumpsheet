@@ -8,7 +8,6 @@ gspread
 gspread-formatting
 openai
 peewee
-phonenumbers
 psycopg2[binary,pool]
 pydub  # requires ffmpeg on the machine
 python-dotenv
