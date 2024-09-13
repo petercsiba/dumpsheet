@@ -34,7 +34,11 @@ class EmailLog(BaseEmailLog):
         self.fill_in_account()
 
         print(f"log_email: to {self.recipient} idempotency_id: {self.idempotency_id}")
-        self.save()
+        try:
+            self.save()
+        except Exception as e:
+            # We should not fail the whole operation if we fail to save the email log (for e.g. uniqueness constraint)
+            print(f"ERROR failed to save email log: {e}")
 
     def check_if_already_sent(self) -> bool:
         return (

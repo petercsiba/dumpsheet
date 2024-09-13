@@ -231,9 +231,16 @@ def create_raw_email_with_attachments(params: EmailLog):
 #     * Add Unsubscribe button
 #     * Opt-in process (verify email)
 #     * Over-time, the higher the engagement with our emails the better.
-def send_email(params: EmailLog) -> bool:
+def send_email(params: EmailLog, check_idempotency: bool = True) -> bool:
     params.bcc = DEBUG_RECIPIENTS
     raw_email = create_raw_email_with_attachments(params)
+
+    # The check_if_already_sent uses DB, which ain't always available.
+    try:
+        already_sent = check_idempotency and params.check_if_already_sent()
+    except Exception as e:
+        print(f"ERROR: check_if_already_sent failed with {e}")
+        already_sent = False
 
     if not is_running_in_aws() or str(SKIP_SENDING_EMAILS) == "1":
         # TODO(P2, testing): Ideally we should also test the translation from params to raw email.
@@ -242,16 +249,12 @@ def send_email(params: EmailLog) -> bool:
             f"Skipping ses.send_raw_email cause NOT in AWS or SKIP_SENDING_EMAILS={SKIP_SENDING_EMAILS} "
             f"Dumping the email {params.idempotency_id} contents {params}"
         )
-        if not params.check_if_already_sent():
-            # TODO(P1, devx): Ideally, this would update the row, currently fails on the unique constraint.
+        if not already_sent:
             params.log_email()  # to test db queries too
         return True
 
-    if params.check_if_already_sent():
-        # TODO(P2, bug): params.account might be None, observe for now as it might be a result of an inconsistent state.
-        print(
-            f"SKIPPING email '{params.idempotency_id}' cause already sent for {params.account}"
-        )
+    if already_sent:
+        print(f"SKIPPING email '{params.idempotency_id}' cause already sent for {params.account}")
         return True
     try:
         print(
@@ -655,7 +658,7 @@ def send_technical_failure_email(
             transcript=transcript,
         )
 
-    result = send_email(params=email_params)
+    result = send_email(params=email_params, check_idempotency=False)
 
     # This is non-blocking on failure
     twilio_client = TwilioClient()
