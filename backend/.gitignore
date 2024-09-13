@@ -4,6 +4,7 @@ __pycache__*
 buildx*
 chromedriver.log
 testdata/localonly
+testdata/video-hvac-air-pump-cover.mp4.m4a
 # for npx supabase I guess
 node_modules
 package-lock.json
