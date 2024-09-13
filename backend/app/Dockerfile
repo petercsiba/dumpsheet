@@ -18,15 +18,8 @@ RUN apk add --no-cache \
 # MULTISTAGE 2 - build function and dependencies
 FROM python-alpine AS build-image
 # Install aws-lambda-cpp build dependencies
-
 # postgresql-dev a libffi-dev are for psycopg[binary,pool] (this is always such a pain to install)
-# Install libpq (PostgreSQL client library)
-RUN apk add --no-cache \
-    postgresql-dev \
-    libffi-dev \
-    libpq
-
-# git for git-based requirements (my own projects), unsure what the others are for anymore :/
+# git for git-based requirements (my own projects)
 RUN apk add --no-cache \
     build-base \
     libtool \
@@ -36,9 +29,12 @@ RUN apk add --no-cache \
     make \
     cmake \
     libcurl \
-    git
+    ffmpeg \
+    git \
+    postgresql-dev \
+    libffi-dev
 
-# SETUP PYTHON STUFF
+
 ENV PYTHONUNBUFFERED=1
 
 # Include global args in this stage of the build
@@ -46,41 +42,38 @@ ARG FUNCTION_DIR
 ARG RUNTIME_VERSION
 # Create function directory
 RUN mkdir -p ${FUNCTION_DIR}
+# We just copy the project, instead of pip install it
+# NOTE: We have a .dockerignore to omit a good amount of stuff
+# They say it's more standard to just copy over everything
+COPY .. ${FUNCTION_DIR}/
 
 RUN python${RUNTIME_VERSION} -m pip install --upgrade pip
-
-# Install Lambda Runtime Interface Client for Python
-# NOTE: This is usually provided for AWS-based images like public.ecr.aws/lambda/python:3.9
-RUN python${RUNTIME_VERSION} -m pip install awslambdaric --target ${FUNCTION_DIR}
-
 # This is a bit slow.
+# NOTE: To leverage Docker's layer caching,
+#   make sure to put instructions that change frequently towards the end of your Dockerfile
 # NOTE: Pip doesn't install packages in parallel by default.
 #   However, you can use a tool like pip-accel to speed up installation by parallelizing the process.
 # NOTE: Try to speed up Python requirements build time by using pre-compiled stuff from AWS Layers
-# TODO(P1, devx): We should probably also have a requirements/app.txt for the Lambda app itself.
-COPY ../requirements ${FUNCTION_DIR}/requirements
 RUN python${RUNTIME_VERSION} -m pip install -r ${FUNCTION_DIR}/requirements/common.txt --target ${FUNCTION_DIR}
 
-# MULTISTAGE 3 - final runtime image
-# Grab a fresh copy of the Python image; #TODO: Should this be the build-image?
-FROM python-alpine
+# Install Lambda Runtime Interface Client for Python
+# NOTE: This is usually provided for AWS-based images like public.ecr.aws/lambda/python:3.9
+# TODO(P1, devx): Figure out how to cache this OR we can split into two lambdas. We do FROM python-alpine later hmm.
+RUN python${RUNTIME_VERSION} -m pip install awslambdaric --target ${FUNCTION_DIR}
 
+# MULTISTAGE 3 - final runtime image
+# Grab a fresh copy of the Python image
+FROM python-alpine
+# Install libpq (PostgreSQL client library)
+RUN apk add --no-cache libpq
 # Include global arg in this stage of the build
 ARG FUNCTION_DIR
 # Set working directory to function root directory
 WORKDIR ${FUNCTION_DIR}
 # Copy in the built dependencies
 COPY --from=build-image ${FUNCTION_DIR} ${FUNCTION_DIR}
-
-# Add Lambda Runtime Interface Emulator and use a script in the ENTRYPOINT for simpler local runs
+# (Optional) Add Lambda Runtime Interface Emulator and use a script in the ENTRYPOINT for simpler local runs
 ADD https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie /usr/bin/aws-lambda-rie
-
-# We ONLY copy the whole shabang after installing requirements,
-#   this almost always changes and would invalidate the cache
-# NOTE: We have a .dockerignore to omit a good amount of stuff
-# They say it's more standard to just copy over everything
-COPY .. ${FUNCTION_DIR}/
-
 COPY app/entry.sh /
 RUN chmod 755 /usr/bin/aws-lambda-rie /entry.sh
 RUN ffmpeg -version
