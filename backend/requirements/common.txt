@@ -8,7 +8,8 @@ gspread
 gspread-formatting
 openai
 peewee
-psycopg2[binary,pool]
+psycopg2
+# psycopg2[binary,pool]
 pydub  # requires ffmpeg on the machine
 python-dotenv
 python-dateutil
