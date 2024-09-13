@@ -103,7 +103,7 @@ def process_email_input(
             f"Processing attachment {attachment_num} out of {len(attachment_file_paths)}"
         )
         converted_audio_filepath_chunks = ffmpeg_convert_to_whisper_supported_audio(attachment_file_path)
-        input_transcripts.append(transcribe_audio_chunk_filepaths(converted_audio_filepath_chunks))
+        input_transcripts.append(transcribe_audio_chunk_filepaths(gpt_client, converted_audio_filepath_chunks))
 
     result.output_transcript = "\n\n".join(input_transcripts)
     result.save()

@@ -1,6 +1,5 @@
 git+https://github.com/petercsiba/gpt-form-filler
 git+https://github.com/petercsiba/supawee
-beautifulsoup4
 boto3
 google-auth
 google-auth-oauthlib
@@ -10,7 +9,6 @@ gspread-formatting
 openai
 peewee
 phonenumbers
-plotly
 psycopg2[binary,pool]
 pydub  # requires ffmpeg on the machine
 python-dotenv
