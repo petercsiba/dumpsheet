@@ -1,7 +1,4 @@
-# TODO(P0): (De)prioritize all TODOs lol:
-# TODO(P0): AWS login credentials should live for at least 8 hours, 1 hour is damn short to have annoying re-login
-#   git grep '# TODO' | awk -F: '{print $2 " " $1 " " $3}' | sed -e 's/^[[:space:]]*//' | sort
-# TODO(P0, devx): CloudWatch logs are completely useless, slow, cannot search, really only good for developing.
+# TODO(P0): (De)prioritize all TODOs lol
 
 import datetime
 import os
@@ -27,8 +24,6 @@ from app.form_library import FormName
 from app.gsheets import TEMPLATE_CONTACTS_SPREADSHEET_ID, GoogleClient
 from common.aws_utils import get_boto_s3_client, get_bucket_url
 from common.config import (
-    ENV,
-    ENV_LOCAL,
     RESPONSE_EMAILS_WAIT_BETWEEN_EMAILS_SECONDS,
     SKIP_PROCESSED_DATA_ENTRIES,
     SKIP_SHARE_SPREADSHEET, POSTGRES_LOGIN_URL_FROM_ENV,
@@ -54,8 +49,6 @@ from input.email import process_email_input
 s3 = get_boto_s3_client()
 
 
-# TODO(P1, devx): Send email on failure via CloudWatch monitoring (ask GPT how to do it)
-#   * ALTERNATIVELY: Can catch exception(s) and send email from here.
 APP_UPLOADS_BUCKET = "requests-from-api-voxana"
 EMAIL_BUCKET = "draft-requests-from-ai-mail-voxana"
 PHONE_RECORDINGS_BUCKET = "requests-from-twilio"
@@ -399,6 +392,8 @@ def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
     acc: BaseAccount = BaseAccount.get_by_id(data_entry.account_id)
     print(f"gonna process transcript for account {acc.__dict__}")
 
+    process_generic_prompt(gpt_client, data_entry)
+
     suggested_workflow_name = get_workflow_name(gpt_client, data_entry.output_transcript)
     if suggested_workflow_name == FormName.CONTACTS:
         process_networking_transcript(
@@ -409,8 +404,6 @@ def second_lambda_handler_wrapper(data_entry: BaseDataEntry):
         process_food_log_transcript(
             gpt_client=gpt_client, data_entry=data_entry
         )
-
-    process_generic_prompt(gpt_client, data_entry)
 
 
 def _event_idempotency_id(event):
@@ -528,6 +521,11 @@ if __name__ == "__main__":
         loaded_data_entry = BaseDataEntry.get(BaseDataEntry.id == orig_data_entry.id)
         print(f"loaded_data_entry: {loaded_data_entry}")
 
+        process_generic_prompt(
+            gpt_client=open_ai_client,
+            data_entry=orig_data_entry
+        )
+
         workflow_name = get_workflow_name(
             open_ai_client, loaded_data_entry.output_transcript
         )
@@ -541,10 +539,5 @@ if __name__ == "__main__":
                 gpt_client=open_ai_client,
                 data_entry=orig_data_entry,
             )
-
-        process_generic_prompt(
-            gpt_client=open_ai_client,
-            data_entry=orig_data_entry
-        )
 
         EmailLog.save_last_email_log_to("result-app-app.html")
