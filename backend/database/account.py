@@ -196,7 +196,6 @@ class Account(BaseAccount):
             return Account.get(Account.user == user)
 
         # For accounts only going through onboarding
-        # TODO(ux, P1): It is important to use the same canonical phone-number number format (phonenumbers library?)
         onboarding = BaseOnboarding.get_or_none(BaseOnboarding.phone == phone)
         if bool(onboarding):
             return Account.get_by_id(onboarding.account_id)

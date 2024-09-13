@@ -124,7 +124,7 @@ def sync_form_datas_to_gsheets(account_id: uuid.UUID, form_datas: List[FormData]
 
 # Second lambda
 FORM_CLASSIFICATION = {
-    FormName.CONTACTS.value: "a voice note about me meeting people, their contact info, ...",
+    FormName.CONTACTS.value: "a voice note on a conversation i had with one or multiple people",
     FormName.FOOD_LOG.value: "foods or ingredient i ate",
 }
 
@@ -132,7 +132,7 @@ FORM_CLASSIFICATION = {
 # TODO(P1, dumpsheet migration): This is trying to be over-smart, we should just have the user to choose the sheet.
 def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> Optional[FormName]:
     query = """
-    For the below transcript, decide which topic it talks about.
+    For the below transcript, check if it talks about any of these topics. Output the topic name or None if none fit.
     The topics are structured as a python dictionary keyed name and value is description.
     Only output one of the dictionary keys, or return None if none of them fit very well.
     Topics: {topics}
@@ -489,9 +489,9 @@ if __name__ == "__main__":
             # TODO: remember what all this setup shabang does
             orig_data_entry = process_app_upload(
                 gpt_client=open_ai_client,
-                # audio_or_video_filepath="testdata/brainfarting-boomergpt-mail.m4a",
+                audio_or_video_filepath="testdata/brainfarting-boomergpt-mail.m4a",
                 # audio_or_video_filepath="testdata/video-hvac-air-pump-cover.mp4",  # small video
-                audio_or_video_filepath="testdata/localonly/toastmasters-showcase-bricks.mp4",  # large video
+                # audio_or_video_filepath="testdata/localonly/toastmasters-showcase-bricks.mp4",  # large video
                 data_entry_id=test_parsing_too,
             )
         if test_case == "email":
