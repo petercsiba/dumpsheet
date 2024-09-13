@@ -100,7 +100,7 @@ def ffmpeg_convert_to_whisper_supported_audio(input_file_path: str) -> List[str]
     output_file_path = input_file_path + f".{primary_target_format}"
     print(f"Running ffmpeg on {input_file_path} outputting to {output_file_path}")
     input_file_size = os.path.getsize(input_file_path) / 1024 / 1024  # in MB
-    print(f".. Expected runtime is about 1 second per 0.5MB of input file size, i.e. {2 * input_file_size} seconds.")
+    print(f".. Expected ffmpeg runtime is {2 * input_file_size} seconds (about 1 second per 0.5MB of input file size).")
 
     # TODO(P1, cost): Consider deploying Whisper by ourselves, BUT that can be quite expensive anyway.
     # TODO(P2, ux): Consider optimizing for file-size for faster uploads. For example:
