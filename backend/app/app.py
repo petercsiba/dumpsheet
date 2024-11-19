@@ -124,28 +124,32 @@ FORM_CLASSIFICATION = {
 
 # TODO(P1, dumpsheet migration): This is trying to be over-smart, we should just have the user to choose the sheet.
 def get_workflow_name(gpt_client: OpenAiClient, transcript: str) -> Optional[FormName]:
-    query = """
-    For the below transcript, check if it talks about any of these topics. Output the topic name or None if none fit.
-    The topics are structured as a python dictionary keyed name and value is description.
-    Only output one of the dictionary keys, or return None if none of them fit very well.
-    Topics: {topics}
-    Transcript: {transcript}
-    """.format(
-        topics=FORM_CLASSIFICATION,
-        transcript=transcript,
-    )
-    raw_response = gpt_client.run_prompt(query, model=CHEAPEST_MODEL)
-    classification = re.sub(r'[^a-zA-Z0-9_]', '', raw_response)
+    # # TODO: While Katka wants it
+    print("get_workflow_name just hardcoded to return contacts")
+    return FormName.CONTACTS
 
-    if raw_response in FORM_CLASSIFICATION:
-        print(f"classified transcript as {classification}")
-        return FormName.from_str(classification)
-
-    default = None
-    print(
-        f"WARNING: classified transcript unknown: {raw_response} -> {classification}; defaulting to {default}"
-    )
-    return default
+    # query = """
+    # For the below transcript, check if it talks about any of these topics. Output the topic name or None if none fit.
+    # The topics are structured as a python dictionary keyed name and value is description.
+    # Only output one of the dictionary keys, or return None if none of them fit very well.
+    # Topics: {topics}
+    # Transcript: {transcript}
+    # """.format(
+    #     topics=FORM_CLASSIFICATION,
+    #     transcript=transcript,
+    # )
+    # raw_response = gpt_client.run_prompt(query, model=CHEAPEST_MODEL)
+    # classification = re.sub(r'[^a-zA-Z0-9_]', '', raw_response)
+    #
+    # if raw_response in FORM_CLASSIFICATION:
+    #     print(f"classified transcript as {classification}")
+    #     return FormName.from_str(classification)
+    #
+    # default = None
+    # print(
+    #     f"WARNING: classified transcript unknown: {raw_response} -> {classification}; defaulting to {default}"
+    # )
+    # return default
 
 
 def process_networking_transcript(

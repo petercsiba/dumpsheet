@@ -4,13 +4,11 @@
 import React, {useEffect, useRef, useState} from 'react'
 import RecordRTC from 'recordrtc'
 import Image from 'next/image'
-// https://uxwing.com/stop-button-red-icon/
 import MicrophoneIcon from '@/public/images/icons/microphone-button-green-icon.svg'
 import MicrophoneIconHover from '@/public/images/icons/microphone-button-green-hover-icon.png'
 import StopIcon from '@/public/images/icons/stop-button-red-icon.svg'
 import CollectEmailProcessingInfo from "components/CollectEmailProcessingInfo";
 import ProgressBar from "components/ProgressBar";
-
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 const PRESIGNED_URL = `${apiBaseUrl}/upload/voice`;
 const UPLOAD_TIMEOUT = 30000;
@@ -151,8 +149,8 @@ const LetsRecordState = ({onStartRecording}) => {
 
     return (
         <>
-            <HeadingText text={"Tell Me About Your Meeting"}/>
-            <p className="pb-8">Mention people, facts or any action items</p>
+            <HeadingText text={"Dump your Brain"}/>
+            <p className="pb-12">We are ready to hear your ramblings</p>
             <div className="flex items-center justify-center">
                 <button
                     className="btn-white p-0 hover:bg-gray-100"
@@ -215,7 +213,7 @@ const UploadingState = () => (
     <>
         <HeadingText text={"Uploading Your Voice Memo ..."}/>
         <div className="flex flex-col items-center justify-center">
-            Your recording is being processed. Please wait for a moment.
+            Your recording is being uploaded. Please wait for a moment (do not refresh).
         </div>
         <ProgressBar currentStep={2}/>
     </>
@@ -529,6 +527,12 @@ export default function VoiceRecorder() {
     useEffect(() => {
          console.log(`set setRecorderState to ${recorderState}` + `(${typeof recorderState})`)
     }, [recorderState]);
+
+
+    // const supabase = createServerComponentClient<Database>({ cookies });
+    // const {
+    //   data: { user },
+    // } = supabase.auth.getUser();
 
     const doCollectEmail = () => {
         return registeredEmail === null || `${registeredEmail}`.length < 6  // a@a.ai

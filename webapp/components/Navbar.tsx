@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -101,6 +100,7 @@ export default async function Navbar() {
               <DropdownMenuContent className="w-56">
                 <DropdownMenuLabel className="text-primary text-center overflow-hidden text-ellipsis">{user.email}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                {/*Should this be the LogoutButton component? */}
                 <form action="/auth/sign-out" method="post">
                   <Button
                     type="submit"

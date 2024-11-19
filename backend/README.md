@@ -128,6 +128,9 @@ More in https://www.notion.so/AWS-83f07c0ce85d4e2f8cffbc1bf3a8d700?pvs=4#f9c71df
 ### Push New Image
 Yeah hardcoded stuff - but it works!
 ```shell
+bash deploy_lambda_container.sh
+
+# Old school
 aws aws ecr get-login-password --region us-east-1 --profile PowerUserAccess-831154875375 | docker login --username AWS --password-stdin 831154875375.dkr.ecr.us-east-1.amazonaws.com
 docker build -t 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups .
 docker push 831154875375.dkr.ecr.us-east-1.amazonaws.com/draft-your-follow-ups:latest
